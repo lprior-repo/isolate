@@ -100,7 +100,7 @@ impl Drop for InitLock {
     }
 }
 
-use deps::{check_dependencies, ensure_jj_repo_with_cwd, jj_root_with_cwd};
+use deps::{check_dependencies, ensure_jj_repo_with_cwd, is_jj_repo_with_cwd, jj_root_with_cwd};
 use setup::{
     create_agents_md, create_claude_md, create_docs, create_jj_hooks, create_jjignore,
     create_moon_pipeline, create_repo_ai_instructions, DEFAULT_CONFIG,
@@ -156,16 +156,28 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
         return Ok(());
     }
 
-    // Initialize JJ repo if needed
-    ensure_jj_repo_with_cwd(&cwd, options.format.is_json()).await?;
-
-    // Get the repo root using the provided cwd
-    let root = jj_root_with_cwd(&cwd).await?;
+    let is_jj_repo = is_jj_repo_with_cwd(&cwd).await?;
+    let root = if is_jj_repo {
+        jj_root_with_cwd(&cwd).await?
+    } else {
+        cwd.clone()
+    };
     let zjj_dir = root.join(".zjj");
+
+    // Create .zjj directory early so lock acquisition can create .init.lock safely.
+    if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
+        tokio::fs::create_dir_all(&zjj_dir)
+            .await
+            .context("Failed to create .zjj directory")?;
+    }
 
     // Acquire init lock to prevent concurrent initialization
     let lock_path = zjj_dir.join(".init.lock");
     let _lock = InitLock::acquire(lock_path)?;
+
+    if !is_jj_repo {
+        ensure_jj_repo_with_cwd(&cwd, options.format.is_json()).await?;
+    }
 
     // Define paths for all essential files
     let config_path = zjj_dir.join("config.toml");
@@ -200,13 +212,6 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
         }
 
         return Ok(());
-    }
-
-    // Create .zjj directory if missing
-    if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
-        tokio::fs::create_dir_all(&zjj_dir)
-            .await
-            .context("Failed to create .zjj directory")?;
     }
 
     // Create config.toml if missing

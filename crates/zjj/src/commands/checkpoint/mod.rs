@@ -8,6 +8,11 @@ use std::{
     fs::{self, File},
     path::{Path, PathBuf},
     str::FromStr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Context, Result};
@@ -103,12 +108,21 @@ const CHECKPOINT_BACKUP_DIR: &str = ".beads/checkpoint_backups";
 
 /// Default maximum backup size: 100MiB (prevent excessive disk usage)
 const DEFAULT_MAX_BACKUP_SIZE: u64 = 100 * 1024 * 1024;
+const DEFAULT_CHECKPOINT_BACKUP_TIMEOUT_SECS: u64 = 30;
+const TEST_BACKUP_SLEEP_MILLIS_ENV: &str = "ZJJ_CHECKPOINT_BACKUP_TEST_SLEEP_MILLIS";
 
-fn checkpoint_max_backup_size_bytes() -> u64 {
-    std::env::var("ZJJ_CHECKPOINT_MAX_BACKUP_BYTES")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(DEFAULT_MAX_BACKUP_SIZE)
+fn checkpoint_max_backup_size_bytes() -> Result<u64> {
+    std::env::var("ZJJ_CHECKPOINT_MAX_BACKUP_BYTES").map_or_else(
+        |_| Ok(DEFAULT_MAX_BACKUP_SIZE),
+        |value| {
+            value
+                .parse::<u64>()
+                .map_err(anyhow::Error::from)
+                .with_context(|| {
+                    "Invalid value for ZJJ_CHECKPOINT_MAX_BACKUP_BYTES (must be a non-negative integer)"
+                })
+        },
+    )
 }
 
 fn checkpoint_backup_dir() -> PathBuf {
@@ -116,6 +130,25 @@ fn checkpoint_backup_dir() -> PathBuf {
         .ok()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CHECKPOINT_BACKUP_DIR))
+}
+
+fn checkpoint_backup_timeout() -> Result<Duration> {
+    let timeout_seconds = match std::env::var("ZJJ_CHECKPOINT_BACKUP_TIMEOUT_SECONDS") {
+        Ok(value) => value.parse::<u64>().map_err(anyhow::Error::from).context(
+            "Invalid value for ZJJ_CHECKPOINT_BACKUP_TIMEOUT_SECONDS (must be a non-negative integer)",
+        )?,
+        Err(_) => DEFAULT_CHECKPOINT_BACKUP_TIMEOUT_SECS,
+    };
+
+    Ok(Duration::from_secs(timeout_seconds))
+}
+
+fn checkpoint_backup_test_delay() -> Duration {
+    std::env::var(TEST_BACKUP_SLEEP_MILLIS_ENV)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(Duration::from_millis)
+        .unwrap_or_default()
 }
 
 // ── Public entry point ───────────────────────────────────────────────
@@ -352,6 +385,10 @@ async fn create_checkpoint_with_backup_dir(
 ) -> Result<CheckpointResponse> {
     let pool = db.pool();
     let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .context("Failed to begin checkpoint transaction")?;
 
     let checkpoint_id = generate_checkpoint_id()?;
 
@@ -361,71 +398,76 @@ async fn create_checkpoint_with_backup_dir(
     sqlx::query("INSERT INTO checkpoints (checkpoint_id, description) VALUES (?, ?)")
         .bind(&checkpoint_id)
         .bind(description)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .context("Failed to insert checkpoint")?;
 
-    futures::stream::iter(sessions)
-        .map(Ok::<crate::session::Session, anyhow::Error>)
-        .try_for_each(|session| {
-            let pool = pool.clone();
-            let checkpoint_id = checkpoint_id.clone();
-            let backup_dir = backup_dir.to_path_buf();
-            async move {
-                let metadata_json = session
-                    .metadata
-                    .as_ref()
-                    .map(serde_json::to_string)
-                    .transpose()
-                    .context("Failed to serialize session metadata")?;
+    let backup_timeout = checkpoint_backup_timeout()?;
+    let mut metadata_only_sessions = Vec::new();
+    let mut created_backup_paths = Vec::new();
 
-                // Backup workspace directory to tarball (may skip if metadata-only)
-                let backup_result = backup_workspace(
-                    &session.name,
-                    Path::new(&session.workspace_path),
-                    &checkpoint_id,
-                    &backup_dir,
-                )
-                .await
-                .context("Failed to backup workspace")?;
+    for session in sessions {
+        let metadata_json = session
+            .metadata
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| cleanup_and_propagate_checkpoint_error(&created_backup_paths, error))
+            .context("Failed to serialize session metadata")?;
 
-                let (backup_path, backup_size) = match backup_result {
-                    Some((path, size)) => (Some(path), size),
-                    None => (None, 0),
-                };
+        // Backup workspace directory to tarball (may skip if metadata-only)
+        let backup_result = backup_workspace_with_timeout(
+            &session.name,
+            backup_timeout,
+            Path::new(&session.workspace_path),
+            &checkpoint_id,
+            backup_dir,
+        )
+        .await
+        .map_err(|error| cleanup_and_propagate_checkpoint_error(&created_backup_paths, error))
+        .map_err(|error| {
+            anyhow::anyhow!(
+                "Failed to backup workspace for session '{}': {error}",
+                session.name
+            )
+        })?;
 
-                let backup_path_ref = backup_path.as_deref();
-
-                sqlx::query(
-                    "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path, branch, metadata, backup_path, backup_size)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                )
-                .bind(&checkpoint_id)
-                .bind(&session.name)
-                .bind(session.status.to_string())
-                .bind(&session.workspace_path)
-                .bind(&session.branch)
-                .bind(&metadata_json)
-                .bind(backup_path_ref)
-                .bind(i64::try_from(backup_size).unwrap_or(i64::MAX))
-                .execute(&pool)
-                .await
-                .context("Failed to insert checkpoint session")?;
-                Ok::<(), anyhow::Error>(())
+        let (backup_path, backup_size) = match backup_result {
+            Some((path, size)) => {
+                created_backup_paths.push(PathBuf::from(path.clone()));
+                (Some(path), size)
             }
-        })
-        .await?;
+            None => (None, 0),
+        };
 
-    let metadata_only_sessions: Vec<String> = sqlx::query(
-        "SELECT session_name FROM checkpoint_sessions WHERE checkpoint_id = ? AND backup_path IS NULL",
-    )
-    .bind(&checkpoint_id)
-    .fetch_all(pool)
-    .await
-    .context("Failed to query metadata-only checkpoint sessions")?
-    .into_iter()
-    .filter_map(|row| row.try_get::<String, _>("session_name").ok())
-    .collect();
+        let backup_path_ref = backup_path.as_deref();
+
+        sqlx::query(
+            "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path, branch, metadata, backup_path, backup_size)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&checkpoint_id)
+        .bind(&session.name)
+        .bind(session.status.to_string())
+        .bind(&session.workspace_path)
+        .bind(&session.branch)
+        .bind(&metadata_json)
+        .bind(backup_path_ref)
+        .bind(i64::try_from(backup_size).context("Failed to convert backup size to database integer")?)
+        .execute(&mut *tx)
+        .await
+        .map_err(|error| cleanup_and_propagate_checkpoint_error(&created_backup_paths, error))
+        .context("Failed to insert checkpoint session")?;
+
+        if backup_path_ref.is_none() {
+            metadata_only_sessions.push(session.name);
+        }
+    }
+
+    tx.commit()
+        .await
+        .map_err(|error| cleanup_and_propagate_checkpoint_error(&created_backup_paths, error))
+        .context("Failed to commit checkpoint transaction")?;
 
     Ok(CheckpointResponse::Created {
         checkpoint_id,
@@ -658,11 +700,90 @@ async fn list_checkpoints(db: &SessionDb) -> Result<CheckpointResponse> {
 // ── Helpers ──────────────────────────────────────────────────────────
 
 fn generate_checkpoint_id() -> Result<String> {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .context("System time before UNIX epoch")?
         .as_millis();
     Ok(format!("chk-{now:x}"))
+}
+
+fn cleanup_and_propagate_checkpoint_error(
+    created_backup_paths: &[PathBuf],
+    error: impl Into<anyhow::Error>,
+) -> anyhow::Error {
+    cleanup_backup_artifacts(created_backup_paths);
+    error.into()
+}
+
+fn cleanup_backup_artifacts(created_backup_paths: &[PathBuf]) {
+    for backup_path in created_backup_paths {
+        if let Err(error) = fs::remove_file(backup_path) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                warn!(
+                    "Failed to cleanup orphaned checkpoint backup '{}': {error}",
+                    backup_path.display()
+                );
+            }
+        }
+    }
+}
+
+async fn backup_workspace_with_timeout(
+    session_name: &str,
+    timeout: Duration,
+    workspace_path: &Path,
+    checkpoint_id: &str,
+    backup_dir: &Path,
+) -> Result<Option<(String, u64)>> {
+    backup_workspace_with_timeout_inner(
+        session_name,
+        timeout,
+        workspace_path,
+        checkpoint_id,
+        backup_dir,
+        checkpoint_backup_test_delay(),
+    )
+    .await
+}
+
+async fn backup_workspace_with_timeout_inner(
+    session_name: &str,
+    timeout: Duration,
+    workspace_path: &Path,
+    checkpoint_id: &str,
+    backup_dir: &Path,
+    test_delay: Duration,
+) -> Result<Option<(String, u64)>> {
+    let cancellation_token = Arc::new(AtomicBool::new(false));
+    let task_cancellation_token = Arc::clone(&cancellation_token);
+
+    let session_name_owned = session_name.to_string();
+    let workspace_path_owned = workspace_path.to_path_buf();
+    let checkpoint_id_owned = checkpoint_id.to_string();
+    let backup_dir_owned = backup_dir.to_path_buf();
+    let test_delay_owned = test_delay;
+
+    let mut backup_handle = tokio::task::spawn_blocking(move || {
+        backup_workspace(
+            &session_name_owned,
+            &workspace_path_owned,
+            &checkpoint_id_owned,
+            &backup_dir_owned,
+            &task_cancellation_token,
+            test_delay_owned,
+        )
+    });
+
+    match tokio::time::timeout(timeout, &mut backup_handle).await {
+        Ok(join_result) => join_result.context("Failed to join backup task")?,
+        Err(_) => {
+            cancellation_token.store(true, Ordering::Relaxed);
+            backup_handle.abort();
+            Err(anyhow::anyhow!(
+                "Checkpoint backup for session '{session_name}' timed out after {timeout:?}"
+            ))
+        }
+    }
 }
 
 /// Backup a workspace directory to a tarball
@@ -670,13 +791,15 @@ fn generate_checkpoint_id() -> Result<String> {
 /// This function creates a compressed tar archive of the workspace directory,
 /// storing it in the checkpoint backup directory. The archive includes all
 /// files needed to restore the JJ repository state.
-async fn backup_workspace(
+fn backup_workspace(
     session_name: &str,
     workspace_path: &Path,
     checkpoint_id: &str,
     backup_dir: &Path,
+    cancellation_token: &Arc<AtomicBool>,
+    test_delay: Duration,
 ) -> Result<Option<(String, u64)>> {
-    let limit = checkpoint_max_backup_size_bytes();
+    let limit = checkpoint_max_backup_size_bytes()?;
     if limit == 0 {
         warn!(
             "Checkpoint backups are disabled via ZJJ_CHECKPOINT_MAX_BACKUP_BYTES=0, recording metadata only"
@@ -684,33 +807,50 @@ async fn backup_workspace(
         return Ok(None);
     }
 
-    let session_name = session_name.to_string();
-    let workspace_path = workspace_path.to_path_buf();
-    let checkpoint_id = checkpoint_id.to_string();
-    let backup_dir = backup_dir.to_path_buf();
+    if test_delay > Duration::ZERO {
+        std::thread::sleep(test_delay);
+    }
 
-    tokio::task::spawn_blocking(move || {
-        let workspace_path = workspace_path
-            .canonicalize()
-            .context("Failed to canonicalize workspace path")?;
+    if cancellation_token.load(Ordering::Relaxed) {
+        return Err(anyhow::anyhow!(
+            "Checkpoint backup for session '{session_name}' cancelled"
+        ));
+    }
 
-        if !workspace_path.exists() {
-            return Err(anyhow::anyhow!(
-                "Workspace path does not exist: {}",
-                workspace_path.display()
-            ));
-        }
+    let workspace_path = workspace_path
+        .canonicalize()
+        .context("Failed to canonicalize workspace path")?;
 
-        // Generate backup filename
-        let backup_filename = format!("{checkpoint_id}-{session_name}.tar.gz");
-        let backup_path = backup_dir.join(&backup_filename);
+    if !workspace_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Workspace path does not exist: {}",
+            workspace_path.display()
+        ));
+    }
 
-        // Create tarball
-        let backup_file = File::create(&backup_path)
-            .with_context(|| format!("Failed to create backup file: {}", backup_path.display()))?;
+    // Generate backup filename
+    let backup_filename = format!("{checkpoint_id}-{session_name}.tar.gz");
+    let backup_path = backup_dir.join(&backup_filename);
+    let partial_backup_path = backup_dir.join(format!("{backup_filename}.partial"));
+
+    let backup_result = (|| -> Result<Option<(String, u64)>> {
+        // Create tarball in a temporary file first so cancelled/failed backups
+        // cannot become visible as finalized archives.
+        let backup_file = File::create(&partial_backup_path).with_context(|| {
+            format!(
+                "Failed to create backup file: {}",
+                partial_backup_path.display()
+            )
+        })?;
 
         let gz_encoder = flate2::write::GzEncoder::new(backup_file, flate2::Compression::default());
         let mut tar_builder = Builder::new(gz_encoder);
+
+        if cancellation_token.load(Ordering::Relaxed) {
+            return Err(anyhow::anyhow!(
+                "Checkpoint backup for session '{session_name}' cancelled"
+            ));
+        }
 
         // Add workspace contents to tarball
         tar_builder
@@ -728,14 +868,27 @@ async fn backup_workspace(
             .finish()
             .context("Failed to finalize gzip compression")?;
 
+        if cancellation_token.load(Ordering::Relaxed) {
+            return Err(anyhow::anyhow!(
+                "Checkpoint backup for session '{session_name}' cancelled"
+            ));
+        }
+
         // Verify backup size is within limits
-        let backup_size = fs::metadata(&backup_path).map(|m| m.len()).unwrap_or(0);
+        let backup_size = fs::metadata(&partial_backup_path)
+            .with_context(|| {
+                format!(
+                    "Failed to read backup archive metadata: {}",
+                    partial_backup_path.display()
+                )
+            })?
+            .len();
 
         if backup_size > limit {
-            fs::remove_file(&backup_path).with_context(|| {
+            fs::remove_file(&partial_backup_path).with_context(|| {
                 format!(
                     "Failed to remove oversized backup: {}",
-                    backup_path.display()
+                    partial_backup_path.display()
                 )
             })?;
             warn!(
@@ -744,13 +897,34 @@ async fn backup_workspace(
             return Ok(None);
         }
 
+        if backup_path.exists() {
+            fs::remove_file(&backup_path).with_context(|| {
+                format!(
+                    "Failed to remove existing backup before rename: {}",
+                    backup_path.display()
+                )
+            })?;
+        }
+
+        fs::rename(&partial_backup_path, &backup_path).with_context(|| {
+            format!(
+                "Failed to finalize backup archive: {}",
+                backup_path.display()
+            )
+        })?;
+
         Ok(Some((
             backup_path.to_string_lossy().to_string(),
             backup_size,
         )))
-    })
-    .await
-    .context("Failed to join backup task")?
+    })();
+
+    if backup_result.is_err() || cancellation_token.load(Ordering::Relaxed) {
+        let _ = fs::remove_file(&partial_backup_path);
+        let _ = fs::remove_file(&backup_path);
+    }
+
+    backup_result
 }
 
 /// Restore a workspace directory from a tarball
@@ -1089,14 +1263,16 @@ mod tests {
 
         let backup_path = backup_dir.join("chk-test-test-large-workspace.tar.gz");
         let _ = std::fs::remove_file(&backup_path);
+        let cancellation_token = Arc::new(AtomicBool::new(false));
 
         let result = backup_workspace(
             "test-large-workspace",
             workspace_path,
             "chk-test",
             &backup_dir,
-        )
-        .await;
+            &cancellation_token,
+            Duration::ZERO,
+        );
 
         assert!(result.is_ok(), "Backup should succeed for small workspace");
 
@@ -1109,17 +1285,64 @@ mod tests {
         let backup_dir = test_backup_dir(temp_dir.path());
         std::fs::create_dir_all(&backup_dir).expect("Failed to create backup dir");
 
+        let cancellation_token = Arc::new(AtomicBool::new(false));
+
         let result = backup_workspace(
             "nonexistent-workspace",
             Path::new("/tmp/this/path/does/not/exist"),
             "chk-test",
             &backup_dir,
+            &cancellation_token,
+            Duration::ZERO,
+        );
+
+        assert!(
+            result.is_err(),
+            "Backup should fail for nonexistent workspace"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_backup_workspace_respects_timeout() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let workspace_path = temp_dir.path();
+        let backup_dir = test_backup_dir(temp_dir.path());
+        std::fs::create_dir_all(&backup_dir).expect("Failed to create backup dir");
+
+        let test_file = workspace_path.join("timeout.txt");
+        std::fs::write(&test_file, "test data").expect("Failed to create timeout test file");
+
+        let result = backup_workspace_with_timeout_inner(
+            "timeout-session",
+            std::time::Duration::from_millis(1),
+            workspace_path,
+            "chk-timeout",
+            &backup_dir,
+            std::time::Duration::from_millis(50),
         )
         .await;
 
         assert!(
             result.is_err(),
-            "Backup should fail for nonexistent workspace"
+            "Backup should return timeout when allowed budget is below runtime"
+        );
+
+        let err = result.err().map_or_else(String::new, |e| e.to_string());
+        assert!(
+            err.contains("timed out"),
+            "Expected timeout-specific error, got: {err}"
+        );
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let backup_entries = std::fs::read_dir(&backup_dir)
+            .expect("Failed to read backup directory after timeout")
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .expect("Failed to collect backup directory entries");
+
+        assert!(
+            backup_entries.is_empty(),
+            "Timeout should not leave backup files behind"
         );
     }
 
@@ -1864,6 +2087,132 @@ mod tests {
         assert!(restored_repo.exists(), "JJ repo file should be restored");
 
         let _ = std::fs::remove_file(&backup_path);
+    }
+
+    /// Regression: When a session backup fails (e.g. workspace path does not
+    /// exist), the checkpoint create operation MUST NOT leave an orphaned
+    /// checkpoint row visible in `checkpoint list`.  A partial snapshot would
+    /// be misleading to operators who try to restore from it later.
+    #[tokio::test]
+    async fn test_checkpoint_create_with_missing_workspace_leaves_no_orphan_row() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        // Register a session whose workspace path does not exist on disk.
+        // backup_workspace will fail for this session because it tries to
+        // canonicalize the path and the directory is absent.
+        db.create("ghost-session", "/tmp/nonexistent/ghost/workspace/path")
+            .await
+            .expect("Failed to register ghost session");
+
+        let backup_dir = test_backup_dir(dir.path());
+        std::fs::create_dir_all(&backup_dir).expect("Failed to create backup dir");
+
+        // Attempt to create a checkpoint – this MUST fail.
+        let result =
+            create_checkpoint_with_backup_dir(&db, Some("should not persist"), &backup_dir).await;
+
+        assert!(
+            result.is_err(),
+            "Checkpoint create must fail when a session workspace is missing"
+        );
+
+        // No checkpoint row must remain after the failed create.
+        let rows = sqlx::query("SELECT checkpoint_id FROM checkpoints")
+            .fetch_all(db.pool())
+            .await
+            .expect("Failed to query checkpoints table");
+
+        assert!(
+            rows.is_empty(),
+            "No checkpoint row must be persisted after a failed create; \
+             found {} orphaned row(s)",
+            rows.len()
+        );
+
+        // checkpoint list must also return an empty set.
+        let list_response = list_checkpoints(&db)
+            .await
+            .expect("list_checkpoints must not fail");
+        let CheckpointResponse::List { checkpoints } = list_response else {
+            panic!("Expected List response from list_checkpoints");
+        };
+
+        assert!(
+            checkpoints.is_empty(),
+            "checkpoint list must show zero entries after a failed create; \
+             got {}",
+            checkpoints.len()
+        );
+
+        let backup_entries = std::fs::read_dir(&backup_dir)
+            .expect("Failed to read backup directory")
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .expect("Failed to collect backup entries");
+        assert!(
+            backup_entries.is_empty(),
+            "Failed checkpoint create should not leave backup archives"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_create_cleans_existing_backup_when_later_session_fails() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        let valid_workspace = dir.path().join("valid-workspace");
+        std::fs::create_dir_all(&valid_workspace).expect("Failed to create valid workspace");
+        std::fs::write(valid_workspace.join("data.txt"), "checkpoint-data")
+            .expect("Failed to write valid workspace file");
+
+        db.create("valid-session", valid_workspace.to_string_lossy().as_ref())
+            .await
+            .expect("Failed to create valid session");
+        db.create("ghost-session", "/tmp/nonexistent/ghost/workspace/path")
+            .await
+            .expect("Failed to create ghost session");
+
+        let backup_dir = test_backup_dir(dir.path());
+        std::fs::create_dir_all(&backup_dir).expect("Failed to create backup dir");
+
+        let result =
+            create_checkpoint_with_backup_dir(&db, Some("cleanup-check"), &backup_dir).await;
+        assert!(
+            result.is_err(),
+            "Checkpoint create should fail when one session backup fails"
+        );
+
+        let backup_entries = std::fs::read_dir(&backup_dir)
+            .expect("Failed to read backup directory")
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .expect("Failed to collect backup entries");
+        assert!(
+            backup_entries.is_empty(),
+            "Backups created earlier in the run should be cleaned on failure"
+        );
+
+        let checkpoints = sqlx::query("SELECT checkpoint_id FROM checkpoints")
+            .fetch_all(db.pool())
+            .await
+            .expect("Failed to query checkpoints table");
+        assert!(
+            checkpoints.is_empty(),
+            "Checkpoint metadata should roll back when backup flow fails"
+        );
     }
 
     #[tokio::test]

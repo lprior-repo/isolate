@@ -110,7 +110,7 @@ pub async fn list_database_backups(
     }
 
     // Sort by timestamp (newest first)
-    backups.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    backups.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
 
     Ok(backups)
 }
@@ -126,7 +126,7 @@ pub async fn list_all_backups(
     root: &Path,
     config: &BackupConfig,
 ) -> Result<Vec<(String, Vec<BackupInfo>)>> {
-    let databases = vec!["state.db", "queue.db", "beads.db"];
+    let databases = vec!["state.db", "beads.db"];
 
     let mut all_backups = Vec::new();
 

@@ -451,7 +451,7 @@ async fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Res
 
     // Sort by creation time (newest first)
     let mut all_backups = all_backups;
-    all_backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    all_backups.sort_by_key(|b| std::cmp::Reverse(b.created_at));
 
     let response = BackupListResponse {
         count: all_backups.len(),

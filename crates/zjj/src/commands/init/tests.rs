@@ -235,6 +235,53 @@ async fn test_init_auto_creates_jj_repo() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_init_lock_blocks_early_mutations() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let zjj_dir = temp_dir.path().join(".zjj");
+    tokio::fs::create_dir_all(&zjj_dir)
+        .await
+        .context("Failed to create .zjj for lock test")?;
+
+    let _lock = InitLock::acquire(zjj_dir.join(".init.lock"))?;
+
+    let result = run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await;
+
+    let err = result.unwrap_err();
+    assert!(
+        err.to_string().contains("Another zjj init is in progress"),
+        "Lock contention should block init flow: {err}"
+    );
+
+    assert!(
+        !tokio::fs::try_exists(temp_dir.path().join(".jj"))
+            .await
+            .unwrap_or(false),
+        "JJ repo should not be created while init lock is held"
+    );
+    assert!(
+        !tokio::fs::try_exists(zjj_dir.join("config.toml"))
+            .await
+            .unwrap_or(false),
+        "config.toml should not be created while init lock is held"
+    );
+    assert!(
+        !tokio::fs::try_exists(zjj_dir.join("state.db"))
+            .await
+            .unwrap_or(false),
+        "state.db should not be created while init lock is held"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn test_default_config_is_valid_toml() -> Result<()> {
     // Parse DEFAULT_CONFIG to ensure it's valid TOML
