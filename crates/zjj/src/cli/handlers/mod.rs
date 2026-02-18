@@ -66,29 +66,6 @@ pub use self::{
     },
 };
 
-#[derive(Debug)]
-pub struct CommandExit {
-    exit_code: i32,
-}
-
-impl CommandExit {
-    pub const fn new(exit_code: i32) -> Self {
-        Self { exit_code }
-    }
-
-    pub const fn exit_code(&self) -> i32 {
-        self.exit_code
-    }
-}
-
-impl std::fmt::Display for CommandExit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Command failed with exit code {}", self.exit_code)
-    }
-}
-
-impl std::error::Error for CommandExit {}
-
 /// Format an error for user display (no stack traces)
 pub fn format_error(err: &anyhow::Error) -> String {
     let msg = err.to_string();
@@ -241,13 +218,6 @@ pub async fn run_cli() -> Result<()> {
     .await;
 
     if let Err(ref e) = result {
-        if let Some(command_exit) = e.downcast_ref::<CommandExit>() {
-            if hooks_config.has_hooks() {
-                let _ = hooks_config.run_hook(false).await;
-            }
-            process::exit(command_exit.exit_code());
-        }
-
         if json_mode {
             let exit_code = json::output_json_error(e);
             if hooks_config.has_hooks() {

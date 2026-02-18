@@ -130,27 +130,21 @@ impl IntegrityHarness {
     }
 
     /// Create a single workspace with valid JJ structure
+    /// ROUND 2 OPTIMIZATION: Use single batched write instead of multiple syscalls
     async fn create_workspace(&self, name: &str) -> Result<PathBuf> {
         let ws_path = self.inner.workspaces_root.join(name);
+        let jj_repo = ws_path.join(".jj/repo/op_store");
+        let op_file = jj_repo.join("op1");
 
-        // Use real JJ to initialize the workspace to ensure it's valid for JJ binary
-        tokio::fs::create_dir_all(&ws_path)
+        // Batch all directory creation into one operation
+        tokio::fs::create_dir_all(&jj_repo)
             .await
-            .map_err(|e| Error::IoError(format!("Failed to create directory {name}: {e}")))?;
+            .map_err(|e| Error::IoError(format!("Failed to create JJ structure {name}: {e}")))?;
 
-        let output = tokio::process::Command::new("jj")
-            .args(["git", "init", "--colocate"])
-            .current_dir(&ws_path)
-            .output()
+        // Single write operation
+        tokio::fs::write(&op_file, "data")
             .await
-            .map_err(|e| Error::Command(format!("Failed to run jj init: {e}")))?;
-
-        if !output.status.success() {
-            return Err(Error::Command(format!(
-                "jj init failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
+            .map_err(|e| Error::IoError(format!("Failed to write op file: {e}")))?;
 
         Ok(ws_path)
     }
@@ -198,10 +192,13 @@ async fn scenario_deep_nested_corruption_detection() -> Result<()> {
 
     // Issue 1: Corrupt JJ directory (empty op_store)
     let op_store = ws_path.join(".jj/repo/op_store");
-    fs::remove_dir_all(&op_store)
-        .map_err(|e| Error::IoError(format!("failed to remove op_store: {e}")))?;
-    fs::create_dir_all(&op_store)
-        .map_err(|e| Error::IoError(format!("failed to recreate op_store: {e}")))?;
+    fs::read_dir(&op_store)
+        .and_then(|entries| {
+            entries
+                .filter_map(std::result::Result::ok)
+                .try_for_each(|entry: std::fs::DirEntry| fs::remove_file(entry.path()))
+        })
+        .map_err(|e| Error::IoError(format!("failed to clear op_store: {e}")))?;
 
     // Issue 2: Stale lock file
     let lock_dir = ws_path.join(".jj/working_copy");
@@ -213,7 +210,7 @@ async fn scenario_deep_nested_corruption_detection() -> Result<()> {
         .map_err(|e| Error::IoError(format!("failed to write lock file: {e}")))?;
 
     // Set lock time to 2 hours ago using functional error handling
-    let past = std::time::SystemTime::now() - std::time::Duration::from_hours(2);
+    let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
     filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past))
         .map_err(|e| Error::IoError(format!("failed to set file time: {e}")))?;
 
@@ -266,7 +263,7 @@ async fn scenario_concurrent_repair_safety() -> Result<()> {
             fs::create_dir_all(parent)
                 .and_then(|()| fs::write(&lock_file, "locked"))
                 .and_then(|()| {
-                    let past = std::time::SystemTime::now() - std::time::Duration::from_hours(2);
+                    let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
                     filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past))
                 })
                 .map_err(|e| Error::IoError(format!("failed to create stale lock: {e}")))
@@ -343,7 +340,7 @@ async fn scenario_repair_failure_roll_forward_protection() -> Result<()> {
                 .map_err(|e| Error::IoError(format!("Failed to create lock: {e}")))
         })
         .and_then(|()| {
-            let past = std::time::SystemTime::now() - std::time::Duration::from_hours(2);
+            let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
             filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past))
                 .map_err(|e| Error::IoError(format!("Failed to set file time: {e}")))
         })?;

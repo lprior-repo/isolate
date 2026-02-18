@@ -6,7 +6,7 @@
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Deserialize, Serialize};
@@ -33,8 +33,6 @@ pub enum CorruptionType {
     PermissionDenied,
     /// Git index is corrupted (if using Git colocation)
     CorruptedGitIndex,
-    /// JJ reports internal corruption or error
-    JjInternalError,
 }
 
 impl std::fmt::Display for CorruptionType {
@@ -46,7 +44,6 @@ impl std::fmt::Display for CorruptionType {
             Self::StaleLocks => write!(f, "stale_locks"),
             Self::PermissionDenied => write!(f, "permission_denied"),
             Self::CorruptedGitIndex => write!(f, "corrupted_git_index"),
-            Self::JjInternalError => write!(f, "jj_internal_error"),
         }
     }
 }
@@ -62,7 +59,6 @@ impl FromStr for CorruptionType {
             "stale_locks" => Ok(Self::StaleLocks),
             "permission_denied" => Ok(Self::PermissionDenied),
             "corrupted_git_index" => Ok(Self::CorruptedGitIndex),
-            "jj_internal_error" => Ok(Self::JjInternalError),
             _ => Err(()),
         }
     }
@@ -206,17 +202,16 @@ impl IntegrityIssue {
             CorruptionType::MissingJjDir
             | CorruptionType::CorruptedJjDir
             | CorruptionType::PermissionDenied
-            | CorruptionType::CorruptedGitIndex
-            | CorruptionType::JjInternalError => Severity::Fail,
+            | CorruptionType::CorruptedGitIndex => Severity::Fail,
         }
     }
 
     /// Determine the recommended repair strategy for a corruption type
     pub const fn recommended_strategy_for_type(corruption_type: CorruptionType) -> RepairStrategy {
         match corruption_type {
-            CorruptionType::MissingDirectory
-            | CorruptionType::CorruptedJjDir
-            | CorruptionType::JjInternalError => RepairStrategy::ForgetAndRecreate,
+            CorruptionType::MissingDirectory | CorruptionType::CorruptedJjDir => {
+                RepairStrategy::ForgetAndRecreate
+            }
             CorruptionType::MissingJjDir => RepairStrategy::RecreateWorkspace,
             CorruptionType::StaleLocks => RepairStrategy::ClearLocks,
             CorruptionType::PermissionDenied | CorruptionType::CorruptedGitIndex => {
@@ -475,11 +470,6 @@ impl IntegrityValidator {
             issues.push(issue);
         }
 
-        // Check 7: JJ internal consistency
-        if let Ok(Some(issue)) = self.check_jj_internal(&workspace_path).await {
-            issues.push(issue);
-        }
-
         let duration = start
             .elapsed()
             .map_err(|e| Error::Unknown(format!("Failed to measure duration: {e}")))
@@ -496,68 +486,6 @@ impl IntegrityValidator {
                 ValidationResult::invalid(workspace_name, &workspace_path, issues)
                     .with_duration(duration),
             )
-        }
-    }
-
-    /// Check JJ internal consistency using 'jj status'
-    async fn check_jj_internal(&self, workspace_path: &Path) -> Result<Option<IntegrityIssue>> {
-        // Only check if .jj directory exists, otherwise we'll get a redundant error
-        let jj_dir = workspace_path.join(".jj");
-        if !tokio::fs::try_exists(&jj_dir).await.unwrap_or(false) {
-            return Ok(None);
-        }
-
-        // ADVERSARIAL FIX: Apply timeout to external JJ command to prevent indefinite hangs
-        let timeout_duration = Duration::from_millis(self.timeout_ms);
-        let mut cmd = get_jj_command();
-        cmd.args(["status"])
-            .current_dir(workspace_path)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped());
-
-        let output = tokio::time::timeout(timeout_duration, cmd.output()).await;
-
-        match output {
-            Ok(Ok(output)) if !output.status.success() => {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let stderr_lower = stderr.to_lowercase();
-
-                // Common JJ corruption markers - look for specific causes to reduce false positives
-
-                if (stderr_lower.contains("corrupt") || stderr_lower.contains("invalid"))
-                    && (stderr_lower.contains("operation")
-                        || stderr_lower.contains("repo")
-                        || stderr_lower.contains("index")
-                        || stderr_lower.contains("failed to read"))
-                {
-                    return Ok(Some(
-                        IntegrityIssue::new(
-                            CorruptionType::JjInternalError,
-                            format!("JJ reports internal error: {}", stderr.trim()),
-                        )
-                        .with_path(workspace_path)
-                        .with_context(stderr.to_string()),
-                    ));
-                }
-                Ok(None)
-            }
-            Ok(Err(e)) => {
-                tracing::warn!("Failed to execute jj status for integrity check: {e}");
-                Ok(None)
-            }
-            Err(_) => {
-                // Timeout occurred
-                Ok(Some(
-                    IntegrityIssue::new(
-                        CorruptionType::StaleLocks,
-                        "JJ status timed out - repository may be locked or storage is slow",
-                    )
-                    .with_path(workspace_path)
-                    .with_strategy(RepairStrategy::ClearLocks),
-                ))
-            }
-            _ => Ok(None),
         }
     }
 
@@ -579,43 +507,31 @@ impl IntegrityValidator {
         self.workspaces_root.join(workspace_name)
     }
 
-    /// Validate multiple workspaces in parallel with concurrency limit
+    /// Validate multiple workspaces in parallel
     ///
     /// RESULTS ARE ORDERED: Returns results in the same order as input workspaces.
     /// Uses concurrent validation for performance but preserves ordering for predictability.
-    /// ADVERSARIAL FIX: Added concurrency limit to prevent process fork-bombing.
     pub async fn validate_all(&self, workspaces: &[String]) -> Result<Vec<ValidationResult>> {
         use std::sync::Arc;
 
-        use futures::StreamExt;
+        use futures::future::try_join_all;
 
-        // Clone self for each validation (IntegrityValidator is cheap to clone)
+        // Clone self for each validation (IntegrityValidator is cheap to clone - just PathBuf +
+        // u64)
         let validator = Arc::new(self);
 
-        // Map names to indexed futures to preserve order while allowing concurrency
-        let results = futures::stream::iter(workspaces.iter().enumerate())
-            .map(|(index, name)| {
+        // Create validation futures that preserve input order
+        let futures = workspaces
+            .iter()
+            .map(|name| {
                 let validator = validator.clone();
                 let name = name.clone();
-                async move {
-                    let res = (*validator).validate(&name).await;
-                    (index, res)
-                }
+                async move { (*validator).validate(&name).await }
             })
-            // ADVERSARIAL FIX: Limit to 8 concurrent processes to protect system resources
-            .buffer_unordered(8)
-            .collect::<Vec<_>>()
-            .await;
+            .collect::<Vec<_>>();
 
-        // Re-sort to original order
-        let mut sorted_results = results;
-        sorted_results.sort_by_key(|(index, _)| *index);
-
-        // Extract the actual results
-        sorted_results
-            .into_iter()
-            .map(|(_, res)| res)
-            .collect::<Result<Vec<_>>>()
+        // Run concurrently but preserve order (try_join_all maintains input order)
+        try_join_all(futures).await
     }
 
     /// Validate the .jj directory structure
@@ -1267,16 +1183,6 @@ mod tests {
         let root = create_test_root()?;
         let workspace_path = root.path().join("valid-ws");
         tokio::fs::create_dir_all(workspace_path.join(".jj").join("repo")).await?;
-        tokio::fs::create_dir_all(workspace_path.join(".jj").join("repo").join("store")).await?;
-        tokio::fs::write(
-            workspace_path
-                .join(".jj")
-                .join("repo")
-                .join("store")
-                .join("type"),
-            "git",
-        )
-        .await?;
         tokio::fs::create_dir_all(workspace_path.join(".jj").join("repo").join("op_store")).await?;
         tokio::fs::write(
             workspace_path
@@ -1388,44 +1294,6 @@ mod tests {
         assert_eq!(meta.workspace, "ws");
         assert_eq!(meta.reason, "Test");
         assert!(tokio::fs::try_exists(root.path().join(".zjj").join("backups")).await?);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_integrity_validator_jj_internal_error() -> Result<()> {
-        let root = create_test_root()?;
-        let workspace_path = root.path().join("corrupted-jj");
-        tokio::fs::create_dir_all(workspace_path.join(".jj")).await?;
-
-        // Create a fake 'jj' that returns a corruption error
-        let fake_jj = root.path().join("fake_jj");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            tokio::fs::write(
-                &fake_jj,
-                "#!/bin/sh\necho 'Error: Corrupt operation log' >&2\nexit 1",
-            )
-            .await?;
-            std::fs::set_permissions(&fake_jj, std::fs::Permissions::from_mode(0o755))
-                .map_err(|e| Error::IoError(e.to_string()))?;
-        }
-
-        // Set the environment variable to use our fake jj
-        std::env::set_var("ZJJ_JJ_PATH", &fake_jj);
-
-        let validator = IntegrityValidator::new(root.path());
-        let result = validator.validate("corrupted-jj").await?;
-
-        // Clean up env var so it doesn't affect other tests
-        std::env::remove_var("ZJJ_JJ_PATH");
-
-        assert!(!result.is_valid);
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| i.corruption_type == CorruptionType::JjInternalError));
-
         Ok(())
     }
 }

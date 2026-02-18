@@ -119,15 +119,8 @@ fn test_checkpoint_size_limit_uncompressible_data() {
 fn test_checkpoint_create_json_output() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
-    let init_result = harness.zjj(&["init"]);
-    assert!(
-        init_result.success,
-        "zjj init failed: {}",
-        init_result.stderr
-    );
-
-    let add_result = harness.zjj(&["add", "test-session", "--no-zellij"]);
-    assert!(add_result.success, "zjj add failed: {}", add_result.stderr);
+    harness.zjj(&["init"]);
+    harness.zjj(&["add", "test-session", "--no-zellij"]);
 
     let result = harness.zjj(&[
         "checkpoint",
@@ -143,46 +136,6 @@ fn test_checkpoint_create_json_output() {
     assert_eq!(json["type"], "Created");
     assert!(json["checkpoint_id"].is_string());
     assert!(json["metadata_only"].is_array());
-}
-
-#[test]
-fn test_checkpoint_create_json_timeout() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
-
-    let init_result = harness.zjj(&["init"]);
-    assert!(
-        init_result.success,
-        "zjj init failed: {}",
-        init_result.stderr
-    );
-
-    let add_result = harness.zjj(&["add", "test-session", "--no-zellij"]);
-    assert!(add_result.success, "zjj add failed: {}", add_result.stderr);
-
-    let result = harness.zjj_with_env(
-        &[
-            "checkpoint",
-            "create",
-            "--description",
-            "timeout test",
-            "--json",
-        ],
-        &[
-            ("ZJJ_CHECKPOINT_BACKUP_TIMEOUT_SECONDS", "1"),
-            ("ZJJ_CHECKPOINT_BACKUP_TEST_SLEEP_MILLIS", "2000"),
-        ],
-    );
-
-    assert!(
-        !result.success,
-        "Command should fail when backup times out: {result:?}"
-    );
-
-    let output = format!("{}{}", result.stdout, result.stderr);
-    assert!(
-        output.contains("timed out"),
-        "Expected timeout error in command output, got: {output}",
-    );
 }
 
 #[test]

@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use sqlx::Row;
 use tokio::process::Command;
 use zjj_core::{
@@ -108,7 +108,6 @@ async fn run_all_checks() -> Vec<DoctorCheck> {
         check_zellij_installed().await,
         check_zellij_running(),
         check_jj_repo().await,
-        check_main_repo_integrity().await,
         check_workspace_context(),
         check_initialized().await,
         check_state_db().await,
@@ -225,8 +224,50 @@ async fn check_workspace_integrity() -> DoctorCheck {
         };
     }
 
-    // ADVERSARIAL FIX: Removed redundant per-session existence checks before calling validate_all.
-    // validate_all already performs these checks more efficiently.
+    let missing_session_paths = match futures::stream::iter(sessions.iter())
+        .map(Ok::<_, anyhow::Error>)
+        .try_filter_map(|session| async move {
+            let session_name = session.name.clone();
+            let workspace_path = session.workspace_path.clone();
+            let exists = tokio::fs::try_exists(Path::new(&session.workspace_path))
+                .await
+                .map_err(|error| {
+                    anyhow::anyhow!(
+                        "Failed to verify workspace path '{}' for session '{}': {error}",
+                        session.workspace_path,
+                        session.name
+                    )
+                })?;
+
+            Ok((!exists).then_some(serde_json::json!({
+                "workspace": session_name,
+                "path": workspace_path,
+                "issue_count": 1,
+                "issues": [
+                    {
+                        "type": "missing_directory",
+                        "description": "Workspace path from session database does not exist",
+                        "path": session.workspace_path,
+                    }
+                ]
+            })))
+        })
+        .try_collect::<Vec<_>>()
+        .await
+    {
+        Ok(values) => values,
+        Err(error) => {
+            return DoctorCheck {
+                name: "Workspace Integrity".to_string(),
+                status: CheckStatus::Warn,
+                message: format!("Workspace path verification failed: {error}"),
+                suggestion: Some("Run 'zjj doctor --fix' to retry validation".to_string()),
+                auto_fixable: false,
+                details: None,
+            };
+        }
+    };
+
     let workspace_roots = workspace_utils::candidate_workspace_roots(&root, &config.workspace_dir);
     let validator = IntegrityValidator::new(workspace_dir);
     let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
@@ -249,12 +290,27 @@ async fn check_workspace_integrity() -> DoctorCheck {
 
     let invalid: Vec<&ValidationResult> = results.iter().filter(|r| !r.is_valid).collect();
 
-    if invalid.is_empty() {
+    if invalid.is_empty() && missing_session_paths.is_empty() {
         create_pass_check()
     } else {
-        let mut invalid_details = Vec::new();
+        let mut invalid_details = missing_session_paths;
 
         for validation in &invalid {
+            let already_recorded_missing = invalid_details.iter().any(|entry| {
+                entry
+                    .get("workspace")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|workspace| workspace == validation.workspace)
+            });
+            let only_missing_directory = validation
+                .issues
+                .iter()
+                .all(|issue| issue.corruption_type == CorruptionType::MissingDirectory);
+
+            if already_recorded_missing && only_missing_directory {
+                continue;
+            }
+
             let needs_relocation = validation
                 .issues
                 .iter()
@@ -429,70 +485,6 @@ async fn check_jj_repo() -> DoctorCheck {
         },
         auto_fixable: false,
         details: None,
-    }
-}
-
-/// Check main repository integrity
-async fn check_main_repo_integrity() -> DoctorCheck {
-    let root = match jj_root().await {
-        Ok(r) => PathBuf::from(r),
-        Err(_) => {
-            // Already handled by check_jj_repo, skip here to avoid redundant noise
-            return DoctorCheck {
-                name: "Main Repo Integrity".to_string(),
-                status: CheckStatus::Pass,
-                message: "Skipped (not in a JJ repo)".to_string(),
-                suggestion: None,
-                auto_fixable: false,
-                details: None,
-            };
-        }
-    };
-
-    let validator = IntegrityValidator::new(root.parent().unwrap_or(&root));
-    let name = root.file_name().and_then(|n| n.to_str()).unwrap_or(".");
-
-    match validator.validate(name).await {
-        Ok(result) if !result.is_valid => {
-            let issues = result
-                .issues
-                .iter()
-                .map(|i| {
-                    serde_json::json!({
-                        "type": i.corruption_type.to_string(),
-                        "description": i.description.clone(),
-                    })
-                })
-                .collect::<Vec<_>>();
-
-            DoctorCheck {
-                name: "Main Repo Integrity".to_string(),
-                status: CheckStatus::Fail,
-                message: format!(
-                    "Main repository has {} integrity issue(s)",
-                    result.issues.len()
-                ),
-                suggestion: Some("Run 'zjj doctor --fix' or manual JJ repair".to_string()),
-                auto_fixable: result.has_auto_repairable_issues(),
-                details: Some(serde_json::json!({ "issues": issues })),
-            }
-        }
-        Ok(_) => DoctorCheck {
-            name: "Main Repo Integrity".to_string(),
-            status: CheckStatus::Pass,
-            message: "Main repository is healthy".to_string(),
-            suggestion: None,
-            auto_fixable: false,
-            details: None,
-        },
-        Err(e) => DoctorCheck {
-            name: "Main Repo Integrity".to_string(),
-            status: CheckStatus::Warn,
-            message: format!("Failed to validate main repo: {e}"),
-            suggestion: None,
-            auto_fixable: false,
-            details: None,
-        },
     }
 }
 
@@ -1425,7 +1417,6 @@ async fn run_fixes(
                     "Stale Sessions" => fix_stale_sessions(check, dry_run).await,
                     "Pending Add Operations" => fix_pending_add_operations(check, dry_run).await,
                     "Workspace Integrity" => fix_workspace_integrity(check, dry_run).await,
-                    "Main Repo Integrity" => fix_main_repo_integrity(check, dry_run).await,
                     "State Database" => fix_state_database(check, dry_run)
                         .await
                         .map_err(|e| e.to_string()),
@@ -1668,39 +1659,6 @@ async fn fix_workspace_integrity(check: &DoctorCheck, dry_run: bool) -> Result<S
             "Failed to repair any workspaces: {}",
             failed_workspaces.join("; ")
         ))
-    }
-}
-
-async fn fix_main_repo_integrity(_check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
-    if dry_run {
-        return Ok("Would attempt to repair main repository".to_string());
-    }
-
-    let root = jj_root()
-        .await
-        .map(PathBuf::from)
-        .map_err(|e| format!("Unable to determine repository root: {e}"))?;
-
-    let validator = IntegrityValidator::new(root.parent().unwrap_or(&root));
-    let name = root.file_name().and_then(|n| n.to_str()).unwrap_or(".");
-
-    let validation = validator
-        .validate(name)
-        .await
-        .map_err(|e| format!("Failed to validate main repo: {e}"))?;
-
-    if validation.is_valid {
-        return Ok("Main repository is already valid".to_string());
-    }
-
-    let executor = zjj_core::workspace_integrity::RepairExecutor::new();
-    match executor.repair(&validation).await {
-        Ok(result) if result.success => Ok(format!(
-            "Successfully repaired main repo: {}",
-            result.summary
-        )),
-        Ok(result) => Err(format!("Failed to repair main repo: {}", result.summary)),
-        Err(e) => Err(format!("Repair failed: {e}")),
     }
 }
 

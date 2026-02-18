@@ -5,27 +5,14 @@ use std::{path::Path, str::FromStr};
 use anyhow::Result;
 use futures::StreamExt;
 use serde::Serialize;
-use zjj_core::{
-    output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType},
-    OutputFormat, WorkspaceStateFilter,
-};
+use zjj_core::{json::SchemaEnvelopeArray, OutputFormat, WorkspaceStateFilter};
 
-use crate::session::{Session, SessionStatus as LocalSessionStatus};
 use crate::{
     beads::{BeadRepository, BeadStatus},
     cli::jj_root,
     commands::get_session_db,
+    session::{Session, SessionStatus},
 };
-
-fn convert_session_status(s: LocalSessionStatus) -> zjj_core::types::SessionStatus {
-    match s {
-        LocalSessionStatus::Creating => zjj_core::types::SessionStatus::Creating,
-        LocalSessionStatus::Active => zjj_core::types::SessionStatus::Active,
-        LocalSessionStatus::Paused => zjj_core::types::SessionStatus::Paused,
-        LocalSessionStatus::Completed => zjj_core::types::SessionStatus::Completed,
-        LocalSessionStatus::Failed => zjj_core::types::SessionStatus::Failed,
-    }
-}
 
 /// Enhanced session information for list output
 ///
@@ -87,9 +74,8 @@ pub async fn run(
         .await?
         .into_iter()
         .filter(|s| {
-            let status_matches = all
-                || (s.status != LocalSessionStatus::Completed
-                    && s.status != LocalSessionStatus::Failed);
+            let status_matches =
+                all || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
 
             let bead_matches = bead.is_none_or(|bead_id| {
                 s.metadata
@@ -117,8 +103,8 @@ pub async fn run(
 
     if sessions.is_empty() {
         if format.is_json() {
-            let summary = Summary::new(SummaryType::Count, "No sessions found".to_string())?;
-            emit_stdout(&OutputLine::Summary(summary))?;
+            let envelope = SchemaEnvelopeArray::new("list-response", Vec::<SessionListItem>::new());
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
         } else {
             println!("No sessions found.");
             println!("Use 'zjj add <name>' to create a session.");
@@ -254,26 +240,11 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
     }
 }
 
-/// Output sessions as JSONL
+/// Output sessions as JSON
 fn output_json(items: &[SessionListItem]) -> Result<()> {
-    for item in items {
-        let session_output = SessionOutput::new(
-            item.session.name.clone(),
-            convert_session_status(item.session.status),
-            item.session.state,
-            std::path::PathBuf::from(&item.session.workspace_path),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create session output: {}", e))?
-        .with_branch(item.session.branch.clone().unwrap_or_default());
-
-        emit_stdout(&OutputLine::Session(session_output))?;
-    }
-
-    let count = items.len();
-    let summary = Summary::new(SummaryType::Count, format!("{} session(s)", count))
-        .map_err(|e| anyhow::anyhow!("Failed to create summary: {}", e))?;
-    emit_stdout(&OutputLine::Summary(summary))?;
-
+    let envelope = SchemaEnvelopeArray::new("list-response", items.to_vec());
+    let json = serde_json::to_string_pretty(&envelope)?;
+    println!("{json}");
     Ok(())
 }
 

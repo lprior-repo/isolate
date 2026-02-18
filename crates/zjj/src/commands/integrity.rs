@@ -133,12 +133,9 @@ async fn run_validate(
 ) -> Result<()> {
     // Validate workspace name is not empty
     if workspace.trim().is_empty() {
-        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
-            message: "Workspace name cannot be empty".into(),
-            field: Some("workspace".into()),
-            value: Some(workspace.into()),
-            constraints: vec!["non-empty string".into()],
-        }));
+        return Err(anyhow::anyhow!(
+            "Workspace name cannot be empty. Please provide a valid workspace name."
+        ));
     }
 
     // Load config to get workspace directory
@@ -193,12 +190,9 @@ async fn run_repair(
 ) -> Result<()> {
     // Validate workspace name is not empty
     if workspace.trim().is_empty() {
-        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
-            message: "Workspace name cannot be empty".into(),
-            field: Some("workspace".into()),
-            value: Some(workspace.into()),
-            constraints: vec!["non-empty string".into()],
-        }));
+        return Err(anyhow::anyhow!(
+            "Workspace name cannot be empty. Please provide a valid workspace name to repair."
+        ));
     }
 
     // Load config with graceful error handling for TOML parse errors
@@ -457,7 +451,7 @@ async fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Res
 
     // Sort by creation time (newest first)
     let mut all_backups = all_backups;
-    all_backups.sort_by_key(|b| std::cmp::Reverse(b.created_at));
+    all_backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
     let response = BackupListResponse {
         count: all_backups.len(),

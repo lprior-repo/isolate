@@ -147,15 +147,6 @@ pub async fn zjj_data_dir() -> Result<PathBuf> {
     Ok(root.join(".zjj"))
 }
 
-/// Get the path to the merge queue database for the current repository
-///
-/// # Errors
-///
-/// Returns an error if prerequisites are not met (JJ not installed or not in a JJ repo)
-pub async fn get_queue_db_path() -> Result<PathBuf> {
-    Ok(zjj_data_dir().await?.join("queue.db"))
-}
-
 /// Get the path to the session database, respecting environment variable overrides and config
 ///
 /// # Errors
@@ -165,6 +156,16 @@ pub async fn get_db_path() -> Result<PathBuf> {
     let repo_root = zjj_project_root().await?;
     let port = LocalConfigPort;
     resolve_state_db_path(&port, repo_root).await
+}
+
+/// Get the merge queue database path for the current repository.
+///
+/// # Errors
+///
+/// Returns an error if JJ prerequisites are not met.
+pub async fn get_queue_db_path() -> Result<PathBuf> {
+    let data_dir = zjj_data_dir().await?;
+    Ok(data_dir.join("queue.db"))
 }
 
 /// Get the session database for the current repository

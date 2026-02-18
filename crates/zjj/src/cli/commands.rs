@@ -3475,10 +3475,11 @@ pub fn cmd_backup() -> ClapCommand {
     ClapCommand::new("backup")
         .about("Manage automated database backups")
         .long_about(
-            "Create, list, restore, and manage backups of zjj databases (state.db, beads.db).\n\n\
+            "Create, list, restore, and manage backups of zjj databases (state.db, beads.db, queue.db).\n\n\
             Backups include:\n  \
             - state.db: Session and workspace state\n  \
             - beads.db: Issue tracking database\n  \
+            - queue.db: Merge queue state\n\n\
             Backups are stored with timestamps and SHA-256 checksums for integrity verification.",
         )
         .after_help(after_help_text(
@@ -3509,7 +3510,7 @@ pub fn cmd_backup() -> ClapCommand {
             Arg::new("restore")
                 .long("restore")
                 .value_name("DATABASE")
-                .help("Restore database from backup (state.db, beads.db)"),
+                .help("Restore database from backup (state.db, beads.db, queue.db)"),
         )
         .arg(
             Arg::new("timestamp")

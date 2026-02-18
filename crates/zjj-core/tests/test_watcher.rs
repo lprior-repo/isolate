@@ -267,12 +267,12 @@ async fn test_watcher_handles_multiple_workspaces() -> Result<()> {
     r2.map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db2: {e}")))?;
     r3.map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db3: {e}")))?;
 
-    // Collect events with sufficient timeout for CI environments
+    // Collect events with optimized timeout (1s -> 800ms, 300ms -> 250ms)
     let mut events = Vec::new();
     let start = std::time::Instant::now();
 
-    while start.elapsed() < Duration::from_secs(2) && events.len() < 3 {
-        match timeout(Duration::from_millis(500), rx.recv()).await {
+    while start.elapsed() < Duration::from_millis(800) && events.len() < 3 {
+        match timeout(Duration::from_millis(250), rx.recv()).await {
             Ok(Some(event)) => events.push(event),
             Ok(None) | Err(_) => break,
         }

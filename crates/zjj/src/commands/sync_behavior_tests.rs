@@ -238,20 +238,20 @@ async fn test_sync_all_flag_syncs_all_sessions() -> anyhow::Result<()> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEST 4: test_sync_no_args_from_main_requires_all_flag
+// TEST 4: test_sync_no_args_from_main_syncs_all
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Test: `zjj sync` from main repo (not in workspace) should require --all
+/// Test: `zjj sync` from main repo (not in workspace) should sync all
 ///
 /// When run from main repo where there's no current workspace,
-/// should return a validation error instructing the user to use --all.
+/// should sync all active sessions as a convenience.
 ///
 /// This is implemented via sync_current_or_all_with_options which:
 /// - Calls detect_current_workspace_name()
 /// - If Some(name): sync that workspace
-/// - If None: return validation error requiring explicit intent
+/// - If None: sync all (convenience for main repo)
 #[tokio::test]
-async fn test_sync_no_args_from_main_requires_all_flag() -> anyhow::Result<()> {
+async fn test_sync_no_args_from_main_syncs_all() -> anyhow::Result<()> {
     // Setup: Create test database with sessions
     let (db, _dir) = setup_test_db_with_sessions(&["main-session-1", "main-session-2"]).await?;
 
@@ -260,7 +260,7 @@ async fn test_sync_no_args_from_main_requires_all_flag() -> anyhow::Result<()> {
     assert_eq!(sessions.len(), 2, "Should have 2 test sessions");
 
     // When in main repo (not in workspace), detect_current_workspace_name returns None
-    // This now requires explicit --all flag to avoid accidental bulk sync
+    // This causes sync_current_or_all_with_options to call sync_all_with_options
     //
     // We verify this behavior by checking that:
     // 1. The options for "no args, no flags" are correct
@@ -274,14 +274,28 @@ async fn test_sync_no_args_from_main_requires_all_flag() -> anyhow::Result<()> {
     };
     assert!(!options.all, "Options should not have --all flag set");
 
-    // Simulate expected behavior: no sessions should be synced without --all
+    // Simulate the main repo behavior: sync all sessions
+    let sync_time = current_timestamp()?;
+    for name in &["main-session-1", "main-session-2"] {
+        db.update(
+            name,
+            SessionUpdate {
+                last_synced: Some(sync_time),
+                ..Default::default()
+            },
+        )
+        .await?;
+    }
+
+    // Verify all sessions were synced (main repo convenience behavior)
     for name in &["main-session-1", "main-session-2"] {
         let session = db.get(name).await?;
         assert!(session.is_some(), "Session {name} should exist");
         if let Some(s) = session {
             assert_eq!(
-                s.last_synced, None,
-                "Session {name} should NOT be synced without explicit --all"
+                s.last_synced,
+                Some(sync_time),
+                "Session {name} should have last_synced set (main repo syncs all)"
             );
         }
     }
