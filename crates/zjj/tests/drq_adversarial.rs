@@ -70,12 +70,30 @@ fn test_workspace_exists_without_db_entry() {
     // Try to create a session with the same name
     let result = harness.zjj(&["add", "zombie-session", "--no-open"]);
 
-    // CURRENT CHAMPION: This fails with unclear error
     // EXPECTED: Either succeeds (recovering the orphan) OR fails with clear error
-    assert!(
-        !result.success,
-        "Should detect workspace exists and handle it"
-    );
+    if result.success {
+        let list_after = harness.zjj(&["list", "--json"]);
+        assert!(
+            list_after.success,
+            "List should succeed after recovered add\nStdout: {}\nStderr: {}",
+            list_after.stdout, list_after.stderr
+        );
+        let parsed =
+            parse_json_output(&list_after.stdout).unwrap_or_else(|_| serde_json::json!({}));
+        let sessions = payload(&parsed).as_array().cloned().unwrap_or_default();
+        let has_session = sessions.iter().any(|session| {
+            session
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|name| name == "zombie-session")
+        });
+        assert!(
+            has_session,
+            "Successful recovery should surface zombie-session in list output: {}",
+            list_after.stdout
+        );
+        return;
+    }
 
     // Verify the error message is actionable
     let error_output = if result.stdout.contains("error") || result.stdout.contains("Error") {

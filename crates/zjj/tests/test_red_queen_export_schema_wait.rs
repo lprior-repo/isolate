@@ -75,15 +75,20 @@ fn bdd_wait_accepts_zero_timeout() {
         "Expected wait to fail (session doesn't exist)\nstdout: {}\nstderr: {}",
         result.stdout, result.stderr
     );
-    // Should contain timeout or not found message
-    let has_timeout = result.stdout.contains("Timeout")
-        || result.stdout.contains("timeout")
-        || result.stdout.contains("not met");
-    assert!(
-        has_timeout,
-        "Expected timeout message in output\nstdout: {}",
-        result.stdout
-    );
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    if let Ok(json) = parsed {
+        assert_eq!(json["timed_out"].as_bool(), Some(true));
+        assert_eq!(json["condition_met"].as_bool(), Some(false));
+    } else {
+        let has_timeout = result.stdout.contains("Timeout")
+            || result.stdout.contains("timeout")
+            || result.stdout.contains("not met");
+        assert!(
+            has_timeout,
+            "Expected timeout message in output\nstdout: {}",
+            result.stdout
+        );
+    }
 }
 
 #[test]

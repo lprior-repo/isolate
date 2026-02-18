@@ -282,11 +282,18 @@ async fn test_validate_accepts_dry_run_flag() {
         "validate --dry-run should succeed\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
-    assert!(
-        result.stdout.contains("[DRY RUN] Validation preview:"),
-        "validate --dry-run should show dry-run preview\nStdout: {}",
-        result.stdout
-    );
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    if let Ok(json) = parsed {
+        assert_eq!(json["success"].as_bool(), Some(true));
+        assert_eq!(json["valid"].as_bool(), Some(true));
+        assert_eq!(json["command"].as_str(), Some("work"));
+    } else {
+        assert!(
+            result.stdout.contains("[DRY RUN] Validation preview:"),
+            "validate --dry-run should show dry-run preview\nStdout: {}",
+            result.stdout
+        );
+    }
 
     harness.assert_workspace_not_exists("add");
     harness.assert_workspace_not_exists("test-session");

@@ -73,5 +73,5 @@ fn bdd_contract_normal_operation_still_works() {
 
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("Command: add"));
+        .stdout(predicate::str::contains("\"name\": \"add\""));
 }

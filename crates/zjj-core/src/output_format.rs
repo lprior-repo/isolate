@@ -23,10 +23,11 @@ use serde::{Deserialize, Serialize};
 /// let format = OutputFormat::Json;
 /// assert!(format.is_json());
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputFormat {
     /// JSON output format - structured, machine-readable
+    #[default]
     Json,
 }
 
@@ -56,12 +57,6 @@ impl OutputFormat {
     #[must_use]
     pub const fn to_json_flag(&self) -> bool {
         true
-    }
-}
-
-impl Default for OutputFormat {
-    fn default() -> Self {
-        Self::Json
     }
 }
 
@@ -124,7 +119,7 @@ mod tests {
     #[test]
     fn test_output_format_clone() {
         let format = OutputFormat::Json;
-        let cloned = format.clone();
+        let cloned = format;
         assert_eq!(format, cloned);
     }
 

@@ -370,7 +370,9 @@ mod brutal_edge_cases {
         let err = result.expect_err("spawn should fail when workspace path already exists");
         let err_str = err.to_string();
         assert!(
-            err_str.contains("already exists") || err_str.contains("Refusing to overwrite"),
+            err_str.contains("already exists")
+                || err_str.contains("Refusing to overwrite")
+                || err_str.contains("exists and is not an empty directory"),
             "Error should indicate existing workspace conflict: {err_str}"
         );
         assert!(

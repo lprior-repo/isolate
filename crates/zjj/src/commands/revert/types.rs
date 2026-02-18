@@ -360,6 +360,6 @@ mod tests {
         let opts = args.to_options();
         assert_eq!(opts.session_name, "session-1");
         assert!(!opts.dry_run);
-        assert!(!opts.format.is_json());
+        assert!(opts.format.is_json());
     }
 }

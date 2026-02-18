@@ -79,13 +79,11 @@ mod tests {
 
     #[test]
     fn test_output_format_roundtrip() {
-        let json_flag = true;
-        let format = OutputFormat::from_json_flag(json_flag);
-        assert_eq!(format.to_json_flag(), json_flag);
+        let format = OutputFormat::from_json_flag(true);
+        assert!(format.to_json_flag());
 
-        let json_flag = false;
-        let format = OutputFormat::from_json_flag(json_flag);
-        assert_eq!(format.to_json_flag(), json_flag);
+        let format = OutputFormat::from_json_flag(false);
+        assert!(format.to_json_flag());
     }
 
     #[test]

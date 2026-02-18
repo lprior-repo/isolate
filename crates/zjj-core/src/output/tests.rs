@@ -224,7 +224,13 @@ fn test_queue_summary_default() {
 
 #[test]
 fn test_queue_summary_with_counts() {
-    let summary = QueueSummary::new().with_counts(10, 3, 4, 2, 1);
+    let summary = QueueSummary::new().with_counts(QueueCounts {
+        total: 10,
+        pending: 3,
+        ready: 4,
+        blocked: 2,
+        in_progress: 1,
+    });
     assert_eq!(summary.total, 10);
     assert!(summary.has_blockers());
     assert!(!summary.is_empty());
@@ -880,11 +886,23 @@ fn test_queue_summary_edge_cases() {
     assert!(empty.is_empty());
     assert!(!empty.has_blockers());
 
-    let with_blockers = QueueSummary::new().with_counts(5, 0, 0, 5, 0);
+    let with_blockers = QueueSummary::new().with_counts(QueueCounts {
+        total: 5,
+        pending: 0,
+        ready: 0,
+        blocked: 5,
+        in_progress: 0,
+    });
     assert!(!with_blockers.is_empty());
     assert!(with_blockers.has_blockers());
 
-    let full = QueueSummary::new().with_counts(100, 25, 25, 25, 25);
+    let full = QueueSummary::new().with_counts(QueueCounts {
+        total: 100,
+        pending: 25,
+        ready: 25,
+        blocked: 25,
+        in_progress: 25,
+    });
     assert!(!full.is_empty());
     assert!(full.has_blockers());
 }

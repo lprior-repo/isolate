@@ -435,7 +435,21 @@ fn bdd_config_global_key_read_uses_global_scope() {
         "Expected --global key read to succeed\nstdout: {}\nstderr: {}",
         result.stdout, result.stderr
     );
-    result.assert_output_contains("workspace_dir = ../GLOBAL");
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    if let Ok(json) = parsed {
+        let key = json
+            .get("key")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let value = json
+            .get("value")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        assert_eq!(key, "workspace_dir");
+        assert_eq!(value, "../GLOBAL");
+    } else {
+        result.assert_output_contains("workspace_dir = ../GLOBAL");
+    }
 }
 
 #[test]
