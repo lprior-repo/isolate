@@ -168,37 +168,44 @@ async fn sync_current_or_all_with_options(options: SyncOptions) -> Result<()> {
 ///
 /// Returns `Ok(Some(name))` if in a workspace, `Ok(None)` if in main repo
 async fn detect_current_workspace_name() -> Result<Option<String>> {
-    // Use jj workspace show to get the current workspace name
+    // 1. Get workspace root from jj workspace root
     let output = Command::new("jj")
-        .args(["workspace", "show"])
+        .args(["workspace", "root"])
         .output()
         .await
-        .context("Failed to run 'jj workspace show'")?;
+        .context("Failed to run 'jj workspace root'")?;
 
     if !output.status.success() {
-        // Not in a workspace or command failed
+        // If command failed, likely not in a repo.
+        // If we return Ok(None), sync_all will run and fail with "Not in a JJ repo".
         return Ok(None);
     }
 
-    let workspace_info = String::from_utf8_lossy(&output.stdout);
+    let workspace_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // Normalize path for comparison
+    let workspace_path = std::fs::canonicalize(&workspace_root)
+        .unwrap_or_else(|_| std::path::PathBuf::from(&workspace_root));
 
-    // Parse workspace name from output
-    // Example output: "Working copy: default@abc123\n"
-    // We want to extract "default" as the workspace name
-    for line in workspace_info.lines() {
-        if let Some(stripped) = line.strip_prefix("Working copy: ") {
-            if let Some(name) = stripped.split('@').next() {
-                let workspace_name = name.trim().to_string();
-                // "default" is the main repo, not a workspace
-                if workspace_name == "default" || workspace_name.is_empty() {
-                    return Ok(None);
-                }
-                return Ok(Some(workspace_name));
-            }
+    // 2. Open DB
+    // Use helper that finds main repo DB even from workspace
+    let db = match get_session_db_with_workspace_detection().await {
+        Ok(db) => db,
+        Err(_) => return Ok(None), // DB access failed, can't resolve name
+    };
+
+    // 3. Find session matching path
+    let sessions = db.list(None).await.unwrap_or_default();
+
+    for session in sessions {
+        let session_path = std::fs::canonicalize(&session.workspace_path)
+            .unwrap_or_else(|_| std::path::PathBuf::from(&session.workspace_path));
+
+        if session_path == workspace_path {
+            return Ok(Some(session.name));
         }
     }
 
-    // Couldn't parse workspace name - assume we're in main
+    // No matching session found
     Ok(None)
 }
 
@@ -288,7 +295,7 @@ async fn sync_all_json(
                     .await;
             (session, res)
         })
-        .buffered(5) // Limit concurrency to 5
+        .buffered(1) // Limit concurrency to 1 (sequential) to prevent repo corruption
         .collect()
         .await;
 
@@ -401,13 +408,64 @@ async fn sync_session_internal(
         return Ok(());
     }
 
-    // Run rebase in the session's workspace
-    run_command(
-        "jj",
-        &["--repository", workspace_path, "rebase", "-d", &main_branch],
-    )
+    // Acquire global sync lock to prevent concurrent JJ operations
+    // This serializes syncs across all zjj processes for this repo
+    let data_dir = crate::commands::zjj_data_dir().await?;
+    let lock_path = data_dir.join("sync.lock");
+
+    // Use blocking lock in a separate task to avoid blocking the runtime
+    // The file handle (_lock) keeps the lock held until it is dropped
+    let _lock = tokio::task::spawn_blocking(move || -> Result<std::fs::File> {
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_path)
+            .context("Failed to open sync lock file")?;
+
+        use fs4::fs_std::FileExt;
+        file.lock_exclusive()
+            .context("Failed to acquire sync lock")?;
+        Ok(file)
+    })
     .await
-    .context("Failed to sync workspace with main")?;
+    .context("Failed to join locking task")??;
+
+    // Run rebase in the session's workspace
+    let mut attempt = 0;
+    let max_attempts = 3;
+    let mut last_error = None;
+
+    while attempt < max_attempts {
+        let result = run_command(
+            "jj",
+            &["--repository", workspace_path, "rebase", "-d", &main_branch],
+        )
+        .await;
+
+        match result {
+            Ok(_) => {
+                last_error = None;
+                break;
+            }
+            Err(e) => {
+                last_error = Some(e);
+                attempt += 1;
+                if attempt < max_attempts {
+                    // Exponential backoff: 100ms, 200ms
+                    tokio::time::sleep(tokio::time::Duration::from_millis(
+                        100 * (1 << (attempt - 1)),
+                    ))
+                    .await;
+                }
+            }
+        }
+    }
+
+    if let Some(e) = last_error {
+        return Err(e).context("Failed to sync workspace with main after retries");
+    }
 
     // Update last_synced timestamp
     let now = SystemTime::now()
