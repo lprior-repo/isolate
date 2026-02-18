@@ -411,7 +411,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
     // Verify the test completed in reasonable time
     // Increased from 20s to 60s to account for slower CI systems
     assert!(
-        elapsed < Duration::from_secs(60),
+        elapsed < Duration::from_mins(1),
         "Should complete within 60 seconds, took {:?}",
         elapsed
     );
