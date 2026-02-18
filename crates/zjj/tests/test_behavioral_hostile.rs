@@ -4,7 +4,6 @@
 
 mod common;
 
-
 use common::TestHarness;
 use serde_json::Value;
 

@@ -14,9 +14,9 @@ mod types;
 mod writer;
 
 pub use types::{
-    Action, ActionStatus, Assessment, Context, Error, ErrorSeverity, Issue, IssueKind, OutputLine,
-    Plan, PlanStep, Recovery, RecoveryAction, Result, ResultKind, Session, SessionState,
-    Summary, Warning,
+    Action, ActionStatus, Assessment, Context, ErrorSeverity, Issue, IssueKind, OutputLine,
+    OutputLineError, Plan, PlanStep, Recovery, RecoveryAction, ResultKind, ResultOutput,
+    SessionOutput, Summary, Warning,
 };
 pub use writer::{emit, JsonlWriter};
 
