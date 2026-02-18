@@ -208,7 +208,10 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
 
         // Run status once
         if let Err(e) = run_once(name, format).await {
-            if format.is_json() {
+            if name.is_some() && is_not_found_error(&e) {
+                return Err(e);
+            }
+            if !format.is_json() {
                 eprintln!("Error: {e}");
             }
         }
@@ -216,6 +219,17 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
         // Wait 1 second
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
+}
+
+fn is_not_found_error(error: &anyhow::Error) -> bool {
+    error
+        .downcast_ref::<zjj_core::Error>()
+        .is_some_and(|core_error| {
+            matches!(
+                core_error,
+                zjj_core::Error::NotFound(_) | zjj_core::Error::SessionNotFound { .. }
+            )
+        })
 }
 
 /// Gather detailed status for a session
