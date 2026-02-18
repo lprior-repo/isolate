@@ -17,39 +17,16 @@ use zjj_core::coordination::locks::LockManager;
 use self::types::{
     LockArgs, LockOutput, ProductionSessionValidator, SessionExists, UnlockArgs, UnlockOutput,
 };
-use crate::{commands::get_session_db, session::validate_session_name};
-
-fn validate_agent_id(agent_id: &str) -> Result<()> {
-    if agent_id.trim().is_empty() {
-        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
-            message: "Agent ID cannot be empty".into(),
-            field: Some("agent_id".into()),
-            value: Some(agent_id.into()),
-            constraints: vec!["non-empty string".into()],
-        }));
-    }
-    Ok(())
-}
+use crate::commands::get_session_db;
 
 pub async fn run_lock_async(args: &LockArgs, mgr: &LockManager) -> Result<LockOutput> {
-    // Validate session name
-    validate_session_name(&args.session).map_err(anyhow::Error::new)?;
-
     let agent_id = args
         .agent_id
         .clone()
         .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
         .ok_or_else(|| {
-            anyhow::Error::new(zjj_core::Error::ValidationError {
-                message: "No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id".into(),
-                field: Some("agent_id".into()),
-                value: None,
-                constraints: vec!["ZJJ_AGENT_ID env or --agent-id flag".into()],
-            })
+            anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id")
         })?;
-
-    // Validate agent ID format
-    validate_agent_id(&agent_id)?;
 
     let lock_result = if args.ttl == 0 {
         mgr.lock(&args.session, &agent_id).await
@@ -82,9 +59,6 @@ pub async fn run_unlock_with_validator(
     mgr: &LockManager,
     validator: &dyn SessionExists,
 ) -> Result<UnlockOutput> {
-    // Validate session name first
-    validate_session_name(&args.session).map_err(anyhow::Error::new)?;
-
     // Check if session exists before attempting to unlock (security feature)
     let session_exists = validator.session_exists(&args.session).await?;
     if !session_exists {
@@ -99,16 +73,8 @@ pub async fn run_unlock_with_validator(
         .clone()
         .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
         .ok_or_else(|| {
-            anyhow::Error::new(zjj_core::Error::ValidationError {
-                message: "No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id".into(),
-                field: Some("agent_id".into()),
-                value: None,
-                constraints: vec!["ZJJ_AGENT_ID env or --agent-id flag".into()],
-            })
+            anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id")
         })?;
-
-    // Validate agent ID format
-    validate_agent_id(&agent_id)?;
 
     match mgr.unlock(&args.session, &agent_id).await {
         Ok(()) => Ok(UnlockOutput {

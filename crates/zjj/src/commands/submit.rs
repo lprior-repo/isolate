@@ -31,7 +31,7 @@ use zjj_core::{
     config,
     coordination::queue::{MergeQueue, QueueEntry},
     jj,
-    json::{schemas, ErrorDetail, SchemaEnvelope},
+    json::schemas,
     OutputFormat,
 };
 
@@ -84,6 +84,25 @@ pub struct SubmitOptions {
 // OUTPUT SCHEMAS (bd-3am: zjj://submit-response/v1)
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Submit response envelope (bd-3am contract)
+///
+/// Always includes `schema` and `ok` fields.
+/// On success: `data` contains success details.
+/// On error: `error` contains error details.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubmitResponse {
+    /// Schema URI: "<zjj://submit-response/v1>"
+    pub schema: String,
+    /// Success flag
+    pub ok: bool,
+    /// Success data (present when ok=true)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<SubmitSuccessData>,
+    /// Error details (present when ok=false)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<SubmitErrorData>,
+}
+
 /// Success data for submit response (bd-3am contract)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitSuccessData {
@@ -108,6 +127,45 @@ pub struct SubmitSuccessData {
     /// For dry-run: `would_queue` flag
     #[serde(skip_serializing_if = "Option::is_none")]
     pub would_queue: Option<bool>,
+}
+
+/// Error data for submit response (bd-3am contract)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubmitErrorData {
+    /// Machine-readable error code
+    pub code: String,
+    /// Human-readable error message
+    pub message: String,
+}
+
+impl SubmitResponse {
+    /// Create a success response
+    fn success(data: SubmitSuccessData) -> Self {
+        Self {
+            schema: schemas::uri(schemas::SUBMIT_RESPONSE),
+            ok: true,
+            data: Some(data),
+            error: None,
+        }
+    }
+
+    /// Create an error response
+    fn error(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            schema: schemas::uri(schemas::SUBMIT_RESPONSE),
+            ok: false,
+            data: None,
+            error: Some(SubmitErrorData {
+                code: code.into(),
+                message: message.into(),
+            }),
+        }
+    }
+
+    /// Convert to JSON string
+    fn to_json(&self) -> Result<String> {
+        serde_json::to_string(self).context("failed to serialize submit response")
+    }
 }
 
 /// Extracted identity from the workspace
@@ -629,11 +687,8 @@ fn output_dry_run(is_json: bool, identity: &WorkspaceIdentity, dedupe_key: &str)
             would_queue: Some(true),
         };
 
-        let envelope = SchemaEnvelope::new(schemas::SUBMIT_RESPONSE, "single", data);
-        println!(
-            "{}",
-            serde_json::to_string(&envelope).context("failed to serialize submit response")?
-        );
+        let response = SubmitResponse::success(data);
+        println!("{}", response.to_json()?);
     } else {
         println!("Would submit changes (dry run)");
         println!();
@@ -672,11 +727,8 @@ fn output_success(
             would_queue: None,
         };
 
-        let envelope = SchemaEnvelope::new(schemas::SUBMIT_RESPONSE, "single", data);
-        println!(
-            "{}",
-            serde_json::to_string(&envelope).context("failed to serialize submit response")?
-        );
+        let response = SubmitResponse::success(data);
+        println!("{}", response.to_json()?);
     } else {
         println!("Submitted successfully!");
         println!();
@@ -697,19 +749,8 @@ fn output_success(
 /// Output for error cases (bd-3am contract)
 fn output_error(is_json: bool, code: &str, message: String, exit_code: i32) -> Result<i32> {
     if is_json {
-        let error_data = ErrorDetail {
-            code: code.to_string(),
-            message,
-            exit_code,
-            details: None,
-            suggestion: None,
-        };
-        let envelope =
-            SchemaEnvelope::new(schemas::ERROR_RESPONSE, "single", error_data).as_error();
-        println!(
-            "{}",
-            serde_json::to_string(&envelope).context("failed to serialize error response")?
-        );
+        let response = SubmitResponse::error(code, message);
+        println!("{}", response.to_json()?);
     } else {
         eprintln!("Error: {message}");
     }
@@ -797,26 +838,32 @@ mod tests {
             would_queue: None,
         };
 
-        let envelope = SchemaEnvelope::new(schemas::SUBMIT_RESPONSE, "single", data);
+        let response = SubmitResponse::success(data);
 
-        assert_eq!(envelope.schema, "zjj://submit-response/v1");
-        assert!(envelope.success);
+        // Verify schema and ok fields
+        assert_eq!(response.schema, "zjj://submit-response/v1");
+        assert!(response.ok);
+        assert!(response.data.is_some());
+        assert!(response.error.is_none());
     }
 
     #[test]
     fn test_submit_response_error_schema() {
-        let error_data = ErrorDetail {
-            code: "QUEUE_ERROR".to_string(),
-            message: "Failed to add to queue: db locked".to_string(),
-            exit_code: 1,
-            details: None,
-            suggestion: None,
-        };
-        let envelope =
-            SchemaEnvelope::new(schemas::ERROR_RESPONSE, "single", error_data).as_error();
+        let response = SubmitResponse::error("QUEUE_ERROR", "Failed to add to queue: db locked");
 
-        assert_eq!(envelope.schema, "zjj://error-response/v1");
-        assert!(!envelope.success);
+        // Verify schema and ok fields
+        assert_eq!(response.schema, "zjj://submit-response/v1");
+        assert!(!response.ok);
+        assert!(response.data.is_none());
+        assert!(response.error.is_some());
+
+        let error = response.error;
+        assert!(error.is_some());
+        let error = error;
+        if let Some(err) = error {
+            assert_eq!(err.code, "QUEUE_ERROR");
+            assert_eq!(err.message, "Failed to add to queue: db locked");
+        }
     }
 
     #[test]
@@ -833,14 +880,17 @@ mod tests {
             would_queue: Some(true),
         };
 
-        let envelope = SchemaEnvelope::new(schemas::SUBMIT_RESPONSE, "single", data);
+        let response = SubmitResponse::success(data);
 
-        assert_eq!(envelope.schema, "zjj://submit-response/v1");
-        assert!(envelope.success);
-        assert!(envelope.data.dry_run);
-        assert_eq!(envelope.data.would_queue, Some(true));
-        assert!(envelope.data.queue_id.is_none());
-        assert!(envelope.data.status.is_none());
+        assert_eq!(response.schema, "zjj://submit-response/v1");
+        assert!(response.ok);
+
+        if let Some(d) = response.data.as_ref() {
+            assert!(d.dry_run);
+            assert_eq!(d.would_queue, Some(true));
+            assert!(d.queue_id.is_none());
+            assert!(d.status.is_none());
+        }
     }
 
     #[test]
@@ -857,8 +907,8 @@ mod tests {
             would_queue: None,
         };
 
-        let envelope = SchemaEnvelope::new(schemas::SUBMIT_RESPONSE, "single", data);
-        let json = serde_json::to_string(&envelope);
+        let response = SubmitResponse::success(data);
+        let json = response.to_json();
 
         assert!(json.is_ok());
         let json_str = json.ok();
@@ -866,9 +916,8 @@ mod tests {
         let json_str = json_str.unwrap_or_default();
 
         // Verify required fields are present
-        assert!(json_str.contains("\"$schema\":\"zjj://submit-response/v1\""));
-        assert!(json_str.contains("\"_schema_version\":\"1.0\""));
-        assert!(json_str.contains("\"success\":true"));
+        assert!(json_str.contains("\"schema\":\"zjj://submit-response/v1\""));
+        assert!(json_str.contains("\"ok\":true"));
         assert!(json_str.contains("\"queue_id\":123"));
         assert!(json_str.contains("\"workspace\":\"feature-xyz\""));
         assert!(json_str.contains("\"bookmark\":\"my-feature\""));
@@ -881,16 +930,8 @@ mod tests {
 
     #[test]
     fn test_submit_response_error_json_serialization() {
-        let error_data = ErrorDetail {
-            code: "PRECONDITION_FAILED".to_string(),
-            message: "No bookmark found".to_string(),
-            exit_code: 3,
-            details: None,
-            suggestion: None,
-        };
-        let envelope =
-            SchemaEnvelope::new(schemas::ERROR_RESPONSE, "single", error_data).as_error();
-        let json = serde_json::to_string(&envelope);
+        let response = SubmitResponse::error("PRECONDITION_FAILED", "No bookmark found");
+        let json = response.to_json();
 
         assert!(json.is_ok());
         let json_str = json.ok();
@@ -898,9 +939,8 @@ mod tests {
         let json_str = json_str.unwrap_or_default();
 
         // Verify required fields are present
-        assert!(json_str.contains("\"$schema\":\"zjj://error-response/v1\""));
-        assert!(json_str.contains("\"_schema_version\":\"1.0\""));
-        assert!(json_str.contains("\"success\":false"));
+        assert!(json_str.contains("\"schema\":\"zjj://submit-response/v1\""));
+        assert!(json_str.contains("\"ok\":false"));
         assert!(json_str.contains("\"code\":\"PRECONDITION_FAILED\""));
         assert!(json_str.contains("\"message\":\"No bookmark found\""));
 
@@ -956,8 +996,8 @@ mod tests {
             would_queue: Some(true),
         };
 
-        let envelope = SchemaEnvelope::new(schemas::SUBMIT_RESPONSE, "single", data);
-        let json = serde_json::to_string(&envelope);
+        let response = SubmitResponse::success(data);
+        let json = response.to_json();
         assert!(json.is_ok());
 
         let json_str = json.ok();
@@ -994,21 +1034,21 @@ mod tests {
 
     #[test]
     fn test_dirty_workspace_error_response() {
-        let error_data = ErrorDetail {
-            code: "DIRTY_WORKSPACE".to_string(),
-            message: "Working copy has uncommitted changes.\nUse --auto-commit to commit automatically, or run 'jj commit' first.".to_string(),
-            exit_code: 3,
-            details: None,
-            suggestion: None,
-        };
-        let envelope =
-            SchemaEnvelope::new(schemas::ERROR_RESPONSE, "single", error_data).as_error();
+        let response = SubmitResponse::error(
+            "DIRTY_WORKSPACE",
+            "Working copy has uncommitted changes.\nUse --auto-commit to commit automatically, or run 'jj commit' first.",
+        );
 
-        assert_eq!(envelope.schema, "zjj://error-response/v1");
-        assert!(!envelope.success);
-        assert!(envelope.data.code == "DIRTY_WORKSPACE");
-        assert!(envelope.data.message.contains("--auto-commit"));
-        assert!(envelope.data.message.contains("jj commit"));
+        assert_eq!(response.schema, "zjj://submit-response/v1");
+        assert!(!response.ok);
+        assert!(response.data.is_none());
+        assert!(response.error.is_some());
+
+        if let Some(err) = response.error {
+            assert_eq!(err.code, "DIRTY_WORKSPACE");
+            assert!(err.message.contains("--auto-commit"));
+            assert!(err.message.contains("jj commit"));
+        }
     }
 
     #[test]

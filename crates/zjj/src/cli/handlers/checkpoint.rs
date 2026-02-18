@@ -4,10 +4,7 @@ use anyhow::Result;
 use clap::ArgMatches;
 
 use super::json_format::get_format;
-use crate::{
-    cli::handlers::CommandExit,
-    commands::{checkpoint, recover, revert, undo},
-};
+use crate::commands::{checkpoint, recover, revert, undo};
 
 pub async fn handle_checkpoint(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
@@ -36,21 +33,10 @@ pub async fn handle_undo(sub_m: &ArgMatches) -> Result<()> {
         format,
     };
     let options = args.to_options();
-    match undo::run_with_options(&options).await {
-        Ok(code) if (code as i32) == 0 => Ok(()),
-        Ok(code) => Err(anyhow::Error::new(CommandExit::new(code as i32))),
-        Err(error) => {
-            let exit_code = match error {
-                undo::UndoError::AlreadyPushedToRemote { .. } => {
-                    undo::UndoExitCode::AlreadyPushed as i32
-                }
-                undo::UndoError::NoUndoHistory => undo::UndoExitCode::NoHistory as i32,
-                undo::UndoError::InvalidState { .. } => undo::UndoExitCode::InvalidState as i32,
-                _ => undo::UndoExitCode::OtherError as i32,
-            };
-            Err(anyhow::Error::new(CommandExit::new(exit_code)))
-        }
-    }
+    undo::run_with_options(&options)
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
 }
 
 pub async fn handle_revert(sub_m: &ArgMatches) -> Result<()> {

@@ -4,12 +4,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use serde::Serialize;
-use zjj_core::{
-    json::SchemaEnvelope,
-    output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType},
-    types::SessionStatus,
-    OutputFormat, WorkspaceState,
-};
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{commands::get_session_db, session::Session};
 
@@ -181,8 +176,10 @@ fn is_repo_bootstrap_error(err: &anyhow::Error) -> bool {
 
 fn output_no_active_sessions(format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let summary = Summary::new(SummaryType::Count, "No active sessions".to_string())?;
-        emit_stdout(&OutputLine::Summary(summary))?;
+        let data = StatusResponseData { sessions: vec![] };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+        let json = serde_json::to_string_pretty(&envelope)?;
+        println!("{json}");
     } else {
         println!("📍 WORKFLOW STATE: No active session");
         println!();
@@ -211,10 +208,7 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
 
         // Run status once
         if let Err(e) = run_once(name, format).await {
-            if name.is_some() && is_not_found_error(&e) {
-                return Err(e);
-            }
-            if !format.is_json() {
+            if format.is_json() {
                 eprintln!("Error: {e}");
             }
         }
@@ -222,17 +216,6 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
         // Wait 1 second
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
-}
-
-fn is_not_found_error(error: &anyhow::Error) -> bool {
-    error
-        .downcast_ref::<zjj_core::Error>()
-        .is_some_and(|core_error| {
-            matches!(
-                core_error,
-                zjj_core::Error::NotFound(_) | zjj_core::Error::SessionNotFound { .. }
-            )
-        })
 }
 
 /// Gather detailed status for a session
@@ -453,35 +436,14 @@ fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
     }
 }
 
-/// Output sessions as JSONL using emit_stdout
+/// Output sessions as JSON
 fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
-    for item in items {
-        let session_status = serde_json::from_str::<SessionStatus>(&format!("\"{}\"", item.status))
-            .map_err(|e| anyhow::anyhow!("Invalid session status '{}': {}", item.status, e))?;
-
-        let workspace_state =
-            serde_json::from_str::<WorkspaceState>(&format!("\"{}\"", item.session.state))
-                .map_err(|e| {
-                    anyhow::anyhow!("Invalid workspace state '{}': {}", item.session.state, e)
-                })?;
-
-        let session_output = SessionOutput::new(
-            item.name.clone(),
-            session_status,
-            workspace_state,
-            std::path::PathBuf::from(&item.workspace_path),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create session output: {}", e))?
-        .with_branch(item.branch.clone());
-
-        emit_stdout(&OutputLine::Session(session_output))?;
-    }
-
-    let count = items.len();
-    let summary = Summary::new(SummaryType::Count, format!("{} session(s)", count))
-        .map_err(|e| anyhow::anyhow!("Failed to create summary: {}", e))?;
-    emit_stdout(&OutputLine::Summary(summary))?;
-
+    let data = StatusResponseData {
+        sessions: items.to_vec(),
+    };
+    let envelope = SchemaEnvelope::new("status-response", "single", data);
+    let json = serde_json::to_string_pretty(&envelope)?;
+    println!("{json}");
     Ok(())
 }
 
