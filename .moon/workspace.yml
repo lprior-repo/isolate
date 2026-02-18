@@ -19,7 +19,17 @@ remote:
   host: 'grpc://127.0.0.1:9092'
   cache:
     compression: 'zstd'
+    verifyIntegrity: false  # Trusted local cache
+    localReadOnly: false  # Allow uploads from local dev
+
+# Pipeline configuration
+pipeline:
+  installDependencies: true
+  syncWorkspace: true
 
 # Hasher performance optimization
 hasher:
   optimization: 'performance'
+  walkStrategy: 'vcs'
+
+telemetry: false
