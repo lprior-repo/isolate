@@ -38,12 +38,12 @@ impl JsonlConfig {
     }
 
     #[must_use]
-    pub fn with_pretty(self, pretty: bool) -> Self {
+    pub const fn with_pretty(self, pretty: bool) -> Self {
         Self { pretty, ..self }
     }
 
     #[must_use]
-    pub fn with_flush_on_emit(self, flush_on_emit: bool) -> Self {
+    pub const fn with_flush_on_emit(self, flush_on_emit: bool) -> Self {
         Self {
             flush_on_emit,
             ..self
@@ -66,10 +66,11 @@ impl<W: Write> JsonlWriter<W> {
     }
 
     #[must_use]
-    pub fn with_config(writer: W, config: JsonlConfig) -> Self {
+    pub const fn with_config(writer: W, config: JsonlConfig) -> Self {
         Self { writer, config }
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub fn emit(&mut self, line: &OutputLine) -> io::Result<()> {
         let json = if self.config.pretty {
             serde_json::to_string_pretty(line)
@@ -78,7 +79,7 @@ impl<W: Write> JsonlWriter<W> {
         }
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        writeln!(self.writer, "{}", json)?;
+        writeln!(self.writer, "{json}")?;
 
         if self.config.flush_on_emit {
             self.writer.flush()?;
@@ -87,6 +88,7 @@ impl<W: Write> JsonlWriter<W> {
         Ok(())
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub fn emit_all<'a, I>(&mut self, lines: I) -> io::Result<()>
     where
         I: IntoIterator<Item = &'a OutputLine>,
@@ -94,6 +96,7 @@ impl<W: Write> JsonlWriter<W> {
         lines.into_iter().try_for_each(|line| self.emit(line))
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub fn flush(&mut self) -> io::Result<()> {
         self.writer.flush()
     }
@@ -116,19 +119,22 @@ impl JsonlWriter<Stdout> {
     }
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub fn emit<W: Write>(writer: &mut W, line: &OutputLine) -> io::Result<()> {
     let json =
         serde_json::to_string(line).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-    writeln!(writer, "{}", json)?;
+    writeln!(writer, "{json}")?;
     writer.flush()
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub fn emit_stdout(line: &OutputLine) -> io::Result<()> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
     emit(&mut handle, line)
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub fn emit_all_stdout<'a, I>(lines: I) -> io::Result<()>
 where
     I: IntoIterator<Item = &'a OutputLine>,

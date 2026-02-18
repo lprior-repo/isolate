@@ -87,6 +87,7 @@ pub enum SummaryType {
 }
 
 impl Summary {
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(type_field: SummaryType, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -123,6 +124,7 @@ pub struct SessionOutput {
 }
 
 impl SessionOutput {
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(
         name: String,
         status: SessionStatus,
@@ -187,6 +189,7 @@ pub enum IssueSeverity {
 }
 
 impl Issue {
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(
         id: String,
         title: String,
@@ -250,6 +253,7 @@ pub enum ActionStatus {
 }
 
 impl Plan {
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(title: String, description: String) -> Result<Self, OutputLineError> {
         if title.trim().is_empty() {
             return Err(OutputLineError::EmptyTitle);
@@ -295,6 +299,8 @@ pub struct Action {
 }
 
 impl Action {
+    #[allow(clippy::missing_errors_doc)]
+    #[must_use]
     pub fn new(verb: String, target: String, status: ActionStatus) -> Self {
         Self {
             verb,
@@ -333,6 +339,7 @@ pub struct Context {
 }
 
 impl Warning {
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(code: String, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -379,6 +386,7 @@ pub enum ResultKind {
 }
 
 impl ResultOutput {
+    #[allow(clippy::missing_errors_doc)]
     pub fn success(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -392,6 +400,7 @@ impl ResultOutput {
         })
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub fn failure(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -446,7 +455,9 @@ pub struct RecoveryAction {
 }
 
 impl Recovery {
-    pub fn new(issue_id: String, assessment: Assessment) -> Self {
+    #[allow(clippy::missing_const_for_fn)]
+    #[must_use]
+    pub const fn new(issue_id: String, assessment: Assessment) -> Self {
         Self {
             issue_id,
             assessment,
@@ -577,7 +588,8 @@ impl QueueSummary {
     }
 
     #[must_use]
-    pub fn with_counts(
+    #[allow(clippy::too_many_arguments)]
+    pub const fn with_counts(
         self,
         total: u32,
         pending: u32,
@@ -596,12 +608,12 @@ impl QueueSummary {
     }
 
     #[must_use]
-    pub fn has_blockers(&self) -> bool {
+    pub const fn has_blockers(&self) -> bool {
         self.blocked > 0
     }
 
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.total == 0
     }
 }
