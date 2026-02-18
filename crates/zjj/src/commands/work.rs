@@ -79,8 +79,28 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     validate_session_name(&options.name).map_err(anyhow::Error::new)?;
 
     let root = super::check_in_jj_repo().await?;
+    let location = context::detect_location(&root)?;
 
-    // Validate bead exists if bead_id provided
+    // Check if we're already in a workspace
+    if let context::Location::Workspace { name, .. } = &location {
+        if options.idempotent && name == &options.name {
+            // Already in the target workspace - return success
+            return output_existing_workspace(&root, name, options).await;
+        }
+        anyhow::bail!(
+            "Already in workspace '{name}'. Use 'zjj done' to complete or 'zjj abort' to abandon."
+        );
+    }
+
+    // Dry run - just show what would happen
+    if options.dry_run {
+        return output_dry_run(options);
+    }
+
+    // Validate bead exists if bead_id provided.
+    // This check intentionally happens AFTER the idempotent workspace fast-path,
+    // so `zjj work --idempotent` can reuse an existing matching workspace even
+    // if bead metadata is unavailable from the current context.
     if let Some(bead_id) = &options.bead_id {
         if bead_id.trim().is_empty() {
             return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
@@ -103,24 +123,6 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
                 bead_id
             ))));
         }
-    }
-
-    let location = context::detect_location(&root)?;
-
-    // Check if we're already in a workspace
-    if let context::Location::Workspace { name, .. } = &location {
-        if options.idempotent && name == &options.name {
-            // Already in the target workspace - return success
-            return output_existing_workspace(&root, name, options).await;
-        }
-        anyhow::bail!(
-            "Already in workspace '{name}'. Use 'zjj done' to complete or 'zjj abort' to abandon."
-        );
-    }
-
-    // Dry run - just show what would happen
-    if options.dry_run {
-        return output_dry_run(options);
     }
 
     // Check if session already exists
