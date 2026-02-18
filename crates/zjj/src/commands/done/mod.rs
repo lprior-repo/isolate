@@ -36,7 +36,7 @@ use crate::{
     cli::jj_root,
     commands::{
         context::{detect_location, Location},
-        get_queue_db_path, get_session_db,
+        get_db_path, get_session_db,
     },
     session::{SessionStatus, SessionUpdate},
 };
@@ -477,11 +477,9 @@ async fn queue_workspace_conflict(
     workspace_name: &str,
     bead_repo: &dyn bead::BeadRepository,
 ) -> Result<(), DoneError> {
-    let queue_db = get_queue_db_path()
-        .await
-        .map_err(|e| DoneError::InvalidState {
-            reason: format!("Failed to resolve merge queue path: {e}"),
-        })?;
+    let queue_db = get_db_path().await.map_err(|e| DoneError::InvalidState {
+        reason: format!("Failed to resolve merge queue path: {e}"),
+    })?;
     let queue =
         zjj_core::MergeQueue::open(&queue_db)
             .await

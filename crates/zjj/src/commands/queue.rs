@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat, QueueStatus};
 
-use crate::commands::{get_queue_db_path, get_session_db};
+use crate::commands::{get_db_path, get_session_db};
 
 fn cli_flag_used(flag: &str) -> bool {
     std::env::args().any(|arg| arg == flag || arg.starts_with(&format!("{flag}=")))
@@ -156,8 +156,8 @@ pub struct QueueOptions {
 
 /// Get or create the merge queue database
 async fn get_queue() -> Result<zjj_core::MergeQueue> {
-    let queue_db = get_queue_db_path().await?;
-    zjj_core::MergeQueue::open(&queue_db)
+    let state_db = get_db_path().await?;
+    zjj_core::MergeQueue::open(&state_db)
         .await
         .context("Failed to open merge queue database")
 }

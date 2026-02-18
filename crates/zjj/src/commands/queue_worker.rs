@@ -50,7 +50,7 @@ use zjj_core::{
 };
 
 use crate::commands::{
-    get_queue_db_path,
+    get_db_path,
     worker_error::{classify_with_attempts, ErrorClass},
 };
 
@@ -136,8 +136,8 @@ fn resolve_worker_id(provided: Option<&str>) -> String {
 
 /// Get or create the merge queue database.
 async fn get_queue() -> Result<MergeQueue> {
-    let queue_db = get_queue_db_path().await?;
-    MergeQueue::open(&queue_db)
+    let state_db = get_db_path().await?;
+    MergeQueue::open(&state_db)
         .await
         .context("Failed to open merge queue database")
 }

@@ -35,7 +35,7 @@ use zjj_core::{
     OutputFormat,
 };
 
-use crate::commands::{check_in_jj_repo, get_queue_db_path, workspace_utils};
+use crate::commands::{check_in_jj_repo, get_db_path, workspace_utils};
 
 /// Submit-specific errors
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -648,7 +648,7 @@ async fn add_to_queue(
     head_sha: &str,
 ) -> Result<QueueEntry, SubmitError> {
     // Get queue database path
-    let db_path = get_queue_db_path()
+    let db_path = get_db_path()
         .await
         .map_err(|e| SubmitError::QueueError(format!("failed to resolve queue path: {e}")))?;
 
