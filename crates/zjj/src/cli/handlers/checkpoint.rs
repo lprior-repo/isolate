@@ -4,8 +4,10 @@ use anyhow::Result;
 use clap::ArgMatches;
 
 use super::json_format::get_format;
-use crate::cli::handlers::CommandExit;
-use crate::commands::{checkpoint, recover, revert, undo};
+use crate::{
+    cli::handlers::CommandExit,
+    commands::{checkpoint, recover, revert, undo},
+};
 
 pub async fn handle_checkpoint(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);

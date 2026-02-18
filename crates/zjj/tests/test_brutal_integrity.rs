@@ -210,7 +210,7 @@ async fn scenario_deep_nested_corruption_detection() -> Result<()> {
         .map_err(|e| Error::IoError(format!("failed to write lock file: {e}")))?;
 
     // Set lock time to 2 hours ago using functional error handling
-    let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
+    let past = std::time::SystemTime::now() - std::time::Duration::from_hours(2);
     filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past))
         .map_err(|e| Error::IoError(format!("failed to set file time: {e}")))?;
 
@@ -263,7 +263,7 @@ async fn scenario_concurrent_repair_safety() -> Result<()> {
             fs::create_dir_all(parent)
                 .and_then(|()| fs::write(&lock_file, "locked"))
                 .and_then(|()| {
-                    let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
+                    let past = std::time::SystemTime::now() - std::time::Duration::from_hours(2);
                     filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past))
                 })
                 .map_err(|e| Error::IoError(format!("failed to create stale lock: {e}")))
@@ -340,7 +340,7 @@ async fn scenario_repair_failure_roll_forward_protection() -> Result<()> {
                 .map_err(|e| Error::IoError(format!("Failed to create lock: {e}")))
         })
         .and_then(|()| {
-            let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
+            let past = std::time::SystemTime::now() - std::time::Duration::from_hours(2);
             filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past))
                 .map_err(|e| Error::IoError(format!("Failed to set file time: {e}")))
         })?;
