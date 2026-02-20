@@ -90,7 +90,7 @@ fn create_test_session(repo_path: &PathBuf, session_name: &str) -> anyhow::Resul
 
     // Parse JSON to extract workspace_path
     let json: serde_json::Value = serde_json::from_str(&json_str)
-        .map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse JSON: {e}"))?;
 
     // Extract workspace_path from sessions array
     let workspace_path = json["sessions"][0]["workspace_path"]
@@ -660,8 +660,7 @@ fn test_cv011_no_interactive_prompting_invariant() {
     );
     assert!(
         !stdout.contains("[y/N]"),
-        "Should NOT prompt for confirmation. Got: {}",
-        stdout
+        "Should NOT prompt for confirmation. Got: {stdout}"
     );
 
     // AND removal executes immediately

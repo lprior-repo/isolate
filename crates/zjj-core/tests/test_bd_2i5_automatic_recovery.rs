@@ -537,7 +537,7 @@ async fn test_hp012_multiple_workers_safely_recover_concurrently() -> Result<()>
         .collect();
 
     assert!(
-        claimed_entries.len() >= 1,
+        !claimed_entries.is_empty(),
         "At least 1 entry should be claimed (others serialized by lock)"
     );
 

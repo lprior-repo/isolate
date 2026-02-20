@@ -5,7 +5,7 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-//! Integration tests for conflict_resolutions table.
+//! Integration tests for `conflict_resolutions` table.
 //!
 //! Test plan based on contract: bd-2gj
 //! Covers: schema initialization, insert operations, query operations,
@@ -438,7 +438,7 @@ async fn test_insert_empty_strategy_fails() {
 
     let mut resolution =
         create_test_resolution(0, "session-1", "file.rs", "ai", "2025-02-18T12:00:00Z");
-    resolution.strategy = "".to_string();
+    resolution.strategy = String::new();
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
     assert!(result.is_err(), "Should fail with empty strategy");
@@ -1152,7 +1152,7 @@ async fn test_performance_concurrent_inserts() {
     let results: Vec<_> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .filter_map(|r| r.ok())
+        .filter_map(std::result::Result::ok)
         .collect();
 
     let elapsed = start.elapsed();

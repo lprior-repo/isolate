@@ -51,7 +51,9 @@ pub fn reset_entry_id_counter() {
 
 /// Generate next test entry ID
 fn next_entry_id() -> i64 {
-    ENTRY_ID_COUNTER.fetch_add(1, Ordering::SeqCst) as i64
+    ENTRY_ID_COUNTER
+        .fetch_add(1, Ordering::SeqCst)
+        .cast_signed()
 }
 
 /// Builder for creating test queue entries with fluent API
@@ -97,13 +99,13 @@ impl TestEntryBuilder {
     }
 
     /// Set the priority (lower = higher priority)
-    pub fn with_priority(mut self, priority: i64) -> Self {
+    pub const fn with_priority(mut self, priority: i64) -> Self {
         self.priority = priority;
         self
     }
 
     /// Set the initial status
-    pub fn with_status(mut self, status: QueueStatus) -> Self {
+    pub const fn with_status(mut self, status: QueueStatus) -> Self {
         self.status = status;
         self
     }
@@ -139,19 +141,19 @@ impl TestEntryBuilder {
     }
 
     /// Set the attempt count
-    pub fn with_attempt_count(mut self, count: i32) -> Self {
+    pub const fn with_attempt_count(mut self, count: i32) -> Self {
         self.attempt_count = count;
         self
     }
 
     /// Set the max attempts
-    pub fn with_max_attempts(mut self, max: i32) -> Self {
+    pub const fn with_max_attempts(mut self, max: i32) -> Self {
         self.max_attempts = max;
         self
     }
 
     /// Set the test timeout in seconds
-    pub fn with_test_timeout(mut self, timeout_secs: i64) -> Self {
+    pub const fn with_test_timeout(mut self, timeout_secs: i64) -> Self {
         self.test_timeout_secs = timeout_secs;
         self
     }
@@ -415,7 +417,9 @@ impl InMemoryQueueFactory {
         let entries: Vec<TestEntryBuilder> = workspaces
             .iter()
             .enumerate()
-            .map(|(i, ws)| TestEntryBuilder::new(*ws).with_priority((i + 1) as i64))
+            .map(|(i, ws)| {
+                TestEntryBuilder::new(*ws).with_priority(i64::try_from(i).unwrap_or(i64::MAX) + 1)
+            })
             .collect();
 
         Self::create_with_entries(entries).await

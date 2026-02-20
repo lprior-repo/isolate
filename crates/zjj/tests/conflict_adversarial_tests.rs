@@ -282,7 +282,7 @@ fn adv_007_empty_file_lists() {
     let result = harness.zjj(&["add", "feature-empty"]);
     if !result.success {
         return;
-    };
+    }
 
     let Some(json) = detect_conflicts_json(&harness) else {
         return;
@@ -316,7 +316,7 @@ fn adv_008_performance_boundary_99ms() {
     let result = harness.zjj(&["add", "feature-perf"]);
     if !result.success {
         return;
-    };
+    }
 
     // Measure with high precision
     let start = std::time::Instant::now();
@@ -328,7 +328,7 @@ fn adv_008_performance_boundary_99ms() {
     let elapsed_ms = elapsed.as_millis();
 
     // If it takes 99-100ms, we're at the boundary
-    if elapsed_ms >= 99 && elapsed_ms <= 100 {
+    if (99..=100).contains(&elapsed_ms) {
         eprintln!(
             "SURVIVOR: Performance at boundary {}ms - potential INV-PERF-002 violation",
             elapsed_ms

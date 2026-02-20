@@ -814,10 +814,8 @@ pub fn generate_resolution_options(
 #[must_use]
 pub const fn recommended_strategy(conflict_type: ConflictType) -> ResolutionStrategy {
     match conflict_type {
-        ConflictType::Existing => ResolutionStrategy::JjResolve,
-        ConflictType::Overlapping => ResolutionStrategy::JjResolve,
-        ConflictType::DeleteModify => ResolutionStrategy::ManualMerge,
-        ConflictType::RenameModify => ResolutionStrategy::ManualMerge,
+        ConflictType::Existing | ConflictType::Overlapping => ResolutionStrategy::JjResolve,
+        ConflictType::DeleteModify | ConflictType::RenameModify => ResolutionStrategy::ManualMerge,
         ConflictType::Binary => ResolutionStrategy::AcceptOurs,
     }
 }

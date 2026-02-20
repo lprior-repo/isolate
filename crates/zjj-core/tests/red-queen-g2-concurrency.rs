@@ -29,7 +29,7 @@ use zjj_core::coordination::queue_submission::{
 #[tokio::test]
 async fn rq_g2_conc_001_concurrent_same_dedupe_key() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -87,7 +87,7 @@ async fn rq_g2_conc_001_concurrent_same_dedupe_key() {
 #[tokio::test]
 async fn rq_g2_conc_002_concurrent_dedupe_conflict() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req1 = QueueSubmissionRequest {
@@ -134,7 +134,7 @@ async fn rq_g2_conc_002_concurrent_dedupe_conflict() {
     let result2 = result2.unwrap();
 
     // Exactly one should succeed
-    let success_count = result1.is_ok() as i32 + result2.is_ok() as i32;
+    let success_count = i32::from(result1.is_ok()) + i32::from(result2.is_ok());
     assert_eq!(
         success_count, 1,
         "Exactly one submission should succeed with dedupe conflict"
@@ -164,19 +164,19 @@ async fn rq_g2_conc_002_concurrent_dedupe_conflict() {
 #[tokio::test]
 async fn rq_g2_conc_003_rapid_fire_submissions() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     // Spawn 10 concurrent submissions for different workspaces
     let handles: Vec<_> = (0..10)
         .map(|i| {
             let req = QueueSubmissionRequest {
-                workspace: format!("ws-{}", i),
+                workspace: format!("ws-{i}"),
                 bead_id: None,
-                priority: i32::from(i),
+                priority: i,
                 agent_id: None,
-                dedupe_key: format!("ws-{}:kxyz{}", i, i),
-                head_sha: format!("sha{}", i),
+                dedupe_key: format!("ws-{i}:kxyz{i}"),
+                head_sha: format!("sha{i}"),
                 tested_against_sha: None,
             };
             let db_path = db_path.clone();
@@ -220,7 +220,7 @@ async fn rq_g2_conc_003_rapid_fire_submissions() {
 #[tokio::test]
 async fn rq_g2_conc_004_submission_with_lock_contention() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     // Submit first entry to establish queue
@@ -240,12 +240,12 @@ async fn rq_g2_conc_004_submission_with_lock_contention() {
     let handles: Vec<_> = (0..5)
         .map(|i| {
             let req = QueueSubmissionRequest {
-                workspace: format!("ws-concurrent-{}", i),
+                workspace: format!("ws-concurrent-{i}"),
                 bead_id: None,
                 priority: 0,
                 agent_id: None,
-                dedupe_key: format!("ws-concurrent-{}:kxyz{}", i, i),
-                head_sha: format!("sha{}", i),
+                dedupe_key: format!("ws-concurrent-{i}:kxyz{i}"),
+                head_sha: format!("sha{i}"),
                 tested_against_sha: None,
             };
             let db_path = db_path.clone();
@@ -265,11 +265,9 @@ async fn rq_g2_conc_004_submission_with_lock_contention() {
     assert_eq!(success_count, 5, "All submissions should succeed");
 
     // Check for partial state - all entries should be complete
-    for result in results {
-        if let Ok(response) = result {
-            assert!(response.entry_id > 0, "Entry ID should be positive");
-            assert!(!response.status.is_empty(), "Status should not be empty");
-        }
+    for response in results.into_iter().flatten() {
+        assert!(response.entry_id > 0, "Entry ID should be positive");
+        assert!(!response.status.is_empty(), "Status should not be empty");
     }
 
     // ✅ PROMISE UPHELD: No partial state after concurrent submissions
@@ -283,7 +281,7 @@ async fn rq_g2_conc_004_submission_with_lock_contention() {
 #[tokio::test]
 async fn rq_g2_conc_005_update_during_state_transition() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {

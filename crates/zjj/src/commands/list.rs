@@ -25,8 +25,8 @@ use crate::{
     session::{Session, SessionStatus},
 };
 
-/// Convert local SessionStatus to core SessionStatus
-fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus {
+/// Convert local `SessionStatus` to core `SessionStatus`
+const fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus {
     match status {
         SessionStatus::Active => zjj_core::types::SessionStatus::Active,
         SessionStatus::Paused => zjj_core::types::SessionStatus::Paused,

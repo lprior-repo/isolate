@@ -1709,6 +1709,7 @@ async fn check_schema_version(pool: &SqlitePool) -> Result<()> {
 ///
 /// Returns error if database operation fails (except UNIQUE constraint which
 /// is handled by returning Ok(None)).
+#[allow(clippy::too_many_arguments)]
 async fn insert_session(
     pool: &SqlitePool,
     name: &str,

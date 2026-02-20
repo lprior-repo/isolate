@@ -57,6 +57,7 @@ impl FromStr for SessionStatus {
 }
 
 /// A ZJJ session representing a JJ workspace + Zellij tab pair
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Session {
     /// Auto-generated database ID (None for new sessions not yet persisted)

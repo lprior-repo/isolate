@@ -138,10 +138,13 @@ pub async fn assert_train_result(
     );
 
     // Verify total_processed
-    let total_processed = result
-        .get("total_processed")
-        .and_then(|t: &JsonValue| t.as_u64())
-        .expect("TrainResult should have total_processed") as usize;
+    let total_processed = usize::try_from(
+        result
+            .get("total_processed")
+            .and_then(|t: &JsonValue| t.as_u64())
+            .expect("TrainResult should have total_processed"),
+    )
+    .expect("total_processed should fit in usize");
 
     assert_eq!(
         total_processed,
@@ -371,7 +374,7 @@ pub async fn assert_event_types_present(capturer: &JsonlCapturer) {
 /// Assert entries are processed in position order
 pub fn assert_sequential_processing(entry_ids: &[i64]) {
     let mut sorted = entry_ids.to_vec();
-    sorted.sort();
+    sorted.sort_unstable();
 
     assert_eq!(
         entry_ids, &sorted,
