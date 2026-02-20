@@ -885,5 +885,81 @@ fn test_invalid_flag_exit_code() {
     assert_eq!(2, 2); // Placeholder - actual test would need CLI invocation
 }
 
-// Test lock functionality
-// mod lock_tests; // TODO: Move lock_tests.rs to tests/lock_tests.rs for proper module resolution
+// ============================================================================
+// InitLock Tests
+// ============================================================================
+
+#[test]
+fn test_init_lock_stale_file_removed_and_reacquired() {
+    use super::InitLock;
+
+    let lock_path = std::path::PathBuf::from("/tmp/test_init_lock_stale.lock");
+
+    // Create a stale lock file
+    std::fs::write(&lock_path, "stale lock").expect("Failed to create lock file");
+    let file = std::fs::File::open(&lock_path).expect("Failed to open lock file");
+    file.set_modified(std::time::SystemTime::UNIX_EPOCH)
+        .expect("Failed to set modification time");
+
+    // Acquire should succeed (stale lock is removed, new lock is created)
+    let result = InitLock::acquire(lock_path.clone());
+    assert!(
+        result.is_ok(),
+        "Should acquire lock after removing stale one"
+    );
+
+    // Lock file should exist (with new lock)
+    assert!(
+        lock_path.exists(),
+        "Lock file should exist after acquisition"
+    );
+
+    // Cleanup
+    let _ = std::fs::remove_file(&lock_path);
+}
+
+#[test]
+fn test_init_lock_normal_acquisition() {
+    use super::InitLock;
+
+    let temp_dir = std::env::temp_dir();
+    let lock_path = temp_dir.join("test_init_lock_normal.lock");
+
+    // Ensure no leftover lock
+    let _ = std::fs::remove_file(&lock_path);
+
+    // Normal acquisition should succeed
+    let result = InitLock::acquire(lock_path.clone());
+    assert!(result.is_ok(), "Should acquire lock in existing directory");
+
+    // Lock file should exist
+    assert!(
+        lock_path.exists(),
+        "Lock file should exist after acquisition"
+    );
+
+    // Cleanup
+    let _ = std::fs::remove_file(&lock_path);
+}
+
+#[test]
+fn test_init_lock_release() {
+    use super::InitLock;
+
+    let temp_dir = std::env::temp_dir();
+    let lock_path = temp_dir.join("test_init_lock_release.lock");
+
+    let _ = std::fs::remove_file(&lock_path);
+
+    let lock = InitLock::acquire(lock_path.clone()).expect("Should acquire lock");
+    assert!(lock_path.exists(), "Lock file should exist");
+
+    // Release should succeed
+    lock.release().expect("Should release lock");
+
+    // File should still exist (lock files persist to prevent inode races)
+    assert!(lock_path.exists(), "Lock file should persist after release");
+
+    // Cleanup
+    let _ = std::fs::remove_file(&lock_path);
+}
