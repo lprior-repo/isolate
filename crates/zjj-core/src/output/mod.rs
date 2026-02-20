@@ -15,11 +15,13 @@ mod writer;
 
 pub use types::{
     Action, ActionStatus, Assessment, ConflictAnalysis, ConflictDetail, ConflictType, Context,
-    Error, ErrorSeverity, Issue, IssueKind, OutputLine, Plan, PlanStep, Recovery, RecoveryAction,
-    ResolutionOption, ResolutionRisk, ResolutionStrategy, Result, ResultKind, Session,
-    SessionState, Summary, Warning,
+    ErrorSeverity, Issue, IssueKind, IssueSeverity, OutputLine, OutputLineError, Plan, PlanStep,
+    QueueCounts, QueueEntry, QueueEntryStatus, QueueSummary, Recovery, RecoveryAction,
+    ResolutionOption, ResolutionRisk, ResolutionStrategy, ResultKind, ResultOutput, Session,
+    SessionOutput, SessionState, Stack, StackEntry, StackEntryStatus, Summary, SummaryType, Train,
+    TrainAction, TrainStatus, TrainStep, TrainStepStatus, Warning,
 };
-pub use writer::{emit, emit_value, JsonlWriter};
+pub use writer::{emit, emit_all_stdout, emit_stdout, JsonlConfig, JsonlWriter};
 
 #[cfg(test)]
 mod tests;

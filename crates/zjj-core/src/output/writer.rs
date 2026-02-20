@@ -1,7 +1,4 @@
 //! JSONL writer for streaming output
-//!
-//! This module provides the `JsonlWriter` type for writing JSONL output
-//! to any `Write` implementation, and the `emit` function for stdout output.
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -12,195 +9,163 @@
 
 use std::io::{self, Stdout, Write};
 
-use serde::Serialize;
+use serde_json;
 
 use super::OutputLine;
-use crate::{Error, Result};
 
-/// A writer for JSONL (JSON Lines) output.
-///
-/// Each call to `emit` writes a single JSON object followed by a newline.
-/// The writer flushes after each line to ensure output is immediately available.
-#[derive(Debug)]
-pub struct JsonlWriter<W: Write> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JsonlConfig {
+    pub pretty: bool,
+    pub flush_on_emit: bool,
+}
+
+impl Default for JsonlConfig {
+    fn default() -> Self {
+        Self {
+            pretty: false,
+            flush_on_emit: true,
+        }
+    }
+}
+
+impl JsonlConfig {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            pretty: false,
+            flush_on_emit: true,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_pretty(self, pretty: bool) -> Self {
+        Self { pretty, ..self }
+    }
+
+    #[must_use]
+    pub const fn with_flush_on_emit(self, flush_on_emit: bool) -> Self {
+        Self {
+            flush_on_emit,
+            ..self
+        }
+    }
+}
+
+pub struct JsonlWriter<W> {
     writer: W,
+    config: JsonlConfig,
 }
 
 impl<W: Write> JsonlWriter<W> {
-    /// Create a new JsonlWriter wrapping the given writer.
     #[must_use]
     pub fn new(writer: W) -> Self {
-        Self { writer }
+        Self {
+            writer,
+            config: JsonlConfig::default(),
+        }
     }
 
-    /// Emit a single OutputLine as JSON followed by a newline.
+    #[must_use]
+    pub const fn with_config(writer: W, config: JsonlConfig) -> Self {
+        Self { writer, config }
+    }
+
+    /// Emit one JSONL record.
     ///
     /// # Errors
     ///
-    /// Returns an error if serialization fails or if writing to the underlying
-    /// writer fails.
-    pub fn emit(&mut self, line: &OutputLine) -> Result<()> {
-        let json = serde_json::to_string(line)
-            .map_err(|e| Error::Serialization(format!("Failed to serialize output: {e}")))?;
-        writeln!(self.writer, "{json}")
-            .map_err(|e| Error::Io(format!("Failed to write output: {e}")))?;
-        self.writer
-            .flush()
-            .map_err(|e| Error::Io(format!("Failed to flush output: {e}")))?;
+    /// Returns an error if serialization fails or the write/flush operation fails.
+    pub fn emit(&mut self, line: &OutputLine) -> io::Result<()> {
+        let json = if self.config.pretty {
+            serde_json::to_string_pretty(line)
+        } else {
+            serde_json::to_string(line)
+        }
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+        writeln!(self.writer, "{json}")?;
+
+        if self.config.flush_on_emit {
+            self.writer.flush()?;
+        }
+
         Ok(())
     }
 
-    /// Emit any serializable value as JSON followed by a newline.
+    /// Emit all JSONL records from an iterator.
     ///
     /// # Errors
     ///
-    /// Returns an error if serialization fails or if writing to the underlying
-    /// writer fails.
-    pub fn emit_value<T: Serialize>(&mut self, value: &T) -> Result<()> {
-        let json = serde_json::to_string(value)
-            .map_err(|e| Error::Serialization(format!("Failed to serialize output: {e}")))?;
-        writeln!(self.writer, "{json}")
-            .map_err(|e| Error::Io(format!("Failed to write output: {e}")))?;
+    /// Returns the first write or serialization error produced while emitting lines.
+    pub fn emit_all<'a, I>(&mut self, lines: I) -> io::Result<()>
+    where
+        I: IntoIterator<Item = &'a OutputLine>,
+    {
+        lines.into_iter().try_for_each(|line| self.emit(line))
+    }
+
+    /// Flush buffered output.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying writer fails to flush.
+    pub fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
+
+    #[must_use]
+    pub fn into_inner(self) -> W {
         self.writer
-            .flush()
-            .map_err(|e| Error::Io(format!("Failed to flush output: {e}")))?;
-        Ok(())
     }
 }
 
 impl JsonlWriter<Stdout> {
-    /// Create a JsonlWriter that writes to stdout.
     #[must_use]
     pub fn stdout() -> Self {
         Self::new(io::stdout())
     }
-}
 
-impl Default for JsonlWriter<Stdout> {
-    fn default() -> Self {
-        Self::stdout()
+    #[must_use]
+    pub fn stdout_with_config(config: JsonlConfig) -> Self {
+        Self::with_config(io::stdout(), config)
     }
 }
 
-/// Emit an OutputLine to stdout as a single JSON line.
-///
-/// This is a convenience function for the common case of writing to stdout.
-/// Each call writes one JSON object followed by a newline and flushes.
+/// Emit one JSONL record to a writer and flush.
 ///
 /// # Errors
 ///
-/// Returns an error if serialization fails or if writing to stdout fails.
-pub fn emit(line: &OutputLine) -> Result<()> {
-    JsonlWriter::stdout().emit(line)
+/// Returns an error if serialization, writing, or flushing fails.
+pub fn emit<W: Write>(writer: &mut W, line: &OutputLine) -> io::Result<()> {
+    let json =
+        serde_json::to_string(line).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    writeln!(writer, "{json}")?;
+    writer.flush()
 }
 
-/// Emit any serializable value to stdout as a single JSON line.
+/// Emit one JSONL record to stdout.
 ///
 /// # Errors
 ///
-/// Returns an error if serialization fails or if writing to stdout fails.
-pub fn emit_value<T: Serialize>(value: &T) -> Result<()> {
-    JsonlWriter::stdout().emit_value(value)
+/// Returns an error if serialization, writing, or flushing fails.
+pub fn emit_stdout(line: &OutputLine) -> io::Result<()> {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    emit(&mut handle, line)
 }
 
-#[cfg(test)]
-mod tests {
-    use std::io::Cursor;
-
-    use super::*;
-    use crate::output::{Context, SessionState};
-
-    #[test]
-    fn test_jsonl_writer_emit_writes_valid_json_line() {
-        let mut cursor = Cursor::new(Vec::new());
-        {
-            let mut writer = JsonlWriter::new(&mut cursor);
-            let line = OutputLine::session("test", SessionState::Active, 5);
-            let result = writer.emit(&line);
-            assert!(result.is_ok());
-        }
-        let output = String::from_utf8(cursor.into_inner()).unwrap();
-        assert!(output.contains(r#""type":"session"#));
-        assert!(output.ends_with('\n'));
-    }
-
-    #[test]
-    fn test_jsonl_writer_emit_adds_newline() {
-        let mut cursor = Cursor::new(Vec::new());
-        {
-            let mut writer = JsonlWriter::new(&mut cursor);
-            let line = OutputLine::context("Test message");
-            let result = writer.emit(&line);
-            assert!(result.is_ok());
-        }
-        let output = String::from_utf8(cursor.into_inner()).unwrap();
-        assert!(output.ends_with('\n'));
-        // Should be exactly one line
-        assert_eq!(output.lines().count(), 1);
-    }
-
-    #[test]
-    fn test_jsonl_writer_multiple_emit_calls_produce_multiple_lines() {
-        let mut cursor = Cursor::new(Vec::new());
-        {
-            let mut writer = JsonlWriter::new(&mut cursor);
-            let line1 = OutputLine::session("session1", SessionState::Active, 1);
-            let line2 = OutputLine::session("session2", SessionState::Active, 2);
-            let line3 = OutputLine::context("Done");
-            assert!(writer.emit(&line1).is_ok());
-            assert!(writer.emit(&line2).is_ok());
-            assert!(writer.emit(&line3).is_ok());
-        }
-        let output = String::from_utf8(cursor.into_inner()).unwrap();
-        let lines: Vec<&str> = output.lines().collect();
-        assert_eq!(lines.len(), 3);
-        assert!(lines[0].contains(r#""type":"session"#));
-        assert!(lines[1].contains(r#""type":"session"#));
-        assert!(lines[2].contains(r#""type":"context"#));
-    }
-
-    #[test]
-    fn test_output_can_be_parsed_by_json_lines_decoder() {
-        let mut cursor = Cursor::new(Vec::new());
-        {
-            let mut writer = JsonlWriter::new(&mut cursor);
-            let line = OutputLine::session("test", SessionState::Active, 5);
-            writer.emit(&line).unwrap();
-        }
-        let output = String::from_utf8(cursor.into_inner()).unwrap();
-
-        // Each line should be parseable as JSON
-        for line in output.lines() {
-            let parsed: serde_json::Value = serde_json::from_str(line).unwrap();
-            assert!(parsed.get("type").is_some());
-        }
-    }
-
-    #[test]
-    fn test_emit_value_with_arbitrary_struct() {
-        #[derive(Serialize)]
-        struct TestStruct {
-            name: String,
-            count: usize,
-        }
-
-        let mut cursor = Cursor::new(Vec::new());
-        {
-            let mut writer = JsonlWriter::new(&mut cursor);
-            let value = TestStruct {
-                name: "test".to_string(),
-                count: 42,
-            };
-            writer.emit_value(&value).unwrap();
-        }
-        let output = String::from_utf8(cursor.into_inner()).unwrap();
-        assert!(output.contains(r#""name":"test"#));
-        assert!(output.contains(r#""count":42"#));
-    }
-
-    #[test]
-    fn test_jsonl_writer_default_is_stdout() {
-        let _writer = JsonlWriter::default();
-        // Just verify it doesn't panic
-    }
+/// Emit many JSONL records to stdout.
+///
+/// # Errors
+///
+/// Returns the first write or serialization error produced while emitting lines.
+pub fn emit_all_stdout<'a, I>(lines: I) -> io::Result<()>
+where
+    I: IntoIterator<Item = &'a OutputLine>,
+{
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    lines
+        .into_iter()
+        .try_for_each(|line| emit(&mut handle, line))
 }

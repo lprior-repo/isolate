@@ -884,3 +884,6 @@ fn test_invalid_flag_exit_code() {
     // Exit code 2 = invalid argument (clap standard)
     assert_eq!(2, 2); // Placeholder - actual test would need CLI invocation
 }
+
+// Test lock functionality
+mod lock_tests;

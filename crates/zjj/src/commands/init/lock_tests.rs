@@ -1,8 +1,3 @@
-use std::{path::PathBuf, time::Duration};
-
-use tokio::time::timeout;
-use zjj_core::commands::init::InitLock;
-
 #[tokio::test]
 async fn test_init_lock_stale_file_removed() {
     // Create a lock file in a location that doesn't exist
