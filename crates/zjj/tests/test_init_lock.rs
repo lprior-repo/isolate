@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-use std::time::Duration;
-use tokio::time::timeout;
+use std::{path::PathBuf, time::Duration};
 
+use tokio::time::timeout;
 use zjj_core::commands::init::InitLock;
 
 #[tokio::test]

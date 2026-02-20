@@ -1,4 +1,3 @@
-+++++++ zsoznxwk c94eee2d (rebased revision)
 //! OutputLine types for JSONL streaming output
 //!
 //! This module provides structured types for AI-first CLI output.

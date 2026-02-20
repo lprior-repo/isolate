@@ -1,4 +1,3 @@
-+++++++ zsoznxwk c94eee2d (rebased revision)
 //! JSONL writer for streaming output
 //!
 //! This module provides the `JsonlWriter` type for writing JSONL output
