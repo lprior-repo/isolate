@@ -298,11 +298,18 @@ pub fn compute_dedupe_key(change_id: &str, workspace: &str) -> String {
 /// # Postconditions
 /// - Returns true if workspace is valid
 /// - Returns detailed error if validation fails
+///
+/// # Errors
+///
+/// Returns `QueueSubmissionError` if:
+/// - Workspace name is empty
+/// - Workspace name contains invalid characters (path traversal)
+/// - Workspace directory does not exist
+/// - Workspace directory is not a valid JJ workspace
 pub fn validate_workspace(
     workspace: &str,
-    _db_path: &Path,
+    workspace_base_path: &Path,
 ) -> std::result::Result<bool, QueueSubmissionError> {
-    // Basic validation: workspace name must not be empty
     if workspace.is_empty() {
         return Err(QueueSubmissionError::InvalidWorkspaceName {
             workspace: workspace.to_string(),
@@ -310,7 +317,6 @@ pub fn validate_workspace(
         });
     }
 
-    // Check for invalid characters (path traversal attempts)
     if workspace.contains("..") || workspace.contains('/') || workspace.contains('\\') {
         return Err(QueueSubmissionError::InvalidWorkspaceName {
             workspace: workspace.to_string(),
@@ -318,13 +324,39 @@ pub fn validate_workspace(
         });
     }
 
-    // In a real implementation, we would:
-    // 1. Check workspace exists in workspace list
-    // 2. Check workspace is not abandoned
-    // 3. Check workspace has a current bookmark
-    // 4. Check workspace has valid commit (HEAD SHA exists)
+    let workspace_path = workspace_base_path.join(workspace);
 
-    // For now, return true for basic validation
+    if !workspace_path.exists() {
+        return Err(QueueSubmissionError::InvalidWorkspaceName {
+            workspace: workspace.to_string(),
+            reason: format!(
+                "workspace directory does not exist: {}",
+                workspace_path.display()
+            ),
+        });
+    }
+
+    if !workspace_path.is_dir() {
+        return Err(QueueSubmissionError::InvalidWorkspaceName {
+            workspace: workspace.to_string(),
+            reason: format!(
+                "workspace path is not a directory: {}",
+                workspace_path.display()
+            ),
+        });
+    }
+
+    let jj_dir = workspace_path.join(".jj");
+    if !jj_dir.exists() {
+        return Err(QueueSubmissionError::InvalidWorkspaceName {
+            workspace: workspace.to_string(),
+            reason: format!(
+                "not a valid JJ workspace (missing .jj directory): {}",
+                workspace_path.display()
+            ),
+        });
+    }
+
     Ok(true)
 }
 
@@ -612,10 +644,10 @@ pub async fn is_in_queue(
 pub async fn submit_to_queue(
     request: QueueSubmissionRequest,
     db_path: &Path,
-    _workspace_path: &Path,
+    workspace_path: &Path,
 ) -> std::result::Result<QueueSubmissionResponse, QueueSubmissionError> {
-    // Validate workspace
-    validate_workspace(&request.workspace, db_path)?;
+    // Validate workspace (checks existence and JJ structure)
+    validate_workspace(&request.workspace, workspace_path)?;
 
     // Validate head_sha format (basic check)
     if request.head_sha.len() < 4 {
