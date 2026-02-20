@@ -13,7 +13,12 @@
     clippy::expect_used,
     clippy::panic,
     clippy::too_many_lines,
-    clippy::cognitive_complexity
+    clippy::cognitive_complexity,
+    clippy::future_not_send,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::redundant_closure_for_method_calls
 )]
 
 use std::collections::HashMap;

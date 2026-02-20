@@ -49,7 +49,7 @@ pub struct ConflictResolution {
     pub file: String,
 
     /// Resolution strategy used
-    /// Examples: "accept_theirs", "accept_ours", "manual_merge", "skip"
+    /// Examples: "`accept_theirs`", "`accept_ours`", "`manual_merge`", "skip"
     pub strategy: String,
 
     /// Human-readable reason for resolution (optional)
@@ -177,7 +177,10 @@ impl std::error::Error for ConflictResolutionError {}
 ///
 /// * `Ok(())` if decider is valid
 /// * `Err(ConflictResolutionError::InvalidDeciderError)` otherwise
-#[must_use]
+///
+/// # Errors
+///
+/// Returns `InvalidDeciderError` if decider is not "ai" or "human".
 pub fn validate_decider(decider: &str) -> Result<(), ConflictResolutionError> {
     match decider {
         "ai" | "human" => Ok(()),
@@ -194,15 +197,18 @@ pub fn validate_decider(decider: &str) -> Result<(), ConflictResolutionError> {
 ///
 /// * `Ok(())` if timestamp is non-empty
 /// * `Err(ConflictResolutionError::InvalidTimestampError)` otherwise
-#[must_use]
+///
+/// # Errors
+///
+/// Returns `InvalidTimestampError` if timestamp is empty.
 pub fn validate_timestamp(timestamp: &str) -> Result<(), ConflictResolutionError> {
-    match timestamp.is_empty() {
-        true => Err(ConflictResolutionError::InvalidTimestampError {
+    if timestamp.is_empty() {
+        return Err(ConflictResolutionError::InvalidTimestampError {
             timestamp: timestamp.to_string(),
             expected_format: "ISO 8601".to_string(),
-        }),
-        false => Ok(()),
+        });
     }
+    Ok(())
 }
 
 /// Validate that a required field is non-empty.
@@ -211,14 +217,17 @@ pub fn validate_timestamp(timestamp: &str) -> Result<(), ConflictResolutionError
 ///
 /// * `Ok(())` if field is non-empty
 /// * `Err(ConflictResolutionError::EmptyFieldError)` otherwise
-#[must_use]
+///
+/// # Errors
+///
+/// Returns `EmptyFieldError` if field is empty.
 pub fn validate_non_empty(field: &str, field_name: &str) -> Result<(), ConflictResolutionError> {
-    match field.is_empty() {
-        true => Err(ConflictResolutionError::EmptyFieldError {
+    if field.is_empty() {
+        return Err(ConflictResolutionError::EmptyFieldError {
             field: field_name.to_string(),
-        }),
-        false => Ok(()),
+        });
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -255,7 +264,7 @@ mod tests {
         assert_eq!(
             result,
             Err(ConflictResolutionError::InvalidTimestampError {
-                timestamp: "".to_string(),
+                timestamp: String::new(),
                 expected_format: "ISO 8601".to_string(),
             })
         );

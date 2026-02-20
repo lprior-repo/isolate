@@ -2,7 +2,7 @@
 //!
 //! This module implements Graphite-style merge train processing that:
 //! - Processes queue entries in priority order (lowest priority number first)
-//! - Emits TrainStep events for each processing step
+//! - Emits `TrainStep` events for each processing step
 //! - Runs quality gates and conflict checks
 //! - Merges sessions that pass all checks
 //! - Handles failures gracefully with proper status updates
@@ -27,6 +27,10 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
+// Timing values from as_millis() fit in u64 for any practical duration
+#![allow(clippy::cast_possible_truncation)]
+// Long functions are intentional for pipeline readability
+#![allow(clippy::too_many_lines)]
 
 use itertools::Itertools;
 use thiserror::Error;
@@ -224,7 +228,7 @@ pub struct TrainResult {
 impl TrainResult {
     /// Create an empty train result.
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             total_processed: 0,
             merged: 0,
@@ -236,6 +240,7 @@ impl TrainResult {
     }
 
     /// Add an entry result to the summary.
+    #[must_use]
     pub fn add_entry(&self, entry: EntryResult) -> Self {
         let merged = self.merged + usize::from(entry.result == EntryResultKind::Merged);
         let failed = self.failed
@@ -457,7 +462,7 @@ where
         let start = std::time::Instant::now();
 
         // Emit step: Claim started
-        let _ = self.emit_step(TrainStep {
+        Self::emit_step(&TrainStep {
             step: TrainStepKind::Claim,
             status: TrainStepStatus::Started,
             workspace: entry.workspace.clone(),
@@ -516,7 +521,7 @@ where
         // Step 1: Run quality gates
         for gate in &self.quality_gates {
             let gate_name = gate.name().to_string();
-            let _ = self.emit_step(TrainStep {
+            Self::emit_step(&TrainStep {
                 step: TrainStepKind::Test,
                 status: TrainStepStatus::Started,
                 workspace: entry.workspace.clone(),
@@ -527,7 +532,7 @@ where
 
             match gate.check(entry).await {
                 Ok(()) => {
-                    let _ = self.emit_step(TrainStep {
+                    Self::emit_step(&TrainStep {
                         step: TrainStepKind::Test,
                         status: TrainStepStatus::Completed,
                         workspace: entry.workspace.clone(),
@@ -537,7 +542,7 @@ where
                     });
                 }
                 Err(e) => {
-                    let _ = self.emit_step(TrainStep {
+                    Self::emit_step(&TrainStep {
                         step: TrainStepKind::Test,
                         status: TrainStepStatus::Failed,
                         workspace: entry.workspace.clone(),
@@ -559,7 +564,7 @@ where
         }
 
         // Step 2: Check for conflicts
-        let _ = self.emit_step(TrainStep {
+        Self::emit_step(&TrainStep {
             step: TrainStepKind::ConflictCheck,
             status: TrainStepStatus::Started,
             workspace: entry.workspace.clone(),
@@ -570,7 +575,7 @@ where
 
         match self.merge_executor.has_conflicts(&entry.workspace).await {
             Ok(false) => {
-                let _ = self.emit_step(TrainStep {
+                Self::emit_step(&TrainStep {
                     step: TrainStepKind::ConflictCheck,
                     status: TrainStepStatus::Completed,
                     workspace: entry.workspace.clone(),
@@ -580,7 +585,7 @@ where
                 });
             }
             Ok(true) => {
-                let _ = self.emit_step(TrainStep {
+                Self::emit_step(&TrainStep {
                     step: TrainStepKind::ConflictCheck,
                     status: TrainStepStatus::Failed,
                     workspace: entry.workspace.clone(),
@@ -611,7 +616,7 @@ where
         }
 
         // Step 3: Freshness check
-        let _ = self.emit_step(TrainStep {
+        Self::emit_step(&TrainStep {
             step: TrainStepKind::FreshnessCheck,
             status: TrainStepStatus::Started,
             workspace: entry.workspace.clone(),
@@ -632,7 +637,7 @@ where
             .await?;
 
         if !is_fresh {
-            let _ = self.emit_step(TrainStep {
+            Self::emit_step(&TrainStep {
                 step: TrainStepKind::FreshnessCheck,
                 status: TrainStepStatus::Failed,
                 workspace: entry.workspace.clone(),
@@ -657,7 +662,7 @@ where
             });
         }
 
-        let _ = self.emit_step(TrainStep {
+        Self::emit_step(&TrainStep {
             step: TrainStepKind::FreshnessCheck,
             status: TrainStepStatus::Completed,
             workspace: entry.workspace.clone(),
@@ -673,7 +678,7 @@ where
 
         // Step 5: Perform merge (if not dry run)
         if self.config.dry_run {
-            let _ = self.emit_step(TrainStep {
+            Self::emit_step(&TrainStep {
                 step: TrainStepKind::Merge,
                 status: TrainStepStatus::Skipped,
                 workspace: entry.workspace.clone(),
@@ -692,7 +697,7 @@ where
             });
         }
 
-        let _ = self.emit_step(TrainStep {
+        Self::emit_step(&TrainStep {
             step: TrainStepKind::Merge,
             status: TrainStepStatus::Started,
             workspace: entry.workspace.clone(),
@@ -711,7 +716,7 @@ where
                     .complete_merge(&entry.workspace, &merged_sha)
                     .await?;
 
-                let _ = self.emit_step(TrainStep {
+                Self::emit_step(&TrainStep {
                     step: TrainStepKind::Merge,
                     status: TrainStepStatus::Completed,
                     workspace: entry.workspace.clone(),
@@ -740,7 +745,7 @@ where
                     )
                     .await;
 
-                let _ = self.emit_step(TrainStep {
+                Self::emit_step(&TrainStep {
                     step: TrainStepKind::Merge,
                     status: TrainStepStatus::Failed,
                     workspace: entry.workspace.clone(),
@@ -778,23 +783,23 @@ where
     async fn update_final_status(&self, entry: &QueueEntry, result: EntryResultKind) -> Result<()> {
         let target_status = match result {
             EntryResultKind::Merged => QueueStatus::Merged,
-            EntryResultKind::TestsFailed => QueueStatus::FailedRetryable,
-            EntryResultKind::Conflicts => QueueStatus::FailedRetryable,
+            EntryResultKind::TestsFailed
+            | EntryResultKind::Conflicts
+            | EntryResultKind::FailedRetryable => QueueStatus::FailedRetryable,
             EntryResultKind::Stale => QueueStatus::Rebasing,
-            EntryResultKind::FailedRetryable => QueueStatus::FailedRetryable,
             EntryResultKind::FailedTerminal => QueueStatus::FailedTerminal,
-            EntryResultKind::Skipped => return Ok(()), // Don't change status
+            EntryResultKind::Skipped => return Ok(()),
             EntryResultKind::Cancelled => QueueStatus::Cancelled,
         };
 
         self.repository
             .transition_to(&entry.workspace, target_status)
-            .await
-            .map(|_| ())
+            .await?;
+        Ok(())
     }
 
     /// Emit a train step event.
-    fn emit_step(&self, step: TrainStep) -> Result<()> {
+    fn emit_step(step: &TrainStep) {
         // In a real implementation, this would emit to an event stream
         // For now, we just log it
         tracing::info!(
@@ -804,7 +809,6 @@ where
             position = step.position,
             "Train step"
         );
-        Ok(())
     }
 
     /// Check if processing should stop based on results.

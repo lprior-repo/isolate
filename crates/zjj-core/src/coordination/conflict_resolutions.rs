@@ -73,10 +73,10 @@ use crate::Result;
 // SCHEMA INITIALIZATION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/// Initialize conflict_resolutions table schema.
+/// Initialize `conflict_resolutions` table schema.
 ///
 /// This function is called during database initialization to create
-/// the conflict_resolutions table and its indexes.
+/// the `conflict_resolutions` table and its indexes.
 ///
 /// # Contract
 ///
@@ -297,7 +297,7 @@ pub async fn insert_conflict_resolution(
         source: e.to_string(),
         constraint: e
             .as_database_error()
-            .and_then(|db| db.code())
+            .and_then(sqlx::error::DatabaseError::code)
             .map(|c| c.to_string()),
         recovery: "Ensure decider is 'ai' or 'human' and all required fields are non-empty"
             .to_string(),
@@ -461,7 +461,7 @@ pub async fn get_resolutions_by_decider(
 /// - `start_time` < `end_time`
 ///
 /// ## Postconditions
-/// - Returns all records with timestamps in [start_time, end_time)
+/// - Returns all records with timestamps in [`start_time`, `end_time`)
 /// - Results ordered by `timestamp` ascending
 /// - Returns empty Vec if no matches (not an error)
 ///
@@ -572,7 +572,7 @@ impl From<ConflictResolutionError> for crate::Error {
             ConflictResolutionError::EmptyFieldError { field } => Self::ValidationError {
                 message: format!("empty required field '{field}'"),
                 field: Some(field),
-                value: Some("".to_string()),
+                value: Some(String::new()),
                 constraints: vec!["non-empty".to_string()],
             },
             ConflictResolutionError::InvalidTimeRangeError {

@@ -1889,6 +1889,7 @@ typo_nested = "invalid""#;
 
         // Test both true and false values
         for bool_val in [true, false] {
+            let bool_str = if bool_val { "true" } else { "false" };
             let content = format!(
                 r#"
 workspace_dir = "../test"
@@ -1897,7 +1898,7 @@ default_template = "standard"
 state_db = ".zjj/state.db"
 
 [watch]
-enabled = {bool_val}
+enabled = {}
 debounce_ms = 100
 paths = [".beads/beads.db"]
 
@@ -1908,7 +1909,7 @@ post_merge = []
 
 [zellij]
 session_prefix = "zjj"
-use_tabs = {bool_val}
+use_tabs = {}
 layout_dir = ".zjj/layouts"
 
 [zellij.panes.main]
@@ -1927,7 +1928,7 @@ args = ["status", "--watch"]
 size = "50%"
 
 [zellij.panes.float]
-enabled = {bool_val}
+enabled = {}
 command = ""
 width = "80%"
 height = "60%"
@@ -1936,25 +1937,41 @@ height = "60%"
 refresh_ms = 1000
 theme = "default"
 columns = ["name", "status", "branch", "changes", "beads"]
-vim_keys = {bool_val}
+vim_keys = {}
 
 [agent]
 command = "claude"
 env = {{}}
 
 [session]
-auto_commit = {bool_val}
+auto_commit = {}
 commit_prefix = "wip:"
-"#
+max_sessions = 100
+
+[recovery]
+policy = "warn"
+log_recovered = true
+auto_recover_corrupted_wal = true
+delete_corrupted_database = false
+
+[conflict_resolution]
+mode = "hybrid"
+autonomy = 80
+security_keywords = ["api-key", "secret", "password"]
+log_resolutions = true
+"#,
+                bool_str, bool_str, bool_str, bool_str, bool_str
             );
             tokio::fs::write(&config_path, &content)
                 .await
                 .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
             let result = load_toml_file(&config_path).await;
+            let err = result.as_ref().err();
             assert!(
                 result.is_ok(),
-                "Valid boolean value {bool_val} should be accepted"
+                "Valid boolean value {bool_val} should be accepted, but got error: {:?}",
+                err
             );
         }
         Ok(())
@@ -2023,8 +2040,19 @@ env = {}
 [session]
 auto_commit = false
 commit_prefix = "wip:"
+max_sessions = 100
 
 [recovery]
+policy = "warn"
+log_recovered = true
+auto_recover_corrupted_wal = true
+delete_corrupted_database = false
+
+[conflict_resolution]
+mode = "hybrid"
+autonomy = 80
+security_keywords = ["api-key", "secret", "password"]
+log_resolutions = true
 "#;
         tokio::fs::write(&config_path, toml_content)
             .await

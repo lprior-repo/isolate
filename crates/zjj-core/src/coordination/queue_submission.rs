@@ -7,11 +7,22 @@
 //! # Graphite-Style Merge Queue Semantics
 //!
 //! 1. **Sequential Processing:** Entries are processed one at a time in priority order
-//! 2. **Deduplication:** Prevents duplicate work using stable identifiers (change_id)
+//! 2. **Deduplication:** Prevents duplicate work using stable identifiers (`change_id`)
 //! 3. **Idempotent Submission:** Multiple submissions of the same session update the existing entry
 //! 4. **Priority-Based Ordering:** Higher priority entries are processed first
 //! 5. **State Machine:** Entries progress through a well-defined lifecycle
 //! 6. **Terminal State Handling:** Terminal entries can be resubmitted by resetting to pending
+
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+// Long functions are intentional for submission workflow coherence
+#![allow(clippy::too_many_lines)]
+// Helper functions have self-evident error conditions
+#![allow(clippy::missing_errors_doc)]
 
 use std::path::Path;
 
@@ -51,7 +62,7 @@ pub enum QueueSubmissionError {
     InvalidDedupeKey { dedupe_key: String, reason: String },
 
     // === Queue State Errors ===
-    /// Session is already in queue with different dedupe_key
+    /// Session is already in queue with different `dedupe_key`
     #[error("session '{session}' already in queue with existing dedupe_key '{existing_dedupe_key}', provided '{provided_dedupe_key}'")]
     AlreadyInQueue {
         session: String,
@@ -59,7 +70,7 @@ pub enum QueueSubmissionError {
         provided_dedupe_key: String,
     },
 
-    /// Active entry with same dedupe_key exists for different workspace
+    /// Active entry with same `dedupe_key` exists for different workspace
     #[error("dedupe key '{dedupe_key}' conflict: existing workspace '{existing_workspace}', provided workspace '{provided_workspace}'")]
     DedupeKeyConflict {
         dedupe_key: String,
@@ -96,11 +107,11 @@ pub enum QueueSubmissionError {
     #[error("failed to extract identity from workspace '{workspace}': {reason}")]
     IdentityExtractionFailed { workspace: String, reason: String },
 
-    /// Failed to get change_id from jj
+    /// Failed to get `change_id` from jj
     #[error("failed to extract change_id from workspace '{workspace}': {reason}")]
     ChangeIdExtractionFailed { workspace: String, reason: String },
 
-    /// Failed to get head_sha from jj
+    /// Failed to get `head_sha` from jj
     #[error("failed to extract head_sha from workspace '{workspace}': {reason}")]
     HeadShaExtractionFailed { workspace: String, reason: String },
 
@@ -170,13 +181,13 @@ pub struct QueueSubmissionRequest {
     /// Agent ID submitting the request
     pub agent_id: Option<String>,
 
-    /// Deduplication key (format: "workspace:change_id")
+    /// Deduplication key (format: "`workspace:change_id`")
     pub dedupe_key: String,
 
     /// Current HEAD SHA of the workspace
     pub head_sha: String,
 
-    /// Optional dedupe_key for the tested_against_sha
+    /// Optional `dedupe_key` for the `tested_against_sha`
     pub tested_against_sha: Option<String>,
 }
 
@@ -189,7 +200,7 @@ pub struct QueueSubmissionRequest {
 pub enum SubmissionType {
     /// New entry created
     New,
-    /// Existing entry updated (same dedupe_key and workspace)
+    /// Existing entry updated (same `dedupe_key` and workspace)
     Updated,
     /// Terminal entry reset to pending
     Resubmitted,
@@ -265,14 +276,14 @@ pub struct WorkspaceIdentity {
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Compute deduplication key from change_id and workspace.
+/// Compute deduplication key from `change_id` and workspace.
 ///
 /// # Preconditions
-/// - change_id must be non-empty
+/// - `change_id` must be non-empty
 /// - workspace must be non-empty
 ///
 /// # Postconditions
-/// - Returns formatted dedupe_key: "workspace:change_id"
+/// - Returns formatted `dedupe_key`: "`workspace:change_id`"
 /// - Same inputs always produce same output
 #[must_use]
 pub fn compute_dedupe_key(change_id: &str, workspace: &str) -> String {
@@ -287,7 +298,7 @@ pub fn compute_dedupe_key(change_id: &str, workspace: &str) -> String {
 /// # Postconditions
 /// - Returns true if workspace is valid
 /// - Returns detailed error if validation fails
-pub async fn validate_workspace(
+pub fn validate_workspace(
     workspace: &str,
     _db_path: &Path,
 ) -> std::result::Result<bool, QueueSubmissionError> {
@@ -324,8 +335,8 @@ pub async fn validate_workspace(
 /// - Workspace must exist
 ///
 /// # Postconditions
-/// - Returns change_id (stable across rebases)
-/// - Returns head_sha (current commit)
+/// - Returns `change_id` (stable across rebases)
+/// - Returns `head_sha` (current commit)
 /// - Returns bookmark name
 pub async fn extract_workspace_identity(
     workspace_path: &Path,
@@ -523,7 +534,7 @@ pub async fn get_queue_position(
             details: e.to_string(),
         })?
         .ok_or_else(|| QueueSubmissionError::SessionNotFound {
-            session: format!("entry_id {}", entry_id),
+            session: format!("entry_id {entry_id}"),
         })?;
 
     // Only pending entries have a position
@@ -586,25 +597,25 @@ pub async fn is_in_queue(
 /// - Workspace must have a valid bookmark
 /// - Remote must be reachable (bookmark push verified)
 /// - Head SHA must be valid
-/// - Dedupe_key must be unique among active entries
+/// - `Dedupe_key` must be unique among active entries
 ///
 /// # Postconditions
-/// - Entry exists in merge_queue table
+/// - Entry exists in `merge_queue` table
 /// - Entry has unique ID
 /// - Entry status is 'pending' (or updated from previous state)
 /// - Position is assigned if status is 'pending'
-/// - Dedupe_key is set and enforced
+/// - `Dedupe_key` is set and enforced
 /// - Event audit trail is updated
 ///
 /// # Errors
-/// - Returns QueueSubmissionError for any validation or database failure
+/// - Returns `QueueSubmissionError` for any validation or database failure
 pub async fn submit_to_queue(
     request: QueueSubmissionRequest,
     db_path: &Path,
     _workspace_path: &Path,
 ) -> std::result::Result<QueueSubmissionResponse, QueueSubmissionError> {
     // Validate workspace
-    validate_workspace(&request.workspace, db_path).await?;
+    validate_workspace(&request.workspace, db_path)?;
 
     // Validate head_sha format (basic check)
     if request.head_sha.len() < 4 {
@@ -734,6 +745,8 @@ pub async fn submit_to_queue(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
     use super::*;
 
     // ────────────────────────────────────────────────────────────────────────
@@ -752,7 +765,7 @@ mod tests {
     #[test]
     fn test_invalid_workspace_name_error() {
         let err = QueueSubmissionError::InvalidWorkspaceName {
-            workspace: "".to_string(),
+            workspace: String::new(),
             reason: "cannot be empty".to_string(),
         };
         assert!(err.to_string().contains("invalid workspace name"));

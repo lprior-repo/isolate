@@ -1124,7 +1124,7 @@ impl OutputLine {
     }
 }
 
-/// Session state for output (mirrors SessionStatus for JSON output)
+/// Session state for output (mirrors `SessionStatus` for JSON output)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionState {

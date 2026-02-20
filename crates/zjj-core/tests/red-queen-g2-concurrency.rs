@@ -2,14 +2,23 @@
 // Target: bd-1lx merge queue submission
 // Attack vector: Concurrent submissions, state transitions, database locks
 
+// Integration tests have relaxed clippy settings for test infrastructure.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::manual_string_new,
+    clippy::redundant_clone,
+    clippy::clone_on_copy
+)]
+
 use std::time::Duration;
 
 use tempfile::TempDir;
 use tokio::time::sleep;
 use zjj_core::coordination::queue_submission::{
-    submit_to_queue,
-    QueueSubmissionError::{self, *},
-    QueueSubmissionRequest,
+    submit_to_queue, QueueSubmissionError::*, QueueSubmissionRequest,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

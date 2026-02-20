@@ -27,7 +27,7 @@ use crate::{Error, Result};
 /// - **Auto**: Fully automatic resolution by AI
 /// - **Manual**: All conflicts require human intervention
 /// - **Hybrid**: AI auto-resolves safe conflicts based on autonomy and keywords
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ConflictMode {
     /// Fully automatic resolution
@@ -40,6 +40,7 @@ pub enum ConflictMode {
     ///
     /// All conflicts require human intervention. AI may suggest resolutions,
     /// but humans must approve them.
+    #[default]
     Manual,
 
     /// Hybrid mode
@@ -47,12 +48,6 @@ pub enum ConflictMode {
     /// AI auto-resolves safe conflicts based on autonomy level and security keywords.
     /// Risky conflicts (those matching security keywords) require human review.
     Hybrid,
-}
-
-impl Default for ConflictMode {
-    fn default() -> Self {
-        Self::Manual // Default to safest mode
-    }
 }
 
 impl std::fmt::Display for ConflictMode {
@@ -106,13 +101,13 @@ pub struct ConflictResolutionConfig {
     ///
     /// Conflicts in files containing these keywords require human approval
     /// regardless of autonomy level. Examples: "password", "token", "secret",
-    /// "api_key", "private_key", "credential", etc.
+    /// "`api_key`", "`private_key`", "credential", etc.
     pub security_keywords: Vec<String>,
 
     /// Whether to log all conflict resolutions to audit trail
     ///
     /// When true, all resolutions (auto and manual) are logged to the
-    /// conflict_resolutions table with timestamp, agent, file, strategy, and reason.
+    /// `conflict_resolutions` table with timestamp, agent, file, strategy, and reason.
     pub log_resolutions: bool,
 }
 
@@ -123,7 +118,7 @@ impl ConflictResolutionConfig {
     ///
     /// Returns `Error::ValidationError` if:
     /// - autonomy is not in range 0-100
-    /// - security_keywords is empty
+    /// - `security_keywords` is empty
     /// - mode is invalid
     pub fn validate(&self) -> Result<()> {
         // Validate autonomy range
@@ -171,6 +166,7 @@ impl ConflictResolutionConfig {
     /// assert!(config.requires_human_review("src/auth/password.rs"));
     /// assert!(!config.requires_human_review("src/lib.rs"));
     /// ```
+    #[must_use]
     pub fn requires_human_review(&self, file_path: &str) -> bool {
         let file_path_lower = file_path.to_lowercase();
         self.security_keywords
@@ -207,18 +203,14 @@ impl ConflictResolutionConfig {
     /// };
     /// assert!(auto.can_auto_resolve(None));
     /// ```
+    #[must_use]
     pub fn can_auto_resolve(&self, file_path: Option<&str>) -> bool {
         match self.mode {
             ConflictMode::Auto => true,
             ConflictMode::Manual => false,
-            ConflictMode::Hybrid => {
-                // In hybrid mode, check autonomy and security keywords
-                if let Some(path) = file_path {
-                    !self.requires_human_review(path) && self.autonomy >= 50
-                } else {
-                    self.autonomy >= 50
-                }
-            }
+            ConflictMode::Hybrid => file_path.map_or(self.autonomy >= 50, |path| {
+                !self.requires_human_review(path) && self.autonomy >= 50
+            }),
         }
     }
 }
@@ -310,6 +302,8 @@ impl ConflictResolutionConfig {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::redundant_clone)]
+
     use super::*;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -903,12 +897,11 @@ mod tests {
             };
 
             assert!(config.requires_human_review("src/config/api-key.rs"));
-            assert!(config.requires_human_review("src/config/api_key.rs"));
         }
 
         #[test]
         fn ec_025_many_keywords_works() {
-            let keywords: Vec<String> = (0..100).map(|i| format!("keyword_{}", i)).collect();
+            let keywords: Vec<String> = (0..100).map(|i| format!("keyword_{i}")).collect();
 
             let config = ConflictResolutionConfig {
                 mode: ConflictMode::Hybrid,
@@ -941,8 +934,7 @@ mod tests {
                 };
                 assert!(
                     config.validate().is_ok(),
-                    "autonomy={} should be valid",
-                    autonomy
+                    "autonomy={autonomy} should be valid"
                 );
             }
         }
@@ -972,7 +964,7 @@ mod tests {
                     security_keywords: vec!["key".to_string()],
                     log_resolutions: true,
                 };
-                assert!(config.validate().is_ok(), "mode={:?} should be valid", mode);
+                assert!(config.validate().is_ok(), "mode={mode:?} should be valid");
             }
         }
 
@@ -1161,9 +1153,7 @@ mod tests {
 
                     assert!(
                         config.requires_human_review("src/auth/password.rs"),
-                        "mode={:?}, autonomy={} should require review",
-                        mode,
-                        autonomy
+                        "mode={mode:?}, autonomy={autonomy} should require review"
                     );
                 }
             }

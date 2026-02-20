@@ -2,13 +2,20 @@
 // Target: bd-1lx merge queue submission
 // Attack vector: Deduplication key enforcement
 
-use std::path::PathBuf;
+// Integration tests have relaxed clippy settings for test infrastructure.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::manual_string_new,
+    clippy::redundant_clone,
+    clippy::clone_on_copy
+)]
 
 use tempfile::TempDir;
 use zjj_core::coordination::queue_submission::{
-    submit_to_queue,
-    QueueSubmissionError::{self, *},
-    QueueSubmissionRequest,
+    submit_to_queue, QueueSubmissionError::*, QueueSubmissionRequest,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,7 +98,7 @@ async fn rq_g1_dedup_002_empty_dedupe_key() {
 
     let result = submit_to_queue(req, &db_path, ws_path).await;
     match result {
-        Err(InvalidDedupeKey { dedupe_key, reason }) => {
+        Err(InvalidDedupeKey { dedupe_key, .. }) => {
             assert_eq!(dedupe_key, "");
             // ✅ PROMISE UPHELD
         }

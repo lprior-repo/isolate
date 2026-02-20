@@ -171,6 +171,8 @@ async fn get_beads_count() -> Result<BeadCounts> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
     use tempfile::TempDir;
 
     use super::*;

@@ -8,7 +8,8 @@
     clippy::too_many_arguments,
     clippy::uninlined_format_args,
     clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap
+    clippy::cast_possible_wrap,
+    clippy::doc_markdown
 )]
 
 //! End-to-end tests for conflict analysis and resolution (bd-1c4)
