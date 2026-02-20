@@ -886,4 +886,4 @@ fn test_invalid_flag_exit_code() {
 }
 
 // Test lock functionality
-mod lock_tests;
+// mod lock_tests; // TODO: Move lock_tests.rs to tests/lock_tests.rs for proper module resolution

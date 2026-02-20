@@ -717,24 +717,25 @@ impl ConflictDetectionResult {
         let conflicts: Vec<ConflictDetail> = self
             .existing_conflicts
             .iter()
-            .map(|file| ConflictDetail::existing(file.clone()))
+            .map(|file| ConflictDetail::existing(file.as_str()))
             .chain(
                 self.overlapping_files
                     .iter()
-                    .map(|file| ConflictDetail::overlapping(file.clone())),
+                    .map(|file| ConflictDetail::overlapping(file.as_str())),
             )
             .collect();
 
         ConflictAnalysis {
+            type_field: "conflict_analysis".to_string(),
             session: session.to_string(),
             merge_safe: self.merge_likely_safe,
             total_conflicts: conflicts.len(),
-            existing_conflicts: self.existing_conflicts.clone(),
-            overlapping_files: self.overlapping_files.clone(),
+            existing_conflicts: self.existing_conflicts.len(),
+            overlapping_files: self.overlapping_files.len(),
             conflicts,
             merge_base: self.merge_base.clone(),
-            timestamp: chrono::Utc::now().to_rfc3339(),
-            analysis_time_ms: self.detection_time_ms,
+            timestamp: chrono::Utc::now(),
+            analysis_time_ms: Some(self.detection_time_ms),
         }
     }
 
@@ -751,7 +752,7 @@ impl ConflictDetectionResult {
     /// Returns error if writing to stdout fails
     pub fn emit_jsonl(&self, session: &str) -> Result<(), ConflictError> {
         let output_line = self.to_output_line(session);
-        zjj_core::output::emit(&output_line)
+        zjj_core::output::emit_stdout(&output_line)
             .map_err(|e| ConflictError::InvalidOutput(e.to_string()))
     }
 }
@@ -767,21 +768,6 @@ pub fn emit_conflict_details_jsonl(
     result: &ConflictDetectionResult,
     session: &str,
 ) -> Result<(), ConflictError> {
-    // Emit each existing conflict
-    for file in &result.existing_conflicts {
-        let detail = ConflictDetail::existing(file.clone());
-        let line = OutputLine::ConflictDetail(detail);
-        zjj_core::output::emit(&line).map_err(|e| ConflictError::InvalidOutput(e.to_string()))?;
-    }
-
-    // Emit each overlapping file conflict
-    for file in &result.overlapping_files {
-        let detail = ConflictDetail::overlapping(file.clone());
-        let line = OutputLine::ConflictDetail(detail);
-        zjj_core::output::emit(&line).map_err(|e| ConflictError::InvalidOutput(e.to_string()))?;
-    }
-
-    // Emit the full analysis as the final line
     result.emit_jsonl(session)
 }
 
@@ -864,11 +850,10 @@ mod jsonl_tests {
         assert_eq!(analysis.session, "test-session");
         assert!(!analysis.merge_safe);
         assert_eq!(analysis.total_conflicts, 2);
-        assert_eq!(analysis.existing_conflicts, vec!["src/existing.rs"]);
-        assert_eq!(analysis.overlapping_files, vec!["src/overlap.rs"]);
+        assert_eq!(analysis.existing_conflicts, 1);
+        assert_eq!(analysis.overlapping_files, 1);
         assert_eq!(analysis.merge_base, Some("abc123".to_string()));
-        assert!(analysis.timestamp.contains('T')); // ISO 8601 format
-        assert_eq!(analysis.analysis_time_ms, 50);
+        assert_eq!(analysis.analysis_time_ms, Some(50));
     }
 
     #[test]
@@ -890,7 +875,7 @@ mod jsonl_tests {
         let json = serde_json::to_string(&line);
         assert!(json.is_ok());
         let json = json.unwrap();
-        assert!(json.contains(r#""type":"conflictanalysis"#));
+        assert!(json.contains(r#""conflict_analysis""#));
         assert!(json.contains(r#""merge_safe":true"#));
         assert!(json.contains(r#""total_conflicts":0"#));
     }

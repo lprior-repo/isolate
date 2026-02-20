@@ -108,7 +108,7 @@ use crate::Result;
 pub async fn init_conflict_resolutions_schema(pool: &SqlitePool) -> Result<()> {
     // Create conflict_resolutions table
     let create_table = sqlx::query(
-        r#"
+        r"
         CREATE TABLE IF NOT EXISTS conflict_resolutions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
@@ -119,7 +119,7 @@ pub async fn init_conflict_resolutions_schema(pool: &SqlitePool) -> Result<()> {
             confidence TEXT,
             decider TEXT NOT NULL CHECK(decider IN ('ai', 'human'))
         )
-        "#,
+        ",
     )
     .execute(pool)
     .await
@@ -277,11 +277,11 @@ pub async fn insert_conflict_resolution(
 
     // Insert record
     let result = sqlx::query(
-        r#"
+        r"
         INSERT INTO conflict_resolutions (
             timestamp, session, file, strategy, reason, confidence, decider
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        "#,
+        ",
     )
     .bind(&resolution.timestamp)
     .bind(&resolution.session)

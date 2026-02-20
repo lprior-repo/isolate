@@ -1,7 +1,7 @@
 //! List all sessions - JSONL output for AI-first control plane
 //!
 //! This command emits structured JSONL output where each line is a valid JSON object.
-//! Each session is emitted as a `Session` line, followed by a `Context` line at the end.
+//! Each session is emitted as a `Session` line, followed by a `Summary` line at the end.
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -10,13 +10,11 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::{path::Path, str::FromStr};
+use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Result;
 use zjj_core::{
-    output::{
-        emit, Context, OutputLine, Session as OutputSession, SessionState as OutputSessionState,
-    },
+    output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType},
     OutputFormat, WorkspaceStateFilter,
 };
 
@@ -26,6 +24,17 @@ use crate::{
     commands::get_session_db,
     session::{Session, SessionStatus},
 };
+
+/// Convert local SessionStatus to core SessionStatus
+fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus {
+    match status {
+        SessionStatus::Active => zjj_core::types::SessionStatus::Active,
+        SessionStatus::Paused => zjj_core::types::SessionStatus::Paused,
+        SessionStatus::Completed => zjj_core::types::SessionStatus::Completed,
+        SessionStatus::Failed => zjj_core::types::SessionStatus::Failed,
+        SessionStatus::Creating => zjj_core::types::SessionStatus::Creating,
+    }
+}
 
 /// Beads issue counts
 #[derive(Debug, Clone, Default)]
@@ -41,32 +50,12 @@ impl std::fmt::Display for BeadCounts {
     }
 }
 
-/// Convert database SessionStatus to output SessionState
-fn to_output_state(status: &SessionStatus) -> OutputSessionState {
-    match status {
-        SessionStatus::Active => OutputSessionState::Active,
-        SessionStatus::Paused => OutputSessionState::Paused,
-        SessionStatus::Completed => OutputSessionState::Completed,
-        SessionStatus::Failed => OutputSessionState::Failed,
-        SessionStatus::Creating => OutputSessionState::Creating,
-    }
-}
-
-/// Calculate age in days from timestamp
-fn calculate_age_days(created_at: u64) -> u64 {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    let age_secs = now.saturating_sub(created_at);
-    age_secs / 86_400 // seconds per day
-}
-
 /// Run the list command
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     all: bool,
     _verbose: bool, // Kept for API compatibility, but not used in JSONL-only mode
-    format: OutputFormat,
+    _format: OutputFormat, // Kept for API compatibility, not used in JSONL-only mode
     bead: Option<&str>,
     agent: Option<&str>,
     state: Option<&str>,
@@ -117,85 +106,35 @@ pub async fn run(
 
     // Emit each session as a Session output line
     for session in &sessions {
-        let changes = get_session_changes(&session.workspace_path).await;
-        let age_days = calculate_age_days(session.created_at);
+        let workspace_path: PathBuf = session.workspace_path.clone().into();
 
-        // Determine suggested action based on session state
-        let action = determine_suggested_action(session);
+        let output_session = SessionOutput::new(
+            session.name.clone(),
+            to_core_status(session.status),
+            session.state,
+            workspace_path,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        // Get owner from metadata
-        let owned_by = session
-            .metadata
-            .as_ref()
-            .and_then(|m| m.get("owner"))
-            .and_then(|v| v.as_str())
-            .map(String::from);
-
-        // Get bead_id from metadata
-        let bead_id = session
-            .metadata
-            .as_ref()
-            .and_then(|m| m.get("bead_id"))
-            .and_then(|v| v.as_str())
-            .map(String::from);
-
-        let output_session = OutputSession {
-            name: session.name.clone(),
-            state: to_output_state(&session.status),
-            age_days,
-            owned_by,
-            action,
-            branch: session.branch.clone(),
-            changes,
-            workspace_path: Some(session.workspace_path.clone()),
-            bead_id,
+        let output_session = if let Some(branch) = &session.branch {
+            output_session.with_branch(branch.clone())
+        } else {
+            output_session
         };
 
-        emit(&OutputLine::Session(output_session))?;
+        emit_stdout(&OutputLine::Session(output_session))?;
     }
 
-    // Emit Context line last (always)
-    let context_text = format!(
+    // Emit Summary line last (always)
+    let summary_text = format!(
         "Listed {} session(s), beads: {}/{}/{}",
         session_count, beads_count.open, beads_count.in_progress, beads_count.blocked
     );
-    emit(&OutputLine::Context(Context {
-        text: context_text,
-        for_human: !format.is_json(),
-    }))?;
+    let summary =
+        Summary::new(SummaryType::Count, summary_text).map_err(|e| anyhow::anyhow!("{e}"))?;
+    emit_stdout(&OutputLine::Summary(summary))?;
 
     Ok(())
-}
-
-/// Determine suggested action for a session
-fn determine_suggested_action(session: &Session) -> Option<String> {
-    match session.status {
-        SessionStatus::Active => match session.state {
-            zjj_core::WorkspaceState::Conflict => Some("resolve".to_string()),
-            zjj_core::WorkspaceState::Ready => Some("merge".to_string()),
-            _ => None,
-        },
-        SessionStatus::Paused => Some("resume".to_string()),
-        SessionStatus::Creating => Some("wait".to_string()),
-        SessionStatus::Completed | SessionStatus::Failed => None,
-    }
-}
-
-/// Get the number of changes in a workspace
-async fn get_session_changes(workspace_path: &str) -> Option<usize> {
-    let path = Path::new(workspace_path);
-
-    // Check if workspace exists
-    match tokio::fs::try_exists(path).await {
-        Ok(true) => {
-            // Try to get status from JJ
-            zjj_core::jj::workspace_status(path)
-                .await
-                .ok()
-                .map(|status| status.change_count())
-        }
-        _ => None,
-    }
 }
 
 /// Get beads count from the repository's beads database
@@ -233,7 +172,6 @@ async fn get_beads_count() -> Result<BeadCounts> {
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
-    use zjj_core::WorkspaceState;
 
     use super::*;
     use crate::db::SessionDb;
@@ -261,79 +199,6 @@ mod tests {
         assert_eq!(counts.open, 0);
         assert_eq!(counts.in_progress, 0);
         assert_eq!(counts.blocked, 0);
-    }
-
-    #[tokio::test]
-    async fn test_get_session_changes_missing_workspace() {
-        let result = get_session_changes("/nonexistent/path").await;
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_to_output_state_mapping() {
-        assert_eq!(
-            to_output_state(&SessionStatus::Active),
-            OutputSessionState::Active
-        );
-        assert_eq!(
-            to_output_state(&SessionStatus::Paused),
-            OutputSessionState::Paused
-        );
-        assert_eq!(
-            to_output_state(&SessionStatus::Completed),
-            OutputSessionState::Completed
-        );
-        assert_eq!(
-            to_output_state(&SessionStatus::Failed),
-            OutputSessionState::Failed
-        );
-        assert_eq!(
-            to_output_state(&SessionStatus::Creating),
-            OutputSessionState::Creating
-        );
-    }
-
-    #[tokio::test]
-    async fn test_determine_suggested_action() {
-        let mut session = Session {
-            id: Some(1),
-            name: "test".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "zjj:test".to_string(),
-            branch: None,
-            created_at: 1_234_567_890,
-            updated_at: 1_234_567_890,
-            last_synced: None,
-            metadata: None,
-            parent_session: None,
-            queue_status: None,
-        };
-
-        // Active with no issues - no action
-        assert_eq!(determine_suggested_action(&session), None);
-
-        // Active with conflict - resolve
-        session.state = WorkspaceState::Conflict;
-        assert_eq!(
-            determine_suggested_action(&session),
-            Some("resolve".to_string())
-        );
-
-        // Active with ready - merge
-        session.state = WorkspaceState::Ready;
-        assert_eq!(
-            determine_suggested_action(&session),
-            Some("merge".to_string())
-        );
-
-        // Paused - resume
-        session.status = SessionStatus::Paused;
-        assert_eq!(
-            determine_suggested_action(&session),
-            Some("resume".to_string())
-        );
     }
 
     #[tokio::test]
@@ -439,7 +304,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_beads_count_no_repo() {
-        // When not in a repo or no beads db, should return default
         let counts = BeadCounts::default();
         assert_eq!(counts.open, 0);
         assert_eq!(counts.in_progress, 0);
@@ -448,39 +312,33 @@ mod tests {
 
     #[test]
     fn test_output_line_session_serializes_with_type() {
-        let session = OutputSession {
-            name: "test-session".to_string(),
-            state: OutputSessionState::Active,
-            age_days: 5,
-            owned_by: None,
-            action: None,
-            branch: Some("feature".to_string()),
-            changes: Some(3),
-            workspace_path: Some("/tmp/test".to_string()),
-            bead_id: None,
-        };
+        let session = SessionOutput::new(
+            "test-session".to_string(),
+            zjj_core::types::SessionStatus::Active,
+            zjj_core::WorkspaceState::Ready,
+            PathBuf::from("/tmp/test"),
+        )
+        .expect("session should be valid");
+        let session = session.with_branch("feature".to_string());
         let line = OutputLine::Session(session);
         let json = serde_json::to_string(&line);
         assert!(json.is_ok());
         let json = json.unwrap();
-        assert!(json.contains(r#""type":"session"#));
+        assert!(json.contains(r#""session""#));
         assert!(json.contains(r#""name":"test-session"#));
-        assert!(json.contains(r#""state":"active"#));
-        assert!(json.contains(r#""age_days":5"#));
+        assert!(json.contains(r#""status":"active"#));
+        assert!(json.contains(r#""state":"ready"#));
     }
 
     #[test]
-    fn test_output_line_context_serializes_with_type() {
-        let context = Context {
-            text: "Listed 5 session(s)".to_string(),
-            for_human: true,
-        };
-        let line = OutputLine::Context(context);
+    fn test_output_line_summary_serializes_with_type() {
+        let summary = Summary::new(SummaryType::Count, "Listed 5 session(s)".to_string())
+            .expect("summary should be valid");
+        let line = OutputLine::Summary(summary);
         let json = serde_json::to_string(&line);
         assert!(json.is_ok());
         let json = json.unwrap();
-        assert!(json.contains(r#""type":"context"#));
-        assert!(json.contains(r#""text":"Listed 5 session(s)"#));
-        assert!(json.contains(r#""for_human":true"#));
+        assert!(json.contains(r#""summary""#));
+        assert!(json.contains(r#""message":"Listed 5 session(s)"#));
     }
 }

@@ -55,6 +55,7 @@ pub enum OutputLine {
     QueueEntry(QueueEntry),
     Train(Train),
     ConflictDetail(ConflictAnalysis),
+    ConflictAnalysis(ConflictAnalysis),
 }
 
 impl OutputLine {
@@ -73,6 +74,7 @@ impl OutputLine {
             Self::QueueEntry(_) => "queue_entry",
             Self::Train(_) => "train",
             Self::ConflictDetail(_) => "conflictdetail",
+            Self::ConflictAnalysis(_) => "conflict_analysis",
         }
     }
 }
@@ -890,6 +892,8 @@ pub enum ConflictType {
     DeleteModify,
     /// File renamed on one branch, modified on other
     RenameModify,
+    /// Binary file conflict
+    Binary,
 }
 
 /// Strategy for resolving a conflict
@@ -1081,6 +1085,10 @@ pub struct ConflictAnalysis {
     pub conflicts: Vec<ConflictDetail>,
     pub existing_conflicts: usize,
     pub overlapping_files: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis_time_ms: Option<u64>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub timestamp: DateTime<Utc>,
 }
@@ -1109,6 +1117,8 @@ impl OutputLine {
             conflicts,
             existing_conflicts,
             overlapping_files,
+            merge_base: None,
+            analysis_time_ms: None,
             timestamp: Utc::now(),
         })
     }
