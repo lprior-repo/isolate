@@ -104,9 +104,10 @@ impl RebaseSuccess {
 /// 1. Transitions the queue entry to 'rebasing' status
 /// 2. Fetches the latest main branch
 /// 3. Rebases the workspace onto main
-/// 4. On success: persists rebase metadata (head_sha, tested_against_sha, rebase_count, timestamp)
-///    and emits an audit event, then transitions to 'testing'
-/// 5. On conflict: increments rebase_count, emits failure event, transitions to `failed_retryable`
+/// 4. On success: persists rebase metadata (`head_sha`, `tested_against_sha`, `rebase_count`,
+///    timestamp) and emits an audit event, then transitions to 'testing'
+/// 5. On conflict: increments `rebase_count`, emits failure event, transitions to
+///    `failed_retryable`
 ///
 /// # Arguments
 /// * `queue` - The merge queue to update
@@ -260,11 +261,9 @@ async fn transition_to_rebasing(
 }
 
 /// Get the jj binary path from environment or use default.
+#[allow(clippy::unnecessary_result_map_or_else)]
 fn jj_bin_path() -> String {
-    match std::env::var("ZJJ_JJ_PATH") {
-        Ok(path) => path,
-        Err(_) => "jj".to_string(),
-    }
+    std::env::var("ZJJ_JJ_PATH").map_or_else(|_| "jj".to_string(), |path| path)
 }
 
 /// Fetch the latest main branch from remote.
@@ -392,6 +391,7 @@ fn is_conflict_error(stderr: &str) -> bool {
 ///
 /// This is a best-effort operation that logs failures but does not propagate errors.
 /// Events are for audit trail purposes and are not critical path.
+#[allow(clippy::too_many_arguments)]
 async fn record_rebase_event(
     queue: &MergeQueue,
     queue_id: i64,
@@ -635,11 +635,9 @@ async fn validate_testing_state(
 }
 
 /// Get the moon binary path from environment or use default.
+#[allow(clippy::unnecessary_result_map_or_else)]
 fn moon_bin_path() -> String {
-    match std::env::var("ZJJ_MOON_PATH") {
-        Ok(path) => path,
-        Err(_) => "moon".to_string(),
-    }
+    std::env::var("ZJJ_MOON_PATH").map_or_else(|_| "moon".to_string(), |path| path)
 }
 
 /// Execute the moon gate command and capture output.
@@ -660,11 +658,8 @@ async fn execute_moon_gate(
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    // Use pattern matching to handle None case for exit code
-    let exit_code = match output.status.code() {
-        Some(code) => code,
-        None => -1,
-    };
+    // Use map_or to handle None case for exit code
+    let exit_code = output.status.code().map_or(-1, |code| code);
 
     if !output.status.success() {
         let error_msg = if stderr.is_empty() {

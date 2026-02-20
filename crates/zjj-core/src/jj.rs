@@ -847,7 +847,7 @@ mod tests {
         // Cleanup should remove the temporary directory regardless of JJ result.
         let exists_after_cleanup = tokio::fs::try_exists(&temp_dir)
             .await
-            .map_or_else(|_| true, |exists| exists);
+            .map_or(true, |exists| exists);
         assert!(!exists_after_cleanup);
 
         // Cleanup result is environment-dependent:

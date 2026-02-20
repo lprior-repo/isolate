@@ -1709,6 +1709,7 @@ async fn check_schema_version(pool: &SqlitePool) -> Result<()> {
 ///
 /// Returns error if database operation fails (except UNIQUE constraint which
 /// is handled by returning Ok(None)).
+#[allow(clippy::too_many_arguments)]
 async fn insert_session(
     pool: &SqlitePool,
     name: &str,
@@ -1865,7 +1866,7 @@ async fn rollback_best_effort(conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite
 /// Query a session by name
 async fn query_session_by_name(pool: &SqlitePool, name: &str) -> Result<Option<Session>> {
     sqlx::query(
-        "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session
+        "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session, queue_status
          FROM sessions WHERE name = ?"
     )
     .bind(name)
@@ -1883,7 +1884,7 @@ async fn query_sessions(
     let rows = match status_filter {
         Some(status) => {
             sqlx::query(
-                "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session
+                "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session, queue_status
                  FROM sessions WHERE status = ? ORDER BY created_at"
             )
             .bind(status.to_string())
@@ -1892,7 +1893,7 @@ async fn query_sessions(
         }
         None => {
             sqlx::query(
-                "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session
+                "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session, queue_status
                  FROM sessions ORDER BY created_at"
             )
             .fetch_all(pool)

@@ -78,6 +78,7 @@ pub fn cmd_attach() -> ClapCommand {
         )
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn cmd_add() -> ClapCommand {
     ClapCommand::new("add")
         .about("Create session for manual work (JJ workspace + Zellij tab)")

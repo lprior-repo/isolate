@@ -2,11 +2,20 @@
 // Target: bd-1lx merge queue submission
 // Attack vector: State transitions, boundary values, invariants
 
+// Integration tests have relaxed clippy settings for test infrastructure.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::manual_string_new,
+    clippy::redundant_clone,
+    clippy::clone_on_copy
+)]
+
 use tempfile::TempDir;
 use zjj_core::coordination::queue_submission::{
-    submit_to_queue,
-    QueueSubmissionError::{self, *},
-    QueueSubmissionRequest,
+    submit_to_queue, QueueSubmissionError::*, QueueSubmissionRequest,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -17,7 +26,7 @@ use zjj_core::coordination::queue_submission::{
 #[tokio::test]
 async fn rq_g3_state_001_resubmit_merged_entry() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req1 = QueueSubmissionRequest {
@@ -83,7 +92,7 @@ async fn rq_g3_state_001_resubmit_merged_entry() {
 #[tokio::test]
 async fn rq_g3_state_002_resubmit_failed_entry() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -136,7 +145,7 @@ async fn rq_g3_state_002_resubmit_failed_entry() {
 #[tokio::test]
 async fn rq_g3_state_003_update_claimed_entry() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -192,7 +201,7 @@ async fn rq_g3_state_003_update_claimed_entry() {
 #[tokio::test]
 async fn rq_g3_edge_001_very_long_workspace_name() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let long_name = "a".repeat(1000);
@@ -229,7 +238,7 @@ async fn rq_g3_edge_001_very_long_workspace_name() {
 #[tokio::test]
 async fn rq_g3_edge_002_negative_priority() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -262,7 +271,7 @@ async fn rq_g3_edge_002_negative_priority() {
 #[tokio::test]
 async fn rq_g3_edge_003_max_priority() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -288,7 +297,7 @@ async fn rq_g3_edge_003_max_priority() {
 #[tokio::test]
 async fn rq_g3_edge_004_empty_head_sha() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -323,7 +332,7 @@ async fn rq_g3_edge_004_empty_head_sha() {
 #[tokio::test]
 async fn rq_g3_edge_005_short_head_sha() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -358,7 +367,7 @@ async fn rq_g3_edge_005_short_head_sha() {
 #[tokio::test]
 async fn rq_g3_edge_006_unicode_workspace_name() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {
@@ -393,7 +402,7 @@ async fn rq_g3_edge_006_unicode_workspace_name() {
 #[tokio::test]
 async fn rq_g3_edge_007_path_traversal_workspace_name() {
     let temp = TempDir::new().unwrap();
-    let db_path = temp.path().join("queue.db").to_path_buf();
+    let db_path = temp.path().join("queue.db").clone();
     let ws_path = temp.path().to_path_buf();
 
     let req = QueueSubmissionRequest {

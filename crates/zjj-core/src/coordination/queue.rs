@@ -132,15 +132,29 @@ impl MergeQueue {
     /// Open an in-memory merge queue for testing
     ///
     /// This creates a transient in-memory `SQLite` database that is
-    /// discarded when the queue is dropped. Useful for testing and
-    /// development without persisting state to disk.
-    pub async fn open_in_memory() -> Result<Self> {
+    /// Create an in-memory merge queue for testing with a custom lock timeout.
+    ///
+    /// The lock timeout determines how long a worker can hold a lock before
+    /// it's considered stale. Shorter timeouts are useful for testing
+    /// automatic recovery behavior.
+    pub async fn open_in_memory_with_timeout(lock_timeout_secs: i64) -> Result<Self> {
         let pool = SqlitePoolOptions::new()
             .connect("sqlite::memory:")
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to open in-memory database: {e}")))?;
 
-        Self::new(pool).await
+        let queue = Self {
+            pool,
+            lock_timeout_secs,
+        };
+        queue.init_schema().await?;
+        Ok(queue)
+    }
+
+    /// discarded when the queue is dropped. Useful for testing and
+    /// development without persisting state to disk.
+    pub async fn open_in_memory() -> Result<Self> {
+        Self::open_in_memory_with_timeout(Self::DEFAULT_LOCK_TIMEOUT_SECS).await
     }
 
     /// Create a new merge queue from an existing connection pool
@@ -1721,6 +1735,7 @@ impl MergeQueue {
     /// - `Err(Error::NotFound)` if the workspace is not found
     /// - `Err(Error::InvalidConfig)` if the entry is not in 'rebasing' status
     /// - `Err(Error::DatabaseError)` if the database operation fails
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_rebase_metadata_with_count(
         &self,
         workspace: &str,

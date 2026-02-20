@@ -347,7 +347,7 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         // Not found errors: exit code 2
         Error::NotFound(_) | Error::SessionNotFound { .. } => 2,
         // System errors: exit code 3
-        Error::IoError(_) | Error::DatabaseError(_) => 3,
+        Error::IoError(_) | Error::DatabaseError(_) | Error::Serialization(_) | Error::Io(_) => 3,
         // External command errors: exit code 4
         Error::Command(_)
         | Error::JjCommandError { .. }
@@ -357,8 +357,6 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         | Error::Unknown(_) => 4,
         // Lock contention errors: exit code 5
         Error::SessionLocked { .. } | Error::NotLockHolder { .. } | Error::LockTimeout { .. } => 5,
-        // Serialization and IO errors: exit code 3 (system errors)
-        Error::Serialization(_) | Error::Io(_) => 3,
         // Operation cancelled: exit code 130
         Error::OperationCancelled(_) => 130,
     }

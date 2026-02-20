@@ -1,11 +1,11 @@
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+// Integration tests have relaxed clippy settings for test infrastructure.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-//! Integration tests for conflict_resolutions table.
+//! Integration tests for `conflict_resolutions` table.
 //!
 //! Test plan based on contract: bd-2gj
 //! Covers: schema initialization, insert operations, query operations,
@@ -349,7 +349,7 @@ async fn test_insert_invalid_decider_fails() {
         .await
         .expect("Schema init should succeed");
 
-    let mut resolution =
+    let resolution =
         create_test_resolution(0, "session-1", "file.rs", "robot", "2025-02-18T12:00:00Z");
 
     // This should fail validation before reaching DB
@@ -410,7 +410,7 @@ async fn test_insert_empty_session_fails() {
         .await
         .expect("Schema init should succeed");
 
-    let mut resolution = create_test_resolution(0, "", "file.rs", "ai", "2025-02-18T12:00:00Z");
+    let resolution = create_test_resolution(0, "", "file.rs", "ai", "2025-02-18T12:00:00Z");
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
     assert!(result.is_err(), "Should fail with empty session");
@@ -423,7 +423,7 @@ async fn test_insert_empty_file_fails() {
         .await
         .expect("Schema init should succeed");
 
-    let mut resolution = create_test_resolution(0, "session-1", "", "ai", "2025-02-18T12:00:00Z");
+    let resolution = create_test_resolution(0, "session-1", "", "ai", "2025-02-18T12:00:00Z");
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
     assert!(result.is_err(), "Should fail with empty file");
@@ -438,7 +438,7 @@ async fn test_insert_empty_strategy_fails() {
 
     let mut resolution =
         create_test_resolution(0, "session-1", "file.rs", "ai", "2025-02-18T12:00:00Z");
-    resolution.strategy = "".to_string();
+    resolution.strategy = String::new();
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
     assert!(result.is_err(), "Should fail with empty strategy");
@@ -451,7 +451,7 @@ async fn test_insert_empty_timestamp_fails() {
         .await
         .expect("Schema init should succeed");
 
-    let mut resolution = create_test_resolution(0, "session-1", "file.rs", "ai", "");
+    let resolution = create_test_resolution(0, "session-1", "file.rs", "ai", "");
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
     assert!(result.is_err(), "Should fail with empty timestamp");
@@ -654,7 +654,7 @@ async fn test_get_resolutions_by_decider_ai() {
         .expect("Schema init should succeed");
 
     // Insert AI resolutions
-    for i in 0..3 {
+    for _ in 0..3 {
         let resolution =
             create_test_resolution(0, "session-1", "file.rs", "ai", "2025-02-18T12:00:00Z");
         insert_conflict_resolution(&pool, &resolution)
@@ -690,7 +690,7 @@ async fn test_get_resolutions_by_decider_human() {
         .expect("Schema init should succeed");
 
     // Insert human resolutions
-    for i in 0..2 {
+    for _ in 0..2 {
         let resolution =
             create_test_resolution(0, "session-1", "file.rs", "human", "2025-02-18T12:00:00Z");
         insert_conflict_resolution(&pool, &resolution)
@@ -930,7 +930,7 @@ async fn test_decider_constraint_rejects_invalid_values() {
         .expect("Schema init should succeed");
 
     // Invalid decider should fail at validation layer
-    let mut resolution =
+    let resolution =
         create_test_resolution(0, "session-1", "file.rs", "robot", "2025-02-18T12:00:00Z");
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
@@ -999,8 +999,7 @@ async fn test_non_null_fields_enforced() {
     assert!(result.is_ok());
 
     // Empty required fields should fail
-    let mut empty_resolution =
-        create_test_resolution(0, "", "file.rs", "ai", "2025-02-18T12:00:00Z");
+    let empty_resolution = create_test_resolution(0, "", "file.rs", "ai", "2025-02-18T12:00:00Z");
     let result = insert_conflict_resolution(&pool, &empty_resolution).await;
     assert!(result.is_err(), "Empty session should fail");
 }
@@ -1016,7 +1015,7 @@ async fn test_error_invalid_decider() {
         .await
         .expect("Schema init should succeed");
 
-    let mut resolution =
+    let resolution =
         create_test_resolution(0, "session-1", "file.rs", "invalid", "2025-02-18T12:00:00Z");
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
@@ -1035,7 +1034,7 @@ async fn test_error_empty_required_field() {
         .await
         .expect("Schema init should succeed");
 
-    let mut resolution = create_test_resolution(0, "session-1", "", "ai", "2025-02-18T12:00:00Z");
+    let resolution = create_test_resolution(0, "session-1", "", "ai", "2025-02-18T12:00:00Z");
 
     let result = insert_conflict_resolution(&pool, &resolution).await;
     assert!(result.is_err());
@@ -1153,7 +1152,7 @@ async fn test_performance_concurrent_inserts() {
     let results: Vec<_> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .filter_map(|r| r.ok())
+        .filter_map(std::result::Result::ok)
         .collect();
 
     let elapsed = start.elapsed();

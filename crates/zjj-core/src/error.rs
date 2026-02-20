@@ -1,3 +1,12 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+// Context map function handles all error variants exhaustively
+#![allow(clippy::too_many_lines)]
+
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -335,11 +344,11 @@ pub enum Error {
     },
     /// Deduplication key conflict when different workspaces attempt to use the same key
     DedupeKeyConflict {
-        /// The dedupe_key that caused the conflict
+        /// The `dedupe_key` that caused the conflict
         dedupe_key: String,
-        /// Workspace that already has this dedupe_key
+        /// Workspace that already has this `dedupe_key`
         existing_workspace: String,
-        /// Workspace attempting to use this dedupe_key
+        /// Workspace attempting to use this `dedupe_key`
         provided_workspace: String,
     },
     SessionLocked {
@@ -368,7 +377,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidConfig(msg) => write!(f, "Invalid configuration: {msg}"),
-            Self::IoError(msg) => write!(f, "IO error: {msg}"),
+            Self::IoError(msg) | Self::Io(msg) => write!(f, "IO error: {msg}"),
             Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
             Self::ValidationError { message, .. } => write!(f, "Validation error: {message}"),
             Self::NotFound(msg) => write!(f, "Not found: {msg}"),
@@ -449,7 +458,6 @@ impl fmt::Display for Error {
             }
             Self::OperationCancelled(msg) => write!(f, "Operation cancelled: {msg}"),
             Self::Serialization(msg) => write!(f, "Serialization error: {msg}"),
-            Self::Io(msg) => write!(f, "IO error: {msg}"),
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
     }
@@ -500,7 +508,7 @@ impl Error {
     pub const fn code(&self) -> &'static str {
         match self {
             Self::InvalidConfig(_) => "INVALID_CONFIG",
-            Self::IoError(_) => "IO_ERROR",
+            Self::IoError(_) | Self::Io(_) => "IO_ERROR",
             Self::ParseError(_) => "PARSE_ERROR",
             Self::ValidationError { .. } => "VALIDATION_ERROR",
             Self::NotFound(_) => "NOT_FOUND",
@@ -517,7 +525,6 @@ impl Error {
             Self::LockTimeout { .. } => "LOCK_TIMEOUT",
             Self::OperationCancelled(_) => "OPERATION_CANCELLED",
             Self::Serialization(_) => "SERIALIZATION_ERROR",
-            Self::Io(_) => "IO_ERROR",
             Self::Unknown(_) => "UNKNOWN",
         }
     }
@@ -624,10 +631,7 @@ impl Error {
                 "reason": reason
             })),
             Self::ParseError(_) | Self::Unknown(_) => None,
-            Self::Serialization(msg) => Some(serde_json::json!({
-                "message": msg
-            })),
-            Self::Io(msg) => Some(serde_json::json!({
+            Self::Serialization(msg) | Self::Io(msg) => Some(serde_json::json!({
                 "message": msg
             })),
         }
@@ -738,7 +742,7 @@ impl Error {
             // Not found errors: exit code 2
             Self::NotFound(_) | Self::SessionNotFound { .. } => 2,
             // System errors: exit code 3
-            Self::IoError(_) | Self::DatabaseError(_) => 3,
+            Self::IoError(_) | Self::DatabaseError(_) | Self::Serialization(_) | Self::Io(_) => 3,
             // External command errors: exit code 4
             Self::Command(_)
             | Self::JjCommandError { .. }
@@ -750,8 +754,6 @@ impl Error {
             Self::SessionLocked { .. } | Self::NotLockHolder { .. } | Self::LockTimeout { .. } => 5,
             // Operation cancelled: exit code 130 (SIGINT)
             Self::OperationCancelled(_) => 130,
-            // Serialization and IO errors: exit code 3 (system errors)
-            Self::Serialization(_) | Self::Io(_) => 3,
         }
     }
 
@@ -968,16 +970,16 @@ impl Error {
                     "zjj config reset".to_string(),
                 ]
             }
-            Self::IoError(msg) => Self::io_error_fix_commands(msg),
+            Self::IoError(msg) | Self::Io(msg) => Self::io_error_fix_commands(msg),
             Self::ParseError(msg) => Self::parse_error_fix_commands(msg),
             Self::Command(msg) if msg.contains("not found") => {
                 vec!["which <command>".to_string(), "zjj doctor".to_string()]
             }
-            Self::Command(_) | Self::Unknown(_) => vec!["zjj doctor".to_string()],
+            Self::Command(_) | Self::Unknown(_) | Self::Serialization(_) => {
+                vec!["zjj doctor".to_string()]
+            }
             Self::OperationCancelled(_) => vec![],
             Self::HookExecutionFailed { .. } => vec!["zjj config list hooks".to_string()],
-            Self::Serialization(_) => vec!["zjj doctor".to_string()],
-            Self::Io(msg) => Self::io_error_fix_commands(msg),
         }
     }
 

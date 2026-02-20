@@ -9,6 +9,18 @@
 //! - EC-001 to EC-010: Edge Case tests
 //! - CV-001 to CV-015: Contract Verification tests
 
+// Integration tests have relaxed clippy settings for test infrastructure.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::similar_names,
+    clippy::option_if_let_else,
+    clippy::uninlined_format_args,
+    clippy::redundant_closure_for_method_calls
+)]
+
 use std::{fs, path::PathBuf};
 
 use tempfile::TempDir;
