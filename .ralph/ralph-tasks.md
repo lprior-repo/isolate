@@ -8,7 +8,7 @@ Add your tasks below using: `ralph --add-task "description"`
 - [x] bd-26kg: Add stack_root column (DONE - ATDD passes, clippy clean)
 - [x] bd-1ued: Add StackMergeState enum (DONE - ATDD passes, clippy clean)
 - [x] bd-36h8: Add stack_merge_state column (DONE - ATDD passes, clippy clean)
-- [/] bd-1ixz: Add StackError enum
+- [x] bd-1ixz: Add StackError enum (DONE - ATDD passes, clippy clean)
 - [ ] bd-1idz: Add calculate_stack_depth function
 - [ ] bd-mmtr: Add find_stack_root function
 - [ ] bd-35xk: Add validate_no_cycle function
