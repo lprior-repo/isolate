@@ -24,7 +24,7 @@ use serde_json::Value;
 use tokio::time::sleep;
 use zjj_core::OutputFormat;
 
-use crate::{commands::get_session_db, db::SessionDb, session::Session};
+use crate::{commands::get_session_db, db::SessionDb, session::Session, session::SessionStatus};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOMAIN TYPES (Functional Core)
@@ -37,6 +37,8 @@ pub struct PeriodicCleanupConfig {
     pub interval: Duration,
     /// Age threshold for orphaned workspaces (default: 2 hours)
     pub age_threshold: Duration,
+    /// Age threshold for completed workspaces (default: 24 hours)
+    pub completed_age_threshold: Duration,
     /// Whether to run in dry-run mode (don't actually remove)
     pub dry_run: bool,
     /// Output format for logging
@@ -46,8 +48,9 @@ pub struct PeriodicCleanupConfig {
 impl Default for PeriodicCleanupConfig {
     fn default() -> Self {
         Self {
-            interval: Duration::from_hours(1),      // 1 hour
-            age_threshold: Duration::from_hours(2), // 2 hours
+            interval: Duration::from_hours(1),          // 1 hour
+            age_threshold: Duration::from_hours(2),     // 2 hours
+            completed_age_threshold: Duration::from_hours(24), // 24 hours
             dry_run: false,
             format: OutputFormat::Json,
         }
@@ -98,10 +101,12 @@ pub struct SkippedSession {
 ///
 /// A session is an orphan if:
 /// 1. Workspace directory doesn't exist, OR
-/// 2. Session is older than threshold AND has no active bead
+/// 2. Session is older than threshold AND has no active bead, OR
+/// 3. Session is completed and older than completed_age_threshold
 async fn is_orphan_candidate(
     session: &Session,
     age_threshold: &Duration,
+    completed_age_threshold: &Duration,
     now: &DateTime<Utc>,
 ) -> Option<OrphanCandidate> {
     let age = calculate_age(session, now)?;
@@ -119,6 +124,20 @@ async fn is_orphan_candidate(
             has_active_bead,
             workspace_exists: false,
         });
+    }
+
+    // Orphan if completed and old enough
+    if session.status == SessionStatus::Completed {
+        let is_old_enough = age > chrono::Duration::from_std(*completed_age_threshold).ok()?;
+        if is_old_enough {
+            return Some(OrphanCandidate {
+                name: session.name.clone(),
+                workspace_path: session.workspace_path.clone(),
+                age_seconds: age.num_seconds(),
+                has_active_bead: false,
+                workspace_exists: true,
+            });
+        }
     }
 
     // Orphan if old enough AND no active bead
@@ -194,10 +213,11 @@ async fn check_bead_status(bead_id: &str) -> Option<String> {
 async fn find_orphan_candidates(
     sessions: &[Session],
     age_threshold: &Duration,
+    completed_age_threshold: &Duration,
     now: &DateTime<Utc>,
 ) -> Vec<OrphanCandidate> {
     stream::iter(sessions)
-        .map(|session| async move { is_orphan_candidate(session, age_threshold, now).await })
+        .map(|session| async move { is_orphan_candidate(session, age_threshold, completed_age_threshold, now).await })
         .buffer_unordered(10) // Process up to 10 sessions in parallel
         .filter_map(|opt| async move { opt })
         .collect::<Vec<_>>()
@@ -277,7 +297,7 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
 
     // 3. Find orphan candidates (async functional)
     let orphan_candidates =
-        find_orphan_candidates(&sessions[..], &config.age_threshold, &now).await;
+        find_orphan_candidates(&sessions[..], &config.age_threshold, &config.completed_age_threshold, &now).await;
 
     // 4. Categorize (pure functional)
     let (cleanable, skipped) = categorize_orphans(orphan_candidates);
@@ -432,8 +452,9 @@ mod tests {
         let session = mock_session("test", 1, false);
         let now = Utc::now();
         let threshold = Duration::from_hours(2);
+        let completed_threshold = Duration::from_hours(24);
 
-        let result = is_orphan_candidate(&session, &threshold, &now).await;
+        let result = is_orphan_candidate(&session, &threshold, &completed_threshold, &now).await;
 
         assert!(result.is_some());
         let Some(orphan) = result else {
@@ -447,8 +468,9 @@ mod tests {
         let session = mock_session("test", 3, true);
         let now = Utc::now();
         let threshold = Duration::from_hours(2);
+        let completed_threshold = Duration::from_hours(24);
 
-        let result = is_orphan_candidate(&session, &threshold, &now).await;
+        let result = is_orphan_candidate(&session, &threshold, &completed_threshold, &now).await;
 
         assert!(result.is_some());
         let Some(orphan) = result else {
@@ -463,8 +485,9 @@ mod tests {
         let session = mock_session("test", 1, true);
         let now = Utc::now();
         let threshold = Duration::from_hours(2);
+        let completed_threshold = Duration::from_hours(24);
 
-        let result = is_orphan_candidate(&session, &threshold, &now).await;
+        let result = is_orphan_candidate(&session, &threshold, &completed_threshold, &now).await;
 
         assert!(result.is_none());
     }
@@ -501,6 +524,7 @@ mod tests {
 
         assert_eq!(config.interval, Duration::from_hours(1));
         assert_eq!(config.age_threshold, Duration::from_hours(2));
+        assert_eq!(config.completed_age_threshold, Duration::from_hours(24));
         assert!(!config.dry_run);
     }
 

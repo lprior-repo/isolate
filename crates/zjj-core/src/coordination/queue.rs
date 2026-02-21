@@ -1026,22 +1026,29 @@ impl MergeQueue {
 
     #[allow(clippy::cast_possible_wrap)]
     pub async fn cleanup(&self, max_age: Duration) -> Result<usize> {
+        // Terminal statuses that should be cleaned up:
+        // - merged: successfully merged entries
+        // - failed_terminal: unrecoverable failures
+        // - cancelled: manually cancelled entries
+        // Note: 'completed' and 'failed' are legacy aliases for 'merged' and 'failed_terminal'
+        const TERMINAL_STATUSES: &str = "'merged', 'failed_terminal', 'cancelled', 'completed', 'failed'";
+
         // First delete related queue_events to avoid FK constraint violation
         if max_age.is_zero() {
-            sqlx::query(
+            sqlx::query(&format!(
                 "DELETE FROM queue_events WHERE queue_id IN \
-                     (SELECT id FROM merge_queue WHERE status IN ('completed', 'failed'))",
-            )
+                     (SELECT id FROM merge_queue WHERE status IN ({TERMINAL_STATUSES}))"
+            ))
             .execute(&self.pool)
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to cleanup queue events: {e}")))?;
         } else {
             let cutoff = Self::now() - max_age.as_secs() as i64;
-            sqlx::query(
+            sqlx::query(&format!(
                 "DELETE FROM queue_events WHERE queue_id IN \
-                     (SELECT id FROM merge_queue WHERE status IN ('completed', 'failed') \
-                     AND completed_at <= ?1)",
-            )
+                     (SELECT id FROM merge_queue WHERE status IN ({TERMINAL_STATUSES}) \
+                     AND completed_at <= ?1)"
+            ))
             .bind(cutoff)
             .execute(&self.pool)
             .await
@@ -1049,16 +1056,18 @@ impl MergeQueue {
         }
 
         let result = if max_age.is_zero() {
-            sqlx::query("DELETE FROM merge_queue WHERE status IN ('completed', 'failed')")
-                .execute(&self.pool)
-                .await
-                .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?
+            sqlx::query(&format!(
+                "DELETE FROM merge_queue WHERE status IN ({TERMINAL_STATUSES})"
+            ))
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?
         } else {
             let cutoff = Self::now() - max_age.as_secs() as i64;
-            sqlx::query(
-                "DELETE FROM merge_queue WHERE status IN ('completed', 'failed') \
-                     AND completed_at <= ?1",
-            )
+            sqlx::query(&format!(
+                "DELETE FROM merge_queue WHERE status IN ({TERMINAL_STATUSES}) \
+                     AND completed_at <= ?1"
+            ))
             .bind(cutoff)
             .execute(&self.pool)
             .await
@@ -4419,6 +4428,187 @@ mod tests {
         assert_eq!(updated.status, QueueStatus::Rebasing);
         assert_eq!(updated.head_sha, Some("head-before".to_string()));
         assert!(updated.tested_against_sha.is_none());
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CLEANUP TESTS - Proves terminal statuses are cleaned
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_merged_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add and merge a workspace following correct state machine:
+        // pending -> claimed -> rebasing -> testing -> ready_to_merge -> merging -> merged
+        queue.add("ws-merged", None, 5, None).await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::Testing)
+            .await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::ReadyToMerge)
+            .await?;
+        queue.begin_merge("ws-merged").await?;
+        queue
+            .complete_merge("ws-merged", "merged-sha-123")
+            .await?;
+
+        // Verify entry exists with merged status
+        let entry = queue.get_by_workspace("ws-merged").await?;
+        assert!(
+            entry.is_some(),
+            "Entry should exist before cleanup"
+        );
+        assert_eq!(
+            entry.as_ref().map(|e| e.status),
+            Some(QueueStatus::Merged),
+            "Entry should be merged before cleanup"
+        );
+
+        // Run cleanup with zero duration (cleanup all terminal)
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 1, "Should clean up 1 merged entry");
+
+        // Verify entry is gone
+        let entry_after = queue.get_by_workspace("ws-merged").await?;
+        assert!(
+            entry_after.is_none(),
+            "Merged entry should be deleted after cleanup"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_cancelled_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-cancelled", None, 5, None).await?;
+        queue
+            .transition_to("ws-cancelled", QueueStatus::Cancelled)
+            .await?;
+
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 1, "Should clean up 1 cancelled entry");
+
+        let entry = queue.get_by_workspace("ws-cancelled").await?;
+        assert!(
+            entry.is_none(),
+            "Cancelled entry should be deleted after cleanup"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_failed_terminal_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Must go through claimed first, then fail from claimed
+        queue.add("ws-failed-terminal", None, 5, None).await?;
+        queue
+            .transition_to("ws-failed-terminal", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to_failed("ws-failed-terminal", "Unrecoverable error", false)
+            .await?;
+
+        // Verify it's failed_terminal
+        let entry = queue.get_by_workspace("ws-failed-terminal").await?;
+        assert_eq!(
+            entry.as_ref().map(|e| e.status),
+            Some(QueueStatus::FailedTerminal),
+            "Entry should be failed_terminal"
+        );
+
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 1, "Should clean up 1 failed_terminal entry");
+
+        let entry_after = queue.get_by_workspace("ws-failed-terminal").await?;
+        assert!(
+            entry_after.is_none(),
+            "Failed terminal entry should be deleted after cleanup"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_does_not_delete_pending_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add entries in various non-terminal states
+        queue.add("ws-pending", None, 5, None).await?;
+        queue.add("ws-pending-2", None, 5, None).await?;
+
+        // Run cleanup
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 0, "Should not clean up pending entries");
+
+        // Verify entries still exist
+        let stats = queue.stats().await?;
+        assert_eq!(stats.pending, 2, "Pending entries should remain");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_multiple_terminal_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Create merged entry (full state machine path)
+        queue.add("ws-merged-1", None, 5, None).await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::Testing)
+            .await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::ReadyToMerge)
+            .await?;
+        queue.begin_merge("ws-merged-1").await?;
+        queue.complete_merge("ws-merged-1", "sha-1").await?;
+
+        // Create cancelled entry
+        queue.add("ws-cancelled-1", None, 5, None).await?;
+        queue
+            .transition_to("ws-cancelled-1", QueueStatus::Cancelled)
+            .await?;
+
+        // Create failed_terminal entry
+        queue.add("ws-failed-1", None, 5, None).await?;
+        queue
+            .transition_to("ws-failed-1", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to_failed("ws-failed-1", "Error", false)
+            .await?;
+
+        // Add a pending entry that should NOT be cleaned
+        queue.add("ws-pending-keep", None, 5, None).await?;
+
+        // Run cleanup
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(
+            cleaned, 3,
+            "Should clean up 3 terminal entries (merged, cancelled, failed_terminal)"
+        );
+
+        // Verify only pending entry remains
+        let stats = queue.stats().await?;
+        assert_eq!(stats.pending, 1, "Only pending entry should remain");
+        assert_eq!(stats.total, 1, "Total should be 1");
 
         Ok(())
     }

@@ -180,6 +180,7 @@ async fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
     let config = periodic_cleanup::PeriodicCleanupConfig {
         interval: Duration::from_hours(1), // 1 hour
         age_threshold: Duration::from_secs(options.age_threshold.unwrap_or(7200)), /* 2 hours default */
+        completed_age_threshold: Duration::from_hours(24), // 24 hours for completed sessions
         dry_run: options.dry_run,
         format: options.format,
     };
