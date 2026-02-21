@@ -280,6 +280,95 @@ impl TryFrom<String> for WorkspaceQueueState {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STACK MERGE STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// State machine for stacked PR merge coordination.
+///
+/// In Graphite-style stacking, PRs form a dependency chain where child PRs
+/// must wait for their parent PRs to merge before they can proceed.
+///
+/// States:
+/// - `Independent`: No stack dependencies, can proceed independently
+/// - `Blocked`: Has a parent in the stack that hasn't merged yet
+/// - `Ready`: All parent dependencies have merged, ready to proceed
+/// - `Merged`: Has been successfully merged as part of the stack
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StackMergeState {
+    /// No stack dependencies - standalone PR or root of stack.
+    #[default]
+    Independent,
+    /// Blocked by unmerged parent in the stack.
+    Blocked,
+    /// All parent dependencies resolved, ready to merge.
+    Ready,
+    /// Successfully merged as part of a stack.
+    Merged,
+}
+
+impl StackMergeState {
+    /// Returns the string representation of this state.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Independent => "independent",
+            Self::Blocked => "blocked",
+            Self::Ready => "ready",
+            Self::Merged => "merged",
+        }
+    }
+
+    /// Returns true if this state is terminal.
+    #[must_use]
+    pub const fn is_terminal(&self) -> bool {
+        matches!(self, Self::Merged)
+    }
+
+    /// Returns true if this entry is blocked on a parent.
+    #[must_use]
+    pub const fn is_blocked(&self) -> bool {
+        matches!(self, Self::Blocked)
+    }
+
+    /// Returns all possible stack merge states as a slice.
+    #[must_use]
+    pub const fn all() -> &'static [Self] {
+        &[Self::Independent, Self::Blocked, Self::Ready, Self::Merged]
+    }
+}
+
+impl fmt::Display for StackMergeState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl FromStr for StackMergeState {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "independent" => Ok(Self::Independent),
+            "blocked" => Ok(Self::Blocked),
+            "ready" => Ok(Self::Ready),
+            "merged" => Ok(Self::Merged),
+            _ => Err(Error::InvalidConfig(format!(
+                "Invalid stack merge state: {s}"
+            ))),
+        }
+    }
+}
+
+impl TryFrom<String> for StackMergeState {
+    type Error = Error;
+
+    fn try_from(s: String) -> std::result::Result<Self, Self::Error> {
+        Self::from_str(&s)
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // QUEUE EVENT TYPE (Pure Domain)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
