@@ -1045,6 +1045,7 @@ mod tests {
                 parent_workspace: None,
                 stack_depth: 0,
                 dependents: Dependents::new(),
+                stack_root: None,
             },
             QueueEntry {
                 id: 2,
@@ -1070,6 +1071,7 @@ mod tests {
                 parent_workspace: None,
                 stack_depth: 0,
                 dependents: Dependents::new(),
+                stack_root: None,
             },
         ];
 
@@ -1106,6 +1108,7 @@ mod tests {
                 parent_workspace: None,
                 stack_depth: 0,
                 dependents: Dependents::new(),
+                stack_root: None,
             },
             QueueEntry {
                 id: 2,
@@ -1131,6 +1134,7 @@ mod tests {
                 parent_workspace: None,
                 stack_depth: 0,
                 dependents: Dependents::new(),
+                stack_root: None,
             },
         ];
 
@@ -1167,6 +1171,7 @@ mod tests {
                 parent_workspace: None,
                 stack_depth: 0,
                 dependents: Dependents::new(),
+                stack_root: None,
             },
             QueueEntry {
                 id: 2,
@@ -1192,6 +1197,7 @@ mod tests {
                 parent_workspace: None,
                 stack_depth: 0,
                 dependents: Dependents::new(),
+                stack_root: None,
             },
         ];
 

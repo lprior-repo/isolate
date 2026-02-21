@@ -152,5 +152,6 @@ fn create_test_queue_entry_with_parent(parent_workspace: Option<String>) -> Queu
         parent_workspace,
         stack_depth: 0,
         dependents: Dependents::new(),
+        stack_root: None,
     }
 }

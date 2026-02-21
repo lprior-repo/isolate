@@ -130,6 +130,8 @@ pub struct QueueEntry {
     pub stack_depth: i32,
     #[sqlx(default, try_from = "Option<String>")]
     pub dependents: Dependents,
+    #[sqlx(default)]
+    pub stack_root: Option<String>,
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

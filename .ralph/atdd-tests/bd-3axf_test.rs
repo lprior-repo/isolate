@@ -5,8 +5,7 @@
 //! EARS:
 //!   - THE SYSTEM SHALL track depth in stack hierarchy
 //!   - WHEN entry created, THE SYSTEM SHALL default stack_depth to 0
-//!   - IF stack_depth negative, THE SYSTEM SHALL NOT allow negative values, because depth cannot be
-//!     negative
+//!   - IF stack_depth negative, THE SYSTEM SHALL NOT allow negative values, because depth cannot be negative
 //!
 //! This test file should:
 //!   1. COMPILE (struct definition is valid Rust)
@@ -16,7 +15,7 @@
 #![allow(clippy::doc_markdown, clippy::unreadable_literal)]
 
 use zjj_core::coordination::{
-    queue_entities::{Dependents, QueueEntry},
+    queue_entities::QueueEntry,
     queue_status::{QueueStatus, WorkspaceQueueState},
 };
 
@@ -169,8 +168,6 @@ fn create_test_queue_entry_with_stack_depth(stack_depth: i32) -> QueueEntry {
         parent_workspace: None,
         // THIS FIELD MUST EXIST for tests to compile
         stack_depth,
-        dependents: Dependents::new(),
-        stack_root: None,
     }
 }
 
@@ -203,7 +200,5 @@ fn create_default_test_queue_entry() -> QueueEntry {
         parent_workspace: None,
         // Default value should be 0
         stack_depth: 0,
-        dependents: Dependents::new(),
-        stack_root: None,
     }
 }

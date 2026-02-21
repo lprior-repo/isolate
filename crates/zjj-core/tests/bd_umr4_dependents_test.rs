@@ -184,6 +184,7 @@ fn create_test_queue_entry_with_dependents(dependents: Dependents) -> QueueEntry
         parent_workspace: None,
         stack_depth: 0,
         dependents,
+        stack_root: None,
     }
 }
 
@@ -216,5 +217,6 @@ fn create_default_test_queue_entry() -> QueueEntry {
         parent_workspace: None,
         stack_depth: 0,
         dependents: Dependents::new(),
+        stack_root: None,
     }
 }

@@ -312,6 +312,10 @@ impl MergeQueue {
                 "dependents",
                 "ALTER TABLE merge_queue ADD COLUMN dependents TEXT NOT NULL DEFAULT '[]'",
             ),
+            (
+                "stack_root",
+                "ALTER TABLE merge_queue ADD COLUMN stack_root TEXT",
+            ),
         ];
 
         for (column_name, alter_sql) in migrations {
