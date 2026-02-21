@@ -1109,7 +1109,7 @@ impl OutputLine {
             .filter(|c| c.conflict_type == ConflictType::Overlapping)
             .count();
 
-        Self::ConflictDetail(ConflictAnalysis {
+        Self::ConflictAnalysis(ConflictAnalysis {
             type_field: "conflictdetail".to_string(),
             session: session.to_string(),
             merge_safe,
