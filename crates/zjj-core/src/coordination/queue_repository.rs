@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use super::{
-    queue::{QueueAddResponse, QueueControlError, QueueStats},
+    queue::{QueueAddResponse, QueueControlError, QueueStats, RecoveryStats},
     queue_entities::{ProcessingLock, QueueEntry, QueueEvent},
     queue_status::{QueueEventType, QueueStatus},
 };
@@ -144,6 +144,16 @@ pub trait QueueRepository: Send + Sync {
         tested_against_sha: &str,
     ) -> Result<()>;
 
+    /// Update rebase metadata with rebase count for observability.
+    async fn update_rebase_metadata_with_count(
+        &self,
+        workspace: &str,
+        head_sha: &str,
+        tested_against_sha: &str,
+        rebase_count: i32,
+        rebase_timestamp: i64,
+    ) -> Result<()>;
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // FRESHNESS GUARD OPERATIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -217,4 +227,17 @@ pub trait QueueRepository: Send + Sync {
 
     /// Reclaim stale entries that have been claimed but whose lease has expired.
     async fn reclaim_stale(&self, stale_threshold_secs: i64) -> Result<usize>;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AUTOMATIC SELF-HEALING (bd-2i5)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Detect and automatically recover stale locks and entries.
+    async fn detect_and_recover_stale(&self) -> Result<RecoveryStats>;
+
+    /// Get recovery statistics without performing recovery.
+    async fn get_recovery_stats(&self) -> Result<RecoveryStats>;
+
+    /// Check if the processing lock is stale (expired).
+    async fn is_lock_stale(&self) -> Result<bool>;
 }

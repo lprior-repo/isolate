@@ -357,51 +357,44 @@ fn test_handler_checks_all_flag() {
         "No JSON flag should produce Human format"
     );
 
-    // Test 3: Verify routing truth table
+    // Test 3: Verify routing truth table using explicit SyncBehavior enum
     // The run_with_options function implements this routing:
     // | name    | all   | behavior                    |
     // |---------|-------|----------------------------|
     // | Some(n) | any   | sync named session         |
     // | None    | true  | sync all sessions          |
-    // | None    | false | sync current or all        |
+    // | None    | false | sync current workspace     |
+
+    use crate::commands::sync::{determine_sync_behavior, SyncBehavior};
 
     // Case 1: Named session (takes precedence)
     let name: Option<&str> = Some("my-session");
     let all = false;
-    let expected_behavior = match (name, all) {
-        (Some(_), _) => "sync_named",
-        (None, true) => "sync_all",
-        (None, false) => "sync_current_or_all",
-    };
+    let behavior = determine_sync_behavior(name, all);
     assert_eq!(
-        expected_behavior, "sync_named",
-        "Named session should route to sync_named"
+        behavior,
+        SyncBehavior::NamedSession,
+        "Named session should route to NamedSession"
     );
 
     // Case 2: --all flag
     let name: Option<&str> = None;
     let all = true;
-    let expected_behavior = match (name, all) {
-        (Some(_), _) => "sync_named",
-        (None, true) => "sync_all",
-        (None, false) => "sync_current_or_all",
-    };
+    let behavior = determine_sync_behavior(name, all);
     assert_eq!(
-        expected_behavior, "sync_all",
-        "--all flag should route to sync_all"
+        behavior,
+        SyncBehavior::AllSessions,
+        "--all flag should route to AllSessions"
     );
 
-    // Case 3: No args, no flags (context-dependent)
+    // Case 3: No args, no flags (safe default: current workspace)
     let name: Option<&str> = None;
     let all = false;
-    let expected_behavior = match (name, all) {
-        (Some(_), _) => "sync_named",
-        (None, true) => "sync_all",
-        (None, false) => "sync_current_or_all",
-    };
+    let behavior = determine_sync_behavior(name, all);
     assert_eq!(
-        expected_behavior, "sync_current_or_all",
-        "No args should route to sync_current_or_all"
+        behavior,
+        SyncBehavior::CurrentWorkspace,
+        "No args should route to CurrentWorkspace (safe default)"
     );
 }
 

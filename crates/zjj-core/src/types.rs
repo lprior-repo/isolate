@@ -363,6 +363,24 @@ pub struct Session {
     /// Arbitrary metadata (extensibility)
     #[serde(default)]
     pub metadata: serde_json::Value,
+
+    /// Parent session name (for stacked sessions)
+    ///
+    /// # Contract
+    /// - `Some(parent_name)` if this is a stacked session
+    /// - `None` if this is a root session
+    /// - Parent MUST exist if `Some`
+    /// - MUST NOT form cycles
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_session: Option<String>,
+
+    /// Queue status for merge train integration (bd-2np)
+    ///
+    /// # Contract
+    /// - `Some(status)` if session is in the merge queue
+    /// - `None` if session is not queued
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queue_status: Option<super::coordination::queue_status::QueueStatus>,
 }
 
 impl Session {
@@ -975,6 +993,8 @@ mod tests {
             updated_at: Utc::now(),
             last_synced: None,
             metadata: serde_json::Value::Null,
+            parent_session: None,
+            queue_status: None,
         };
 
         assert!(session.validate().is_err());
@@ -996,6 +1016,8 @@ mod tests {
             updated_at: earlier, // updated before created!
             last_synced: None,
             metadata: serde_json::Value::Null,
+            parent_session: None,
+            queue_status: None,
         };
 
         assert!(session.validate().is_err());

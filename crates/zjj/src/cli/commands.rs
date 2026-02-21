@@ -78,6 +78,7 @@ pub fn cmd_attach() -> ClapCommand {
         )
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn cmd_add() -> ClapCommand {
     ClapCommand::new("add")
         .about("Create session for manual work (JJ workspace + Zellij tab)")
@@ -96,6 +97,7 @@ pub fn cmd_add() -> ClapCommand {
                 "zjj add experiment -t minimal      Use minimal layout template",
                 "zjj add quick-test --no-hooks      Skip post-create hooks",
                 "zjj add work --bead zjj-abc123     Associate with bead zjj-abc123",
+                "zjj add fix-auth --parent auth     Create stacked session under 'auth' parent",
                 "zjj add --example-json            Show example JSON output",
             ],
             Some(json_docs::add()),
@@ -112,6 +114,13 @@ pub fn cmd_add() -> ClapCommand {
                 .short('b')
                 .value_name("BEAD_ID")
                 .help("Associate this session with a bead/issue ID"),
+        )
+        .arg(
+            Arg::new("parent")
+                .long("parent")
+                .short('p')
+                .value_name("PARENT_NAME")
+                .help("Create as a stacked session under parent session"),
         )
         .arg(
             Arg::new("no-hooks")
@@ -520,10 +529,10 @@ pub fn cmd_remove() -> ClapCommand {
         .about("Remove a session and its workspace")
         .after_help(after_help_text(
             &[
-                "zjj remove old-feature            Remove with confirmation prompt",
-                "zjj remove test-session -f        Force removal without prompt",
+                "zjj remove old-feature            Remove session (no confirmation)",
+                "zjj remove test-session -f        Remove and skip pre_remove hooks",
                 "zjj remove feature-x --merge       Merge changes to main first",
-                "zjj remove experiment -k -f       Keep branch, force removal",
+                "zjj remove experiment -k -f       Keep branch, skip hooks",
                 "zjj remove stale-session --idempotent  Succeed if already removed",
                 "zjj remove --contract             Show AI contract for this command",
             ],
@@ -551,7 +560,7 @@ pub fn cmd_remove() -> ClapCommand {
                 .short('f')
                 .long("force")
                 .action(clap::ArgAction::SetTrue)
-                .help("Skip confirmation prompt and hooks"),
+                .help("Skip pre_remove hooks (no-op for confirmation)"),
         )
         .arg(
             Arg::new("merge")
@@ -722,28 +731,33 @@ pub fn cmd_switch() -> ClapCommand {
 
 pub fn cmd_sync() -> ClapCommand {
     ClapCommand::new("sync")
-        .about("Sync a session's workspace with main (rebase)")
+        .about("Sync session workspace with main (rebase onto latest)")
         .after_help(after_help_text(
             &[
-                "zjj sync feature-auth             Sync named session with main",
-                "zjj sync                          Sync current workspace",
-                "zjj sync --all                    Sync all active sessions",
-                "zjj sync --dry-run                Preview sync operation",
-                "zjj sync --json                   Get JSON output of sync operation",
+                "DEFAULT BEHAVIOR (safe and explicit):",
+                "  zjj sync                          Sync current workspace only",
+                "  zjj sync <name>                   Sync ONLY the named session",
+                "  zjj sync --all                    Sync ALL sessions (explicit)",
+                "",
+                "OPTIONS:",
+                "  zjj sync --dry-run                Preview without changes",
+                "  zjj sync --json                   JSON output with SchemaEnvelope",
+                "",
+                "SAFETY: Named sync is isolated. Default syncs only current workspace.",
             ],
             Some(json_docs::sync()),
         ))
         .arg(
             Arg::new("name")
                 .required(false)
-                .help("Session name to sync (syncs current workspace if omitted)"),
+                .help("Session name to sync (default: sync current workspace only)"),
         )
         .arg(
             Arg::new("all")
                 .long("all")
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with("name")
-                .help("Sync all active sessions"),
+                .help("Sync ALL active sessions (must be explicit)"),
         )
         .arg(
             Arg::new("dry-run")
@@ -3475,11 +3489,11 @@ pub fn cmd_backup() -> ClapCommand {
     ClapCommand::new("backup")
         .about("Manage automated database backups")
         .long_about(
-            "Create, list, restore, and manage backups of zjj databases (state.db, beads.db, queue.db).\n\n\
+            "Create, list, restore, and manage backups of zjj databases (state.db, beads.db).\n\n\
             Backups include:\n  \
-            - state.db: Session and workspace state\n  \
-            - beads.db: Issue tracking database\n  \
-            - queue.db: Merge queue state\n\n\
+            - state.db: Session, workspace state, and merge queue\n  \
+            - beads.db: Issue tracking database\n\n\
+            Note: queue.db has been consolidated into state.db.\n\n\
             Backups are stored with timestamps and SHA-256 checksums for integrity verification.",
         )
         .after_help(after_help_text(
@@ -3510,7 +3524,7 @@ pub fn cmd_backup() -> ClapCommand {
             Arg::new("restore")
                 .long("restore")
                 .value_name("DATABASE")
-                .help("Restore database from backup (state.db, beads.db, queue.db)"),
+                .help("Restore database from backup (state.db, beads.db)"),
         )
         .arg(
             Arg::new("timestamp")

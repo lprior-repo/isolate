@@ -2,7 +2,7 @@
 
 pub mod atomic;
 
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::Result;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
@@ -20,7 +20,7 @@ use crate::{
 #[derive(Debug, Clone, Default)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct RemoveOptions {
-    /// Skip confirmation prompt and hooks
+    /// Skip pre_remove hooks (no-op for confirmation, which is removed)
     pub force: bool,
     /// Squash-merge to main before removal
     pub merge: bool,
@@ -90,23 +90,7 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
         return Ok(());
     }
 
-    // Confirm removal unless --force
-    if !options.force && !confirm_removal(name)? {
-        if options.format.is_json() {
-            let output = RemoveOutput {
-                name: name.to_string(),
-                message: "Removal cancelled".to_string(),
-            };
-            let envelope = SchemaEnvelope::new("remove-response", "single", output);
-            let json_str = serde_json::to_string(&envelope)?;
-            writeln!(std::io::stdout(), "{json_str}")?;
-        } else {
-            writeln!(std::io::stdout(), "Removal cancelled")?;
-        }
-        return Ok(());
-    }
-
-    // Run pre_remove hooks unless --force
+    // Run pre_remove hooks unless --force (force flag retained for backwards compatibility)
     if !options.force {
         run_pre_remove_hooks(name, &session.workspace_path);
     }
@@ -166,21 +150,6 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             ))))
         }
     }
-}
-
-/// Prompt user for confirmation
-fn confirm_removal(name: &str) -> Result<bool> {
-    write!(
-        io::stdout(),
-        "Remove session '{name}' and its workspace? [y/N] "
-    )?;
-    io::stdout().flush()?;
-
-    let mut response = String::new();
-    io::stdin().read_line(&mut response)?;
-
-    let response = response.trim().to_lowercase();
-    Ok(response == "y" || response == "yes")
 }
 
 /// Run `pre_remove` hooks
@@ -270,13 +239,6 @@ mod tests {
         // Note: This test will fail until we refactor to use dependency injection
         // For now, it demonstrates the test case we need
         Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_confirm_removal_format() {
-        // Test that confirmation prompt is correct
-        // This is a unit test for the confirmation logic
-        // Actual I/O testing would require mocking stdin/stdout
     }
 
     #[tokio::test]

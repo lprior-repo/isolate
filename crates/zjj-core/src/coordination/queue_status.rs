@@ -21,6 +21,7 @@
 
 use std::{fmt, str::FromStr};
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{Error, Result};
@@ -56,7 +57,8 @@ pub struct TransitionError {
 /// - `failed_retryable` -> pending (manual retry path)
 ///
 /// Terminal states (no outgoing transitions): merged, `failed_terminal`, cancelled
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum QueueStatus {
     /// Item is waiting to be claimed by an agent.
     Pending,
@@ -298,6 +300,8 @@ pub enum QueueEventType {
     Cancelled,
     /// Entry merged.
     Merged,
+    /// Rebase operation completed (success or failure).
+    Rebased,
     /// Worker heartbeat.
     Heartbeat,
 }
@@ -314,6 +318,7 @@ impl QueueEventType {
             Self::Retried => "retried",
             Self::Cancelled => "cancelled",
             Self::Merged => "merged",
+            Self::Rebased => "rebased",
             Self::Heartbeat => "heartbeat",
         }
     }
@@ -337,6 +342,7 @@ impl std::str::FromStr for QueueEventType {
             "retried" => Ok(Self::Retried),
             "cancelled" => Ok(Self::Cancelled),
             "merged" => Ok(Self::Merged),
+            "rebased" => Ok(Self::Rebased),
             "heartbeat" => Ok(Self::Heartbeat),
             _ => Err(Error::InvalidConfig(format!(
                 "Invalid queue event type: {s}"
@@ -825,6 +831,7 @@ mod tests {
         assert_eq!(QueueEventType::Retried.as_str(), "retried");
         assert_eq!(QueueEventType::Cancelled.as_str(), "cancelled");
         assert_eq!(QueueEventType::Merged.as_str(), "merged");
+        assert_eq!(QueueEventType::Rebased.as_str(), "rebased");
         assert_eq!(QueueEventType::Heartbeat.as_str(), "heartbeat");
     }
 
@@ -858,6 +865,10 @@ mod tests {
             QueueEventType::Cancelled
         );
         assert_eq!(QueueEventType::from_str("merged")?, QueueEventType::Merged);
+        assert_eq!(
+            QueueEventType::from_str("rebased")?,
+            QueueEventType::Rebased
+        );
         assert_eq!(
             QueueEventType::from_str("heartbeat")?,
             QueueEventType::Heartbeat

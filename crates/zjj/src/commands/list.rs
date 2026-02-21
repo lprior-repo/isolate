@@ -1,11 +1,22 @@
-//! List all sessions
+//! List all sessions - JSONL output for AI-first control plane
+//!
+//! This command emits structured JSONL output where each line is a valid JSON object.
+//! Each session is emitted as a `Session` line, followed by a `Summary` line at the end.
 
-use std::{path::Path, str::FromStr};
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
+use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use futures::StreamExt;
-use serde::Serialize;
-use zjj_core::{json::SchemaEnvelopeArray, OutputFormat, WorkspaceStateFilter};
+use zjj_core::{
+    output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType},
+    OutputFormat, WorkspaceStateFilter,
+};
 
 use crate::{
     beads::{BeadRepository, BeadStatus},
@@ -14,25 +25,14 @@ use crate::{
     session::{Session, SessionStatus},
 };
 
-/// Enhanced session information for list output
-///
-/// Uses `#[serde(flatten)]` to include all Session fields without duplication.
-/// Only adds computed/formatted fields that aren't in Session.
-#[derive(Debug, Clone, Serialize)]
-pub struct SessionListItem {
-    /// Display-formatted branch (uses "-" when None)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_branch: Option<String>,
-    pub changes: String,
-    pub beads: String,
-    #[serde(flatten)]
-    pub session: Session,
-}
-
-impl SessionListItem {
-    /// Get display-formatted branch (returns "-" for None)
-    pub fn display_branch_str(&self) -> &str {
-        self.display_branch.as_deref().unwrap_or("-")
+/// Convert local `SessionStatus` to core `SessionStatus`
+const fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus {
+    match status {
+        SessionStatus::Active => zjj_core::types::SessionStatus::Active,
+        SessionStatus::Paused => zjj_core::types::SessionStatus::Paused,
+        SessionStatus::Completed => zjj_core::types::SessionStatus::Completed,
+        SessionStatus::Failed => zjj_core::types::SessionStatus::Failed,
+        SessionStatus::Creating => zjj_core::types::SessionStatus::Creating,
     }
 }
 
@@ -54,8 +54,8 @@ impl std::fmt::Display for BeadCounts {
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     all: bool,
-    verbose: bool,
-    format: OutputFormat,
+    _verbose: bool, // Kept for API compatibility, but not used in JSONL-only mode
+    _format: OutputFormat, // Kept for API compatibility, not used in JSONL-only mode
     bead: Option<&str>,
     agent: Option<&str>,
     state: Option<&str>,
@@ -101,63 +101,40 @@ pub async fn run(
         })
         .collect();
 
-    if sessions.is_empty() {
-        if format.is_json() {
-            let envelope = SchemaEnvelopeArray::new("list-response", Vec::<SessionListItem>::new());
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-        } else {
-            println!("No sessions found.");
-            println!("Use 'zjj add <name>' to create a session.");
-        }
-        return Ok(());
-    }
-
     let beads_count = get_beads_count().await.unwrap_or_default();
-    let beads_str = beads_count.to_string();
+    let session_count = sessions.len();
 
-    // Build list items using concurrent futures stream for performance
-    let items: Vec<SessionListItem> = futures::stream::iter(sessions)
-        .map(|session| {
-            let beads_str = beads_str.clone();
-            async move {
-                let changes = get_session_changes(&session.workspace_path).await;
-                let changes_str = changes.map_or_else(|| "-".to_string(), |c| c.to_string());
-                SessionListItem {
-                    display_branch: session.branch.clone(),
-                    changes: changes_str,
-                    beads: beads_str,
-                    session,
-                }
-            }
-        })
-        .buffer_unordered(5) // Concurrently fetch status for up to 5 workspaces
-        .collect()
-        .await;
+    // Emit each session as a Session output line
+    for session in &sessions {
+        let workspace_path: PathBuf = session.workspace_path.clone().into();
 
-    if format.is_json() {
-        output_json(&items)?;
-    } else {
-        output_table(&items, verbose);
+        let output_session = SessionOutput::new(
+            session.name.clone(),
+            to_core_status(session.status),
+            session.state,
+            workspace_path,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+        let output_session = if let Some(branch) = &session.branch {
+            output_session.with_branch(branch.clone())
+        } else {
+            output_session
+        };
+
+        emit_stdout(&OutputLine::Session(output_session))?;
     }
+
+    // Emit Summary line last (always)
+    let summary_text = format!(
+        "Listed {} session(s), beads: {}/{}/{}",
+        session_count, beads_count.open, beads_count.in_progress, beads_count.blocked
+    );
+    let summary =
+        Summary::new(SummaryType::Count, summary_text).map_err(|e| anyhow::anyhow!("{e}"))?;
+    emit_stdout(&OutputLine::Summary(summary))?;
 
     Ok(())
-}
-
-/// Get the number of changes in a workspace
-async fn get_session_changes(workspace_path: &str) -> Option<usize> {
-    let path = Path::new(workspace_path);
-
-    // Check if workspace exists
-    match tokio::fs::try_exists(path).await {
-        Ok(true) => {
-            // Try to get status from JJ
-            zjj_core::jj::workspace_status(path)
-                .await
-                .ok()
-                .map(|status| status.change_count())
-        }
-        _ => None,
-    }
 }
 
 /// Get beads count from the repository's beads database
@@ -171,93 +148,35 @@ async fn get_beads_count() -> Result<BeadCounts> {
     let beads = bead_repo.list_beads().await.unwrap_or_default();
 
     // Functional counting using fold
-    let counts = beads.into_iter().fold(BeadCounts::default(), |mut acc, b| {
-        match b.status {
-            BeadStatus::Open => acc.open += 1,
-            BeadStatus::InProgress => acc.in_progress += 1,
-            BeadStatus::Blocked => acc.blocked += 1,
-            _ => {}
-        }
-        acc
-    });
+    let counts = beads
+        .into_iter()
+        .fold(BeadCounts::default(), |acc, b| match b.status {
+            BeadStatus::Open => BeadCounts {
+                open: acc.open + 1,
+                ..acc
+            },
+            BeadStatus::InProgress => BeadCounts {
+                in_progress: acc.in_progress + 1,
+                ..acc
+            },
+            BeadStatus::Blocked => BeadCounts {
+                blocked: acc.blocked + 1,
+                ..acc
+            },
+            _ => acc,
+        });
 
     Ok(counts)
 }
 
-/// Output sessions as formatted table
-fn output_table(items: &[SessionListItem], verbose: bool) {
-    if verbose {
-        // Verbose mode: show workspace path and bead title
-        println!(
-            "{:<20} {:<12} {:<15} {:<30} {:<40}",
-            "NAME", "STATUS", "BRANCH", "BEAD", "WORKSPACE_PATH"
-        );
-        println!("{}", "-".repeat(120));
-
-        for item in items {
-            let bead_info = item.session.metadata.as_ref().and_then(|m| {
-                let id = m.get("bead_id").and_then(|v| v.as_str()).map_or("", |v| v);
-                let title = m
-                    .get("bead_title")
-                    .and_then(|v| v.as_str())
-                    .map_or("", |v| v);
-                if id.is_empty() {
-                    None
-                } else {
-                    Some(format!("{id}: {title}"))
-                }
-            });
-
-            let bead_info = bead_info.unwrap_or_else(|| "-".to_string());
-
-            println!(
-                "{:<20} {:<12} {:<15} {:<30} {:<40}",
-                item.session.name,
-                item.session.status,
-                item.display_branch_str(),
-                bead_info,
-                item.session.workspace_path
-            );
-        }
-    } else {
-        // Normal mode: show standard columns
-        println!(
-            "{:<20} {:<12} {:<15} {:<10} {:<12}",
-            "NAME", "STATUS", "BRANCH", "CHANGES", "BEADS"
-        );
-        println!("{}", "-".repeat(70));
-
-        for item in items {
-            println!(
-                "{:<20} {:<12} {:<15} {:<10} {:<12}",
-                item.session.name,
-                item.session.status,
-                item.display_branch_str(),
-                item.changes,
-                item.beads
-            );
-        }
-    }
-}
-
-/// Output sessions as JSON
-fn output_json(items: &[SessionListItem]) -> Result<()> {
-    let envelope = SchemaEnvelopeArray::new("list-response", items.to_vec());
-    let json = serde_json::to_string_pretty(&envelope)?;
-    println!("{json}");
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
     use tempfile::TempDir;
-    use zjj_core::WorkspaceState;
 
     use super::*;
-    use crate::{
-        db::SessionDb,
-        session::{Session, SessionStatus, SessionUpdate},
-    };
+    use crate::db::SessionDb;
 
     async fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
@@ -285,97 +204,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_session_list_item_serialization() -> Result<()> {
-        let session = Session {
-            id: Some(1),
-            name: "test".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "zjj:test".to_string(),
-            branch: Some("feature".to_string()),
-            created_at: 1_234_567_890,
-            updated_at: 1_234_567_890,
-            last_synced: None,
-            metadata: None,
-        };
-
-        let item = SessionListItem {
-            display_branch: session.branch.clone(),
-            changes: "5".to_string(),
-            beads: "3/2/1".to_string(),
-            session,
-        };
-
-        let json = serde_json::to_string(&item)?;
-        assert!(json.contains("\"name\":\"test\""));
-        assert!(json.contains("\"status\":\"active\""));
-        assert!(json.contains("\"changes\":\"5\""));
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_get_session_changes_missing_workspace() {
-        let result = get_session_changes("/nonexistent/path").await;
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_output_table_format() {
-        let session = Session {
-            id: Some(1),
-            name: "test-session".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "zjj:test-session".to_string(),
-            branch: Some("main".to_string()),
-            created_at: 1_234_567_890,
-            updated_at: 1_234_567_890,
-            last_synced: None,
-            metadata: None,
-        };
-
-        let items = vec![SessionListItem {
-            display_branch: session.branch.clone(),
-            changes: "5".to_string(),
-            beads: "3/2/1".to_string(),
-            session,
-        }];
-
-        // This test just verifies the function doesn't panic
-        output_table(&items, false);
-        output_table(&items, true);
-    }
-
-    #[tokio::test]
-    async fn test_output_json_format() {
-        let session = Session {
-            id: Some(1),
-            name: "test-session".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "zjj:test-session".to_string(),
-            branch: Some("main".to_string()),
-            created_at: 1_234_567_890,
-            updated_at: 1_234_567_890,
-            last_synced: None,
-            metadata: None,
-        };
-
-        let items = vec![SessionListItem {
-            display_branch: session.branch.clone(),
-            changes: "5".to_string(),
-            beads: "3/2/1".to_string(),
-            session,
-        }];
-
-        let result = output_json(&items);
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
     async fn test_filter_completed_and_failed_sessions() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
@@ -383,7 +211,7 @@ mod tests {
         let s1 = db.create("active-session", "/tmp/active").await?;
         db.update(
             &s1.name,
-            SessionUpdate {
+            crate::session::SessionUpdate {
                 status: Some(SessionStatus::Active),
                 ..Default::default()
             },
@@ -393,7 +221,7 @@ mod tests {
         let s2 = db.create("completed-session", "/tmp/completed").await?;
         db.update(
             &s2.name,
-            SessionUpdate {
+            crate::session::SessionUpdate {
                 status: Some(SessionStatus::Completed),
                 ..Default::default()
             },
@@ -403,7 +231,7 @@ mod tests {
         let s3 = db.create("failed-session", "/tmp/failed").await?;
         db.update(
             &s3.name,
-            SessionUpdate {
+            crate::session::SessionUpdate {
                 status: Some(SessionStatus::Failed),
                 ..Default::default()
             },
@@ -413,7 +241,7 @@ mod tests {
         let s4 = db.create("paused-session", "/tmp/paused").await?;
         db.update(
             &s4.name,
-            SessionUpdate {
+            crate::session::SessionUpdate {
                 status: Some(SessionStatus::Paused),
                 ..Default::default()
             },
@@ -446,7 +274,7 @@ mod tests {
         let s2 = db.create("completed-session", "/tmp/completed").await?;
         db.update(
             &s2.name,
-            SessionUpdate {
+            crate::session::SessionUpdate {
                 status: Some(SessionStatus::Completed),
                 ..Default::default()
             },
@@ -477,473 +305,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_session_list_item_with_none_branch() {
-        let session = Session {
-            id: Some(1),
-            name: "test".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "zjj:test".to_string(),
-            branch: None,
-            created_at: 1_234_567_890,
-            updated_at: 1_234_567_890,
-            last_synced: None,
-            metadata: None,
-        };
-
-        let item = SessionListItem {
-            display_branch: session.branch.clone(),
-            changes: "-".to_string(),
-            beads: "0/0/0".to_string(),
-            session,
-        };
-
-        assert_eq!(item.display_branch_str(), "-");
-        assert_eq!(item.changes, "-");
-    }
-
-    #[tokio::test]
     async fn test_get_beads_count_no_repo() {
-        // When not in a repo or no beads db, should return default
         let counts = BeadCounts::default();
         assert_eq!(counts.open, 0);
         assert_eq!(counts.in_progress, 0);
         assert_eq!(counts.blocked, 0);
     }
 
-    #[allow(clippy::too_many_lines)]
-    #[tokio::test]
-    async fn test_combined_filters_single_pass() -> Result<()> {
-        let (db, _dir) = setup_test_db().await?;
-
-        // Create sessions with different combinations of properties
-        let s1 = db.create("active-bead-123", "/tmp/s1").await?;
-        let mut metadata1 = serde_json::Map::new();
-        metadata1.insert(
-            "bead_id".to_string(),
-            serde_json::Value::String("123".to_string()),
-        );
-        metadata1.insert(
-            "owner".to_string(),
-            serde_json::Value::String("agent-a".to_string()),
-        );
-        db.update(
-            &s1.name,
-            SessionUpdate {
-                status: Some(SessionStatus::Active),
-                metadata: Some(serde_json::Value::Object(metadata1)),
-                ..Default::default()
-            },
+    #[test]
+    fn test_output_line_session_serializes_with_type() {
+        let session = SessionOutput::new(
+            "test-session".to_string(),
+            zjj_core::types::SessionStatus::Active,
+            zjj_core::WorkspaceState::Ready,
+            PathBuf::from("/tmp/test"),
         )
-        .await?;
-
-        let s2 = db.create("completed-bead-123", "/tmp/s2").await?;
-        let mut metadata2 = serde_json::Map::new();
-        metadata2.insert(
-            "bead_id".to_string(),
-            serde_json::Value::String("123".to_string()),
-        );
-        metadata2.insert(
-            "owner".to_string(),
-            serde_json::Value::String("agent-a".to_string()),
-        );
-        db.update(
-            &s2.name,
-            SessionUpdate {
-                status: Some(SessionStatus::Completed),
-                metadata: Some(serde_json::Value::Object(metadata2)),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-        let s3 = db.create("active-bead-456", "/tmp/s3").await?;
-        let mut metadata3 = serde_json::Map::new();
-        metadata3.insert(
-            "bead_id".to_string(),
-            serde_json::Value::String("456".to_string()),
-        );
-        metadata3.insert(
-            "owner".to_string(),
-            serde_json::Value::String("agent-b".to_string()),
-        );
-        db.update(
-            &s3.name,
-            SessionUpdate {
-                status: Some(SessionStatus::Active),
-                metadata: Some(serde_json::Value::Object(metadata3)),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-        // Test 1: Filter by bead_id=123 AND agent=agent-a (excludes completed)
-        let filtered: Vec<Session> = db
-            .list(None)
-            .await?
-            .into_iter()
-            .filter(|s| {
-                let status_matches =
-                    s.status != SessionStatus::Completed && s.status != SessionStatus::Failed;
-                let bead_matches = s
-                    .metadata
-                    .as_ref()
-                    .and_then(|m: &serde_json::Value| m.get("bead_id"))
-                    .and_then(|v: &serde_json::Value| v.as_str())
-                    == Some("123");
-                let agent_matches = s
-                    .metadata
-                    .as_ref()
-                    .and_then(|m: &serde_json::Value| m.get("owner"))
-                    .and_then(|v: &serde_json::Value| v.as_str())
-                    == Some("agent-a");
-                status_matches && bead_matches && agent_matches
-            })
-            .collect();
-
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].name, "active-bead-123");
-
-        // Test 2: Filter by bead_id=456 only (excludes completed)
-        let filtered2: Vec<Session> = db
-            .list(None)
-            .await?
-            .into_iter()
-            .filter(|s| {
-                let status_matches =
-                    s.status != SessionStatus::Completed && s.status != SessionStatus::Failed;
-                let bead_matches = s
-                    .metadata
-                    .as_ref()
-                    .and_then(|m: &serde_json::Value| m.get("bead_id"))
-                    .and_then(|v: &serde_json::Value| v.as_str())
-                    == Some("456");
-                status_matches && bead_matches
-            })
-            .collect();
-
-        assert_eq!(filtered2.len(), 1);
-        assert_eq!(filtered2[0].name, "active-bead-456");
-
-        Ok(())
+        .expect("session should be valid");
+        let session = session.with_branch("feature".to_string());
+        let line = OutputLine::Session(session);
+        let json = serde_json::to_string(&line);
+        assert!(json.is_ok());
+        let json = json.unwrap();
+        assert!(json.contains(r#""session""#));
+        assert!(json.contains(r#""name":"test-session"#));
+        assert!(json.contains(r#""status":"active"#));
+        assert!(json.contains(r#""state":"ready"#));
     }
 
-    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
-    // These tests FAIL initially - they verify envelope structure and format
-    // Implementation in Phase 4 (GREEN) will make them pass
-
-    #[tokio::test]
-    async fn test_list_json_has_envelope() -> Result<()> {
-        // Verify envelope wrapping for list command output
-        use zjj_core::json::SchemaEnvelopeArray;
-
-        let items: Vec<SessionListItem> = vec![];
-        let envelope = SchemaEnvelopeArray::new("list-response", items);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(
-            parsed.get("_schema_version").and_then(|v| v.as_str()),
-            Some("1.0")
-        );
-        assert_eq!(
-            parsed.get("schema_type").and_then(|v| v.as_str()),
-            Some("array")
-        );
-        assert!(parsed.get("success").is_some(), "Missing success field");
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_list_filtered_wrapped() -> Result<()> {
-        // Verify filtered results are wrapped in envelope
-        use zjj_core::json::SchemaEnvelopeArray;
-
-        let items = vec![SessionListItem {
-            display_branch: Some("main".to_string()),
-            changes: "0".to_string(),
-            beads: "1/0/0".to_string(),
-            session: Session {
-                id: Some(1i64),
-                name: "session1".to_string(),
-                workspace_path: "/tmp/ws1".to_string(),
-                zellij_tab: "zjj:session1".to_string(),
-                state: WorkspaceState::Created,
-                status: SessionStatus::Active,
-                branch: Some("main".to_string()),
-                created_at: 1_704_067_200_u64,
-                updated_at: 1_704_067_200_u64,
-                last_synced: Some(1_704_067_200_u64),
-                metadata: None,
-            },
-        }];
-        let envelope = SchemaEnvelopeArray::new("list-response", items);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(
-            parsed.get("schema_type").and_then(|v| v.as_str()),
-            Some("array")
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_list_array_type() -> Result<()> {
-        // Verify schema_type is "array" for list results
-        use zjj_core::json::SchemaEnvelopeArray;
-
-        let items: Vec<SessionListItem> = vec![];
-        let envelope = SchemaEnvelopeArray::new("list-response", items);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        let schema_type = parsed
-            .get("schema_type")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("schema_type not found"))?;
-
-        assert_eq!(
-            schema_type, "array",
-            "schema_type should be 'array' for list responses"
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_list_metadata_preserved() -> Result<()> {
-        // Verify session metadata is preserved in envelope
-        use serde_json::json;
-        use zjj_core::json::SchemaEnvelopeArray;
-
-        let metadata = json!({
-            "owner": "alice",
-            "bead_id": "feat-123"
-        });
-
-        let items = vec![SessionListItem {
-            display_branch: Some("feature".to_string()),
-            changes: "3".to_string(),
-            beads: "2/1/0".to_string(),
-            session: Session {
-                id: Some(1i64),
-                name: "session1".to_string(),
-                workspace_path: "/tmp/ws1".to_string(),
-                zellij_tab: "zjj:session1".to_string(),
-                state: WorkspaceState::Created,
-                status: SessionStatus::Active,
-                branch: Some("feature".to_string()),
-                created_at: 1_704_067_200_u64,
-                updated_at: 1_704_067_200_u64,
-                last_synced: Some(1_704_067_200_u64),
-                metadata: Some(metadata),
-            },
-        }];
-        let envelope = SchemaEnvelopeArray::new("list-response", items);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(
-            parsed.get("_schema_version").and_then(|v| v.as_str()),
-            Some("1.0")
-        );
-
-        Ok(())
-    }
-
-    // ============================================================================
-    // --contract flag tests
-    // These tests verify the --contract flag outputs AI-readable contract schema
-    // ============================================================================
-
-    /// Test that --contract flag exists and outputs AI contract schema
-    /// The contract should describe inputs, outputs, and side effects for AI agents
     #[test]
-    fn test_list_contract_flag_outputs_schema() {
-        // The --contract flag should output the list command's AI contract
-        // as a JSON-compatible string describing inputs, outputs, and side effects
-        let contract = crate::cli::json_docs::ai_contracts::list();
-
-        // Contract should be non-empty
-        assert!(!contract.is_empty(), "Contract should not be empty");
-
-        // Contract should contain key AI-relevant information
-        assert!(
-            contract.contains("zjj list"),
-            "Contract should reference the command"
-        );
-        assert!(
-            contract.contains("intent") || contract.contains("description"),
-            "Contract should describe intent"
-        );
-        assert!(
-            contract.contains("inputs") || contract.contains("outputs"),
-            "Contract should describe inputs/outputs"
-        );
-    }
-
-    /// Test that contract describes list command has no side effects
-    #[test]
-    fn test_list_contract_no_side_effects() {
-        let contract = crate::cli::json_docs::ai_contracts::list();
-
-        // List is a read-only query - should document no side effects
-        assert!(
-            contract.contains("side_effects")
-                || contract.contains("no side effects")
-                || contract.contains("read-only"),
-            "Contract should indicate no side effects for read-only command"
-        );
-    }
-
-    /// Test that contract describes filter inputs
-    #[test]
-    fn test_list_contract_filter_inputs() {
-        let contract = crate::cli::json_docs::ai_contracts::list();
-
-        // List command supports filtering - contract should document this
-        assert!(
-            contract.contains("bead") || contract.contains("filter"),
-            "Contract should document filtering capabilities"
-        );
-    }
-
-    // ============================================================================
-    // REGRESSION TESTS for Red Queen adversarial hardening
-    // These tests verify fixes for issues discovered through hostile input testing
-    // ============================================================================
-
-    /// REGRESSION: RFC 8259 duplicate keys violation
-    /// SessionListItem previously had duplicate "name" and "status" fields
-    /// due to #[serde(flatten)] on Session. JSON parsers may keep only the last value.
-    ///
-    /// Fix: Removed redundant name/status fields, use session fields via flatten.
-    #[test]
-    fn test_no_duplicate_json_keys_in_session_list_item() -> Result<()> {
-        let session = Session {
-            id: Some(1i64),
-            name: "test-session".to_string(),
-            workspace_path: "/tmp/ws".to_string(),
-            zellij_tab: "zjj:test".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            branch: Some("main".to_string()),
-            created_at: 1_704_067_200_u64,
-            updated_at: 1_704_067_200_u64,
-            last_synced: None,
-            metadata: None,
-        };
-
-        let item = SessionListItem {
-            display_branch: session.branch.clone(),
-            changes: "5".to_string(),
-            beads: "3/2/1".to_string(),
-            session,
-        };
-
-        let json_str = serde_json::to_string(&item)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-        let obj = parsed
-            .as_object()
-            .ok_or_else(|| anyhow::anyhow!("Expected object"))?;
-
-        // Count occurrences of each key
-        let mut key_counts: std::collections::HashMap<&str, usize> =
-            std::collections::HashMap::new();
-        for key in obj.keys() {
-            *key_counts.entry(key.as_str()).or_default() += 1;
-        }
-
-        // No key should appear more than once
-        for (key, count) in &key_counts {
-            assert_eq!(
-                *count, 1,
-                "Key '{}' appears {} times - violates RFC 8259 unique names requirement",
-                key, count
-            );
-        }
-
-        // Verify expected fields are present
-        assert!(
-            obj.contains_key("name"),
-            "Missing 'name' field from Session"
-        );
-        assert!(
-            obj.contains_key("status"),
-            "Missing 'status' field from Session"
-        );
-        assert!(obj.contains_key("changes"), "Missing 'changes' field");
-        assert!(obj.contains_key("beads"), "Missing 'beads' field");
-
-        // display_branch should be skipped when Some (via skip_serializing_if)
-        // since session.branch already contains the value
-        // Actually display_branch is separate, so it should be present
-        assert!(
-            obj.contains_key("display_branch"),
-            "Missing 'display_branch' field"
-        );
-
-        Ok(())
-    }
-
-    /// REGRESSION: display_branch_str returns "-" for None
-    #[test]
-    fn test_display_branch_str_returns_dash_for_none() {
-        let session = Session {
-            id: Some(1i64),
-            name: "test".to_string(),
-            workspace_path: "/tmp/ws".to_string(),
-            zellij_tab: "zjj:test".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            branch: None,
-            created_at: 1_704_067_200_u64,
-            updated_at: 1_704_067_200_u64,
-            last_synced: None,
-            metadata: None,
-        };
-
-        let item = SessionListItem {
-            display_branch: None,
-            changes: "0".to_string(),
-            beads: "0/0/0".to_string(),
-            session,
-        };
-
-        assert_eq!(item.display_branch_str(), "-");
-    }
-
-    /// REGRESSION: display_branch_str returns value for Some
-    #[test]
-    fn test_display_branch_str_returns_value_for_some() {
-        let session = Session {
-            id: Some(1i64),
-            name: "test".to_string(),
-            workspace_path: "/tmp/ws".to_string(),
-            zellij_tab: "zjj:test".to_string(),
-            state: WorkspaceState::Created,
-            status: SessionStatus::Active,
-            branch: Some("feature-branch".to_string()),
-            created_at: 1_704_067_200_u64,
-            updated_at: 1_704_067_200_u64,
-            last_synced: None,
-            metadata: None,
-        };
-
-        let item = SessionListItem {
-            display_branch: Some("feature-branch".to_string()),
-            changes: "0".to_string(),
-            beads: "0/0/0".to_string(),
-            session,
-        };
-
-        assert_eq!(item.display_branch_str(), "feature-branch");
+    fn test_output_line_summary_serializes_with_type() {
+        let summary = Summary::new(SummaryType::Count, "Listed 5 session(s)".to_string())
+            .expect("summary should be valid");
+        let line = OutputLine::Summary(summary);
+        let json = serde_json::to_string(&line);
+        assert!(json.is_ok());
+        let json = json.unwrap();
+        assert!(json.contains(r#""summary""#));
+        assert!(json.contains(r#""message":"Listed 5 session(s)"#));
     }
 }

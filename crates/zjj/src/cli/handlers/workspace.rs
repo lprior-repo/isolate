@@ -62,6 +62,7 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
     let bead_id = sub_m.get_one::<String>("bead").cloned();
+    let parent = sub_m.get_one::<String>("parent").cloned();
     let no_hooks = sub_m.get_flag("no-hooks");
     let template = sub_m.get_one::<String>("template").cloned();
     let no_open = sub_m.get_flag("no-open");
@@ -72,6 +73,7 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
     let options = add::AddOptions {
         name: name.clone(),
         bead_id,
+        parent,
         no_hooks,
         template,
         no_open,

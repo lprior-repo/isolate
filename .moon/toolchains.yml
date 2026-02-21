@@ -1,0 +1,6 @@
+# Moon v2 Toolchains Configuration
+# Use system-installed Rust toolchain (managed via rustup/rust-toolchain.toml)
+
+rust:
+  version: "nightly"
+  syncToolchainConfig: true

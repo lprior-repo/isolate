@@ -40,6 +40,10 @@ pub struct QueueEntry {
     pub attempt_count: i32,
     #[sqlx(default)]
     pub max_attempts: i32,
+    #[sqlx(default)]
+    pub rebase_count: i32,
+    #[sqlx(default)]
+    pub last_rebase_at: Option<i64>,
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

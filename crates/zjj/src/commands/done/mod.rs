@@ -282,9 +282,15 @@ async fn finalize_done_status(
     let session_updated = update_session_status(workspace_name).await?;
 
     // Phase 9: Cleanup workspace
-    let cleaned = if options.keep_workspace || !options.no_keep {
+    // By default, clean up the workspace after successful merge.
+    // Use --keep-workspace to preserve the workspace for inspection.
+    // Note: The "24h retention" mentioned in older comments was never implemented.
+    // For now, cleanup happens immediately unless explicitly requested to keep.
+    let cleaned = if options.keep_workspace {
+        // User explicitly wants to keep the workspace
         false
     } else {
+        // Clean up by default (no_keep flag is now the default behavior)
         cleanup_workspace(Path::new(workspace_path), workspace_name, filesystem).await?
     };
 
@@ -720,7 +726,10 @@ async fn update_session_status(workspace_name: &str) -> Result<bool, DoneError> 
         state: Some(WorkspaceState::Merged),
         branch: None,
         last_synced: None,
+
         metadata: None,
+        parent_session: None,
+        queue_status: None,
     };
 
     db.update(workspace_name, update)

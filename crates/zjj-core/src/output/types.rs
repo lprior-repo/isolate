@@ -30,6 +30,14 @@ pub enum OutputLineError {
     EmptySessionName,
     #[error("at least one action is required")]
     NoActions,
+    #[error("plan step count exceeds u32::MAX")]
+    PlanStepOverflow,
+    #[error("recovery action count exceeds u32::MAX")]
+    RecoveryActionOverflow,
+    #[error("stack entry count exceeds u32::MAX")]
+    StackEntryOverflow,
+    #[error("train step count exceeds u32::MAX")]
+    TrainStepOverflow,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -46,6 +54,8 @@ pub enum OutputLine {
     QueueSummary(QueueSummary),
     QueueEntry(QueueEntry),
     Train(Train),
+    ConflictDetail(ConflictAnalysis),
+    ConflictAnalysis(ConflictAnalysis),
 }
 
 impl OutputLine {
@@ -63,6 +73,8 @@ impl OutputLine {
             Self::QueueSummary(_) => "queue_summary",
             Self::QueueEntry(_) => "queue_entry",
             Self::Train(_) => "train",
+            Self::ConflictDetail(_) => "conflictdetail",
+            Self::ConflictAnalysis(_) => "conflict_analysis",
         }
     }
 }
@@ -286,10 +298,20 @@ impl Plan {
         })
     }
 
-    #[must_use]
-    pub fn with_step(self, description: String, status: ActionStatus) -> Self {
-        let order = u32::try_from(self.steps.len()).unwrap_or(u32::MAX);
-        Self {
+    /// Append a step to this plan.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::PlanStepOverflow` when the number of steps
+    /// cannot be represented as `u32`.
+    pub fn with_step(
+        self,
+        description: String,
+        status: ActionStatus,
+    ) -> Result<Self, OutputLineError> {
+        let order =
+            u32::try_from(self.steps.len()).map_err(|_| OutputLineError::PlanStepOverflow)?;
+        Ok(Self {
             steps: self
                 .steps
                 .into_iter()
@@ -300,7 +322,7 @@ impl Plan {
                 }))
                 .collect(),
             ..self
-        }
+        })
     }
 }
 
@@ -492,15 +514,21 @@ impl Recovery {
         }
     }
 
-    #[must_use]
+    /// Append a recovery action.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::RecoveryActionOverflow` when the number of
+    /// actions cannot be represented as `u32`.
     pub fn with_action(
         self,
         description: String,
         command: Option<String>,
         automatic: bool,
-    ) -> Self {
-        let order = u32::try_from(self.actions.len()).unwrap_or(u32::MAX);
-        Self {
+    ) -> Result<Self, OutputLineError> {
+        let order = u32::try_from(self.actions.len())
+            .map_err(|_| OutputLineError::RecoveryActionOverflow)?;
+        Ok(Self {
             actions: self
                 .actions
                 .into_iter()
@@ -512,7 +540,7 @@ impl Recovery {
                 }))
                 .collect(),
             ..self
-        }
+        })
     }
 }
 
@@ -563,16 +591,22 @@ impl Stack {
         })
     }
 
-    #[must_use]
+    /// Append an entry to this stack.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::StackEntryOverflow` when the number of
+    /// entries cannot be represented as `u32`.
     pub fn with_entry(
         self,
         session: String,
         workspace: PathBuf,
         status: StackEntryStatus,
         bead: Option<String>,
-    ) -> Self {
-        let order = u32::try_from(self.entries.len()).unwrap_or(u32::MAX);
-        Self {
+    ) -> Result<Self, OutputLineError> {
+        let order =
+            u32::try_from(self.entries.len()).map_err(|_| OutputLineError::StackEntryOverflow)?;
+        Ok(Self {
             entries: self
                 .entries
                 .into_iter()
@@ -586,7 +620,7 @@ impl Stack {
                 .collect(),
             updated_at: Utc::now(),
             ..self
-        }
+        })
     }
 }
 
@@ -801,10 +835,21 @@ impl Train {
         })
     }
 
-    #[must_use]
-    pub fn with_step(self, session: String, action: TrainAction, status: TrainStepStatus) -> Self {
-        let order = u32::try_from(self.steps.len()).unwrap_or(u32::MAX);
-        Self {
+    /// Append a step to this train.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::TrainStepOverflow` when the number of steps
+    /// cannot be represented as `u32`.
+    pub fn with_step(
+        self,
+        session: String,
+        action: TrainAction,
+        status: TrainStepStatus,
+    ) -> Result<Self, OutputLineError> {
+        let order =
+            u32::try_from(self.steps.len()).map_err(|_| OutputLineError::TrainStepOverflow)?;
+        Ok(Self {
             steps: self
                 .steps
                 .into_iter()
@@ -818,7 +863,7 @@ impl Train {
                 .collect(),
             updated_at: Utc::now(),
             ..self
-        }
+        })
     }
 
     #[must_use]
@@ -830,3 +875,265 @@ impl Train {
         }
     }
 }
+
+// ============================================================================
+// CONFLICT RESOLUTION TYPES
+// ============================================================================
+
+/// Type of conflict detected
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictType {
+    /// Files modified on both branches
+    Overlapping,
+    /// Conflict already exists in workspace
+    Existing,
+    /// File deleted on one branch, modified on other
+    DeleteModify,
+    /// File renamed on one branch, modified on other
+    RenameModify,
+    /// Binary file conflict
+    Binary,
+}
+
+/// Strategy for resolving a conflict
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResolutionStrategy {
+    AcceptOurs,
+    AcceptTheirs,
+    JjResolve,
+    ManualMerge,
+    Rebase,
+    Abort,
+    Skip,
+}
+
+/// Risk level of a resolution option
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ResolutionRisk {
+    Safe,
+    Moderate,
+    Destructive,
+}
+
+/// A resolution option for a conflict
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolutionOption {
+    pub strategy: ResolutionStrategy,
+    pub description: String,
+    pub risk: ResolutionRisk,
+    pub automatic: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+}
+
+impl ResolutionOption {
+    #[must_use]
+    pub fn accept_ours() -> Self {
+        Self {
+            strategy: ResolutionStrategy::AcceptOurs,
+            description: "Accept workspace version".to_string(),
+            risk: ResolutionRisk::Moderate,
+            automatic: true,
+            command: Some("jj resolve --with workspace".to_string()),
+            notes: None,
+        }
+    }
+
+    #[must_use]
+    pub fn accept_theirs() -> Self {
+        Self {
+            strategy: ResolutionStrategy::AcceptTheirs,
+            description: "Accept main version".to_string(),
+            risk: ResolutionRisk::Destructive,
+            automatic: true,
+            command: Some("jj resolve --with main".to_string()),
+            notes: Some("Will discard workspace changes".to_string()),
+        }
+    }
+
+    #[must_use]
+    pub fn manual_merge() -> Self {
+        Self {
+            strategy: ResolutionStrategy::ManualMerge,
+            description: "Manually resolve conflicts".to_string(),
+            risk: ResolutionRisk::Safe,
+            automatic: false,
+            command: None,
+            notes: Some("Open file in editor".to_string()),
+        }
+    }
+
+    #[must_use]
+    pub fn jj_resolve(file: &str) -> Self {
+        Self {
+            strategy: ResolutionStrategy::JjResolve,
+            description: "Use jj resolve tool".to_string(),
+            risk: ResolutionRisk::Safe,
+            automatic: true,
+            command: Some(format!("jj resolve {file}")),
+            notes: None,
+        }
+    }
+
+    #[must_use]
+    pub fn rebase() -> Self {
+        Self {
+            strategy: ResolutionStrategy::Rebase,
+            description: "Rebase onto fresh main".to_string(),
+            risk: ResolutionRisk::Moderate,
+            automatic: true,
+            command: Some("jj rebase -d main".to_string()),
+            notes: None,
+        }
+    }
+
+    #[must_use]
+    pub fn abort() -> Self {
+        Self {
+            strategy: ResolutionStrategy::Abort,
+            description: "Abort the operation".to_string(),
+            risk: ResolutionRisk::Safe,
+            automatic: true,
+            command: Some("jj abort".to_string()),
+            notes: None,
+        }
+    }
+
+    #[must_use]
+    pub fn skip() -> Self {
+        Self {
+            strategy: ResolutionStrategy::Skip,
+            description: "Skip this file".to_string(),
+            risk: ResolutionRisk::Safe,
+            automatic: true,
+            command: None,
+            notes: Some("File will remain conflicted".to_string()),
+        }
+    }
+}
+
+/// Details about a specific conflict
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConflictDetail {
+    pub file: String,
+    pub conflict_type: ConflictType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_additions: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_deletions: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub main_additions: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub main_deletions: Option<u32>,
+    pub resolutions: Vec<ResolutionOption>,
+    pub recommended: ResolutionStrategy,
+}
+
+impl ConflictDetail {
+    #[must_use]
+    pub fn overlapping(file: &str) -> Self {
+        Self {
+            file: file.to_string(),
+            conflict_type: ConflictType::Overlapping,
+            workspace_additions: None,
+            workspace_deletions: None,
+            main_additions: None,
+            main_deletions: None,
+            resolutions: vec![
+                ResolutionOption::jj_resolve(file),
+                ResolutionOption::manual_merge(),
+                ResolutionOption::accept_ours(),
+                ResolutionOption::accept_theirs(),
+            ],
+            recommended: ResolutionStrategy::JjResolve,
+        }
+    }
+
+    #[must_use]
+    pub fn existing(file: &str) -> Self {
+        Self {
+            file: file.to_string(),
+            conflict_type: ConflictType::Existing,
+            workspace_additions: None,
+            workspace_deletions: None,
+            main_additions: None,
+            main_deletions: None,
+            resolutions: vec![
+                ResolutionOption::jj_resolve(file),
+                ResolutionOption::manual_merge(),
+                ResolutionOption::rebase(),
+                ResolutionOption::abort(),
+            ],
+            recommended: ResolutionStrategy::JjResolve,
+        }
+    }
+}
+
+/// Analysis of all conflicts in a session
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConflictAnalysis {
+    #[serde(rename = "type")]
+    pub type_field: String,
+    pub session: String,
+    pub merge_safe: bool,
+    pub total_conflicts: usize,
+    pub conflicts: Vec<ConflictDetail>,
+    pub existing_conflicts: usize,
+    pub overlapping_files: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis_time_ms: Option<u64>,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    pub timestamp: DateTime<Utc>,
+}
+
+impl OutputLine {
+    #[must_use]
+    pub fn conflict_analysis(
+        session: &str,
+        merge_safe: bool,
+        conflicts: Vec<ConflictDetail>,
+    ) -> Self {
+        let existing_conflicts = conflicts
+            .iter()
+            .filter(|c| c.conflict_type == ConflictType::Existing)
+            .count();
+        let overlapping_files = conflicts
+            .iter()
+            .filter(|c| c.conflict_type == ConflictType::Overlapping)
+            .count();
+
+        Self::ConflictAnalysis(ConflictAnalysis {
+            type_field: "conflictdetail".to_string(),
+            session: session.to_string(),
+            merge_safe,
+            total_conflicts: conflicts.len(),
+            conflicts,
+            existing_conflicts,
+            overlapping_files,
+            merge_base: None,
+            analysis_time_ms: None,
+            timestamp: Utc::now(),
+        })
+    }
+}
+
+/// Session state for output (mirrors `SessionStatus` for JSON output)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionState {
+    Active,
+    Paused,
+    Creating,
+    Completed,
+    Failed,
+}
+
+/// Type alias for backward compatibility
+pub type Session = SessionOutput;

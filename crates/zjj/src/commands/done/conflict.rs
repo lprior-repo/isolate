@@ -697,3 +697,306 @@ mod tests {
         assert_eq!(result.merge_base, Some("abc".to_string()));
     }
 }
+
+// ============================================================================
+// JSONL OUTPUT CONVERSION (bd-36v)
+// ============================================================================
+
+use zjj_core::output::{
+    ConflictAnalysis, ConflictDetail, ConflictType, OutputLine, ResolutionOption,
+    ResolutionStrategy,
+};
+
+impl ConflictDetectionResult {
+    /// Convert to JSONL-compatible ConflictAnalysis type
+    ///
+    /// This conversion enriches the basic detection result with structured
+    /// resolution options for AI-first CLI consumers.
+    #[must_use]
+    pub fn to_conflict_analysis(&self, session: &str) -> ConflictAnalysis {
+        let conflicts: Vec<ConflictDetail> = self
+            .existing_conflicts
+            .iter()
+            .map(|file| ConflictDetail::existing(file.as_str()))
+            .chain(
+                self.overlapping_files
+                    .iter()
+                    .map(|file| ConflictDetail::overlapping(file.as_str())),
+            )
+            .collect();
+
+        ConflictAnalysis {
+            type_field: "conflict_analysis".to_string(),
+            session: session.to_string(),
+            merge_safe: self.merge_likely_safe,
+            total_conflicts: conflicts.len(),
+            existing_conflicts: self.existing_conflicts.len(),
+            overlapping_files: self.overlapping_files.len(),
+            conflicts,
+            merge_base: self.merge_base.clone(),
+            timestamp: chrono::Utc::now(),
+            analysis_time_ms: Some(self.detection_time_ms),
+        }
+    }
+
+    /// Convert to OutputLine for JSONL streaming
+    #[must_use]
+    pub fn to_output_line(&self, session: &str) -> OutputLine {
+        OutputLine::ConflictAnalysis(self.to_conflict_analysis(session))
+    }
+
+    /// Emit as JSONL to stdout
+    ///
+    /// # Errors
+    ///
+    /// Returns error if writing to stdout fails
+    pub fn emit_jsonl(&self, session: &str) -> Result<(), ConflictError> {
+        let output_line = self.to_output_line(session);
+        zjj_core::output::emit_stdout(&output_line)
+            .map_err(|e| ConflictError::InvalidOutput(e.to_string()))
+    }
+}
+
+/// Emit individual conflict details as JSONL lines
+///
+/// This function emits each conflict as a separate JSONL line for streaming.
+///
+/// # Errors
+///
+/// Returns error if writing to stdout fails
+pub fn emit_conflict_details_jsonl(
+    result: &ConflictDetectionResult,
+    session: &str,
+) -> Result<(), ConflictError> {
+    result.emit_jsonl(session)
+}
+
+/// Generate resolution options for a specific conflict type
+///
+/// This pure function generates structured resolution options based on
+/// the type of conflict detected.
+#[must_use]
+pub fn generate_resolution_options(
+    conflict_type: ConflictType,
+    file: &str,
+) -> Vec<ResolutionOption> {
+    match conflict_type {
+        ConflictType::Existing => vec![
+            ResolutionOption::jj_resolve(file),
+            ResolutionOption::manual_merge(),
+            ResolutionOption::abort(),
+        ],
+        ConflictType::Overlapping => vec![
+            ResolutionOption::jj_resolve(file),
+            ResolutionOption::manual_merge(),
+            ResolutionOption::accept_ours(),
+            ResolutionOption::accept_theirs(),
+            ResolutionOption::rebase(),
+        ],
+        ConflictType::DeleteModify => vec![
+            ResolutionOption::accept_ours(),
+            ResolutionOption::accept_theirs(),
+            ResolutionOption::manual_merge(),
+        ],
+        ConflictType::RenameModify => vec![
+            ResolutionOption::manual_merge(),
+            ResolutionOption::jj_resolve(file),
+        ],
+        ConflictType::Binary => vec![
+            ResolutionOption::accept_ours(),
+            ResolutionOption::accept_theirs(),
+            ResolutionOption::skip(),
+        ],
+    }
+}
+
+/// Get the recommended resolution strategy for a conflict type
+#[must_use]
+pub const fn recommended_strategy(conflict_type: ConflictType) -> ResolutionStrategy {
+    match conflict_type {
+        ConflictType::Existing | ConflictType::Overlapping => ResolutionStrategy::JjResolve,
+        ConflictType::DeleteModify | ConflictType::RenameModify => ResolutionStrategy::ManualMerge,
+        ConflictType::Binary => ResolutionStrategy::AcceptOurs,
+    }
+}
+
+// ============================================================================
+// JSONL OUTPUT TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod jsonl_tests {
+    use super::*;
+
+    #[test]
+    fn test_conflict_detection_result_to_conflict_analysis() {
+        let result = ConflictDetectionResult {
+            has_existing_conflicts: true,
+            existing_conflicts: vec!["src/existing.rs".to_string()],
+            overlapping_files: vec!["src/overlap.rs".to_string()],
+            workspace_only: vec!["src/new.rs".to_string()],
+            main_only: vec!["src/main_new.rs".to_string()],
+            merge_likely_safe: false,
+            summary: "Test summary".to_string(),
+            merge_base: Some("abc123".to_string()),
+            files_analyzed: 4,
+            detection_time_ms: 50,
+        };
+
+        let analysis = result.to_conflict_analysis("test-session");
+
+        assert_eq!(analysis.session, "test-session");
+        assert!(!analysis.merge_safe);
+        assert_eq!(analysis.total_conflicts, 2);
+        assert_eq!(analysis.existing_conflicts, 1);
+        assert_eq!(analysis.overlapping_files, 1);
+        assert_eq!(analysis.merge_base, Some("abc123".to_string()));
+        assert_eq!(analysis.analysis_time_ms, Some(50));
+    }
+
+    #[test]
+    fn test_conflict_detection_result_to_output_line() {
+        let result = ConflictDetectionResult {
+            has_existing_conflicts: false,
+            existing_conflicts: vec![],
+            overlapping_files: vec![],
+            workspace_only: vec![],
+            main_only: vec![],
+            merge_likely_safe: true,
+            summary: "Safe to merge".to_string(),
+            merge_base: None,
+            files_analyzed: 0,
+            detection_time_ms: 10,
+        };
+
+        let line = result.to_output_line("safe-session");
+        let json = serde_json::to_string(&line);
+        assert!(json.is_ok());
+        let json = json.unwrap();
+        assert!(json.contains(r#""conflict_analysis""#));
+        assert!(json.contains(r#""merge_safe":true"#));
+        assert!(json.contains(r#""total_conflicts":0"#));
+    }
+
+    #[test]
+    fn test_generate_resolution_options_existing() {
+        let options = generate_resolution_options(ConflictType::Existing, "src/test.rs");
+        assert_eq!(options.len(), 3);
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::JjResolve));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::ManualMerge));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::Abort));
+    }
+
+    #[test]
+    fn test_generate_resolution_options_overlapping() {
+        let options = generate_resolution_options(ConflictType::Overlapping, "src/lib.rs");
+        assert_eq!(options.len(), 5);
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::JjResolve));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::AcceptOurs));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::AcceptTheirs));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::Rebase));
+    }
+
+    #[test]
+    fn test_generate_resolution_options_delete_modify() {
+        let options = generate_resolution_options(ConflictType::DeleteModify, "src/deleted.rs");
+        assert_eq!(options.len(), 3);
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::AcceptOurs));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::AcceptTheirs));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::ManualMerge));
+    }
+
+    #[test]
+    fn test_generate_resolution_options_binary() {
+        let options = generate_resolution_options(ConflictType::Binary, "image.png");
+        assert_eq!(options.len(), 3);
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::AcceptOurs));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::AcceptTheirs));
+        assert!(options
+            .iter()
+            .any(|o| o.strategy == ResolutionStrategy::Skip));
+    }
+
+    #[test]
+    fn test_recommended_strategy() {
+        assert_eq!(
+            recommended_strategy(ConflictType::Existing),
+            ResolutionStrategy::JjResolve
+        );
+        assert_eq!(
+            recommended_strategy(ConflictType::Overlapping),
+            ResolutionStrategy::JjResolve
+        );
+        assert_eq!(
+            recommended_strategy(ConflictType::DeleteModify),
+            ResolutionStrategy::ManualMerge
+        );
+        assert_eq!(
+            recommended_strategy(ConflictType::RenameModify),
+            ResolutionStrategy::ManualMerge
+        );
+        assert_eq!(
+            recommended_strategy(ConflictType::Binary),
+            ResolutionStrategy::AcceptOurs
+        );
+    }
+
+    #[test]
+    fn test_conflict_analysis_conflicts_field_populated() {
+        let result = ConflictDetectionResult {
+            has_existing_conflicts: true,
+            existing_conflicts: vec!["src/a.rs".to_string()],
+            overlapping_files: vec!["src/b.rs".to_string(), "src/c.rs".to_string()],
+            workspace_only: vec![],
+            main_only: vec![],
+            merge_likely_safe: false,
+            summary: "Has conflicts".to_string(),
+            merge_base: None,
+            files_analyzed: 3,
+            detection_time_ms: 20,
+        };
+
+        let analysis = result.to_conflict_analysis("session");
+
+        assert_eq!(analysis.conflicts.len(), 3);
+
+        // First conflict should be existing
+        let first = &analysis.conflicts[0];
+        assert_eq!(first.file, "src/a.rs");
+        assert_eq!(first.conflict_type, ConflictType::Existing);
+
+        // Second and third should be overlapping
+        assert_eq!(
+            analysis.conflicts[1].conflict_type,
+            ConflictType::Overlapping
+        );
+        assert_eq!(
+            analysis.conflicts[2].conflict_type,
+            ConflictType::Overlapping
+        );
+    }
+}

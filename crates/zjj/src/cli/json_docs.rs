@@ -827,7 +827,7 @@ pub mod ai_contracts {
       "type": "boolean",
       "flag": "-f, --force",
       "required": false,
-      "description": "Skip confirmation prompt and pre_remove hooks"
+      "description": "Skip pre_remove hooks (no-op for confirmation, which is removed)"
     },
     "merge": {
       "type": "boolean",

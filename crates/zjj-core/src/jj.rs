@@ -828,8 +828,13 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("zjj-test-workspace-guard");
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
 
+        let nanos_since_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or_else(|_| 0_u128, |duration| duration.as_nanos());
+        let workspace_name = format!("test-cleanup-{}-{nanos_since_epoch}", std::process::id());
+
         let guard_path = temp_dir.clone();
-        let mut guard = WorkspaceGuard::new("test-cleanup".to_string(), guard_path);
+        let mut guard = WorkspaceGuard::new(workspace_name, guard_path);
         assert!(guard.active);
 
         // Note: cleanup will attempt to forget workspace (which will fail in test env)
@@ -839,11 +844,16 @@ mod tests {
         // Guard should be disarmed after cleanup attempt
         assert!(!guard.active);
 
-        // Cleanup returns error because 'jj workspace forget' will fail in test env
-        assert!(result.is_err());
+        // Cleanup should remove the temporary directory regardless of JJ result.
+        let exists_after_cleanup = tokio::fs::try_exists(&temp_dir)
+            .await
+            .map_or(true, |exists| exists);
+        assert!(!exists_after_cleanup);
 
-        // Cleanup temp dir
-        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+        // Cleanup result is environment-dependent:
+        // - Ok(()) when `jj workspace forget` succeeds.
+        // - Err(...) when JJ is unavailable or workspace forget fails.
+        let _ = result;
     }
 
     #[tokio::test]

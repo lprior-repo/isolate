@@ -67,6 +67,20 @@ pub struct QueueStats {
     pub failed: usize,
 }
 
+/// Statistics from automatic stale lock and entry recovery.
+///
+/// Returned by `detect_and_recover_stale()` and `get_recovery_stats()`
+/// to provide visibility into self-healing operations.
+#[derive(Debug, Clone, Default)]
+pub struct RecoveryStats {
+    /// Number of expired processing locks cleaned
+    pub locks_cleaned: usize,
+    /// Number of stale claimed entries reset to pending
+    pub entries_reclaimed: usize,
+    /// Unix timestamp when recovery was performed
+    pub recovery_timestamp: i64,
+}
+
 #[derive(Clone)]
 pub struct MergeQueue {
     pool: SqlitePool,
@@ -118,15 +132,29 @@ impl MergeQueue {
     /// Open an in-memory merge queue for testing
     ///
     /// This creates a transient in-memory `SQLite` database that is
-    /// discarded when the queue is dropped. Useful for testing and
-    /// development without persisting state to disk.
-    pub async fn open_in_memory() -> Result<Self> {
+    /// Create an in-memory merge queue for testing with a custom lock timeout.
+    ///
+    /// The lock timeout determines how long a worker can hold a lock before
+    /// it's considered stale. Shorter timeouts are useful for testing
+    /// automatic recovery behavior.
+    pub async fn open_in_memory_with_timeout(lock_timeout_secs: i64) -> Result<Self> {
         let pool = SqlitePoolOptions::new()
             .connect("sqlite::memory:")
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to open in-memory database: {e}")))?;
 
-        Self::new(pool).await
+        let queue = Self {
+            pool,
+            lock_timeout_secs,
+        };
+        queue.init_schema().await?;
+        Ok(queue)
+    }
+
+    /// discarded when the queue is dropped. Useful for testing and
+    /// development without persisting state to disk.
+    pub async fn open_in_memory() -> Result<Self> {
+        Self::open_in_memory_with_timeout(Self::DEFAULT_LOCK_TIMEOUT_SECS).await
     }
 
     /// Create a new merge queue from an existing connection pool
@@ -165,7 +193,9 @@ impl MergeQueue {
                 head_sha TEXT,
                 tested_against_sha TEXT,
                 attempt_count INTEGER DEFAULT 0,
-                max_attempts INTEGER DEFAULT 3
+                max_attempts INTEGER DEFAULT 3,
+                rebase_count INTEGER DEFAULT 0,
+                last_rebase_at INTEGER
             )",
         )
         .execute(&self.pool)
@@ -260,6 +290,14 @@ impl MergeQueue {
             (
                 "max_attempts",
                 "ALTER TABLE merge_queue ADD COLUMN max_attempts INTEGER DEFAULT 3",
+            ),
+            (
+                "rebase_count",
+                "ALTER TABLE merge_queue ADD COLUMN rebase_count INTEGER DEFAULT 0",
+            ),
+            (
+                "last_rebase_at",
+                "ALTER TABLE merge_queue ADD COLUMN last_rebase_at INTEGER",
             ),
         ];
 
@@ -495,10 +533,11 @@ impl MergeQueue {
                     self.update_active_entry(entry.id, head_sha, now).await
                 } else {
                     // Case 2c: Active entry with DIFFERENT workspace - reject
-                    Err(Error::InvalidConfig(format!(
-                        "An active entry with dedupe_key '{dedupe_key}' already exists for workspace '{}'",
-                        entry.workspace
-                    )))
+                    Err(Error::DedupeKeyConflict {
+                        dedupe_key: dedupe_key.to_string(),
+                        existing_workspace: entry.workspace.clone(),
+                        provided_workspace: workspace.to_string(),
+                    })
                 }
             }
         }
@@ -549,7 +588,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE dedupe_key = ?1 \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE dedupe_key = ?1 \
                  ORDER BY id DESC LIMIT 1",
         )
         .bind(dedupe_key)
@@ -623,7 +662,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE id = ?1",
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE id = ?1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -635,7 +674,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE workspace = ?1",
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE workspace = ?1",
         )
         .bind(workspace)
         .fetch_optional(&self.pool)
@@ -648,13 +687,13 @@ impl MergeQueue {
             Some(_) => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE status = ?1 \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE status = ?1 \
                  ORDER BY priority ASC, added_at ASC"
             }
             None => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue \
                  ORDER BY priority ASC, added_at ASC"
             }
         };
@@ -676,7 +715,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE status = 'pending' \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE status = 'pending' \
                  ORDER BY priority ASC, added_at ASC LIMIT 1",
         )
         .fetch_optional(&self.pool)
@@ -841,6 +880,13 @@ impl MergeQueue {
         loop {
             attempt += 1;
 
+            // Automatic recovery before claim attempt (bd-2i5)
+            // Best-effort - failures logged but don't prevent claim
+            if let Err(e) = self.detect_and_recover_stale().await {
+                eprintln!("Warning: Automatic recovery failed: {e}");
+                // Continue anyway - lock acquisition may still succeed
+            }
+
             // Attempt to claim the next entry with atomic transaction
             let result = self.try_claim_next_entry(agent_id).await;
 
@@ -980,22 +1026,29 @@ impl MergeQueue {
 
     #[allow(clippy::cast_possible_wrap)]
     pub async fn cleanup(&self, max_age: Duration) -> Result<usize> {
+        // Terminal statuses that should be cleaned up:
+        // - merged: successfully merged entries
+        // - failed_terminal: unrecoverable failures
+        // - cancelled: manually cancelled entries
+        // Note: 'completed' and 'failed' are legacy aliases for 'merged' and 'failed_terminal'
+        const TERMINAL_STATUSES: &str = "'merged', 'failed_terminal', 'cancelled', 'completed', 'failed'";
+
         // First delete related queue_events to avoid FK constraint violation
         if max_age.is_zero() {
-            sqlx::query(
+            sqlx::query(&format!(
                 "DELETE FROM queue_events WHERE queue_id IN \
-                     (SELECT id FROM merge_queue WHERE status IN ('completed', 'failed'))",
-            )
+                     (SELECT id FROM merge_queue WHERE status IN ({TERMINAL_STATUSES}))"
+            ))
             .execute(&self.pool)
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to cleanup queue events: {e}")))?;
         } else {
             let cutoff = Self::now() - max_age.as_secs() as i64;
-            sqlx::query(
+            sqlx::query(&format!(
                 "DELETE FROM queue_events WHERE queue_id IN \
-                     (SELECT id FROM merge_queue WHERE status IN ('completed', 'failed') \
-                     AND completed_at <= ?1)",
-            )
+                     (SELECT id FROM merge_queue WHERE status IN ({TERMINAL_STATUSES}) \
+                     AND completed_at <= ?1)"
+            ))
             .bind(cutoff)
             .execute(&self.pool)
             .await
@@ -1003,16 +1056,18 @@ impl MergeQueue {
         }
 
         let result = if max_age.is_zero() {
-            sqlx::query("DELETE FROM merge_queue WHERE status IN ('completed', 'failed')")
-                .execute(&self.pool)
-                .await
-                .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?
+            sqlx::query(&format!(
+                "DELETE FROM merge_queue WHERE status IN ({TERMINAL_STATUSES})"
+            ))
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?
         } else {
             let cutoff = Self::now() - max_age.as_secs() as i64;
-            sqlx::query(
-                "DELETE FROM merge_queue WHERE status IN ('completed', 'failed') \
-                     AND completed_at <= ?1",
-            )
+            sqlx::query(&format!(
+                "DELETE FROM merge_queue WHERE status IN ({TERMINAL_STATUSES}) \
+                     AND completed_at <= ?1"
+            ))
             .bind(cutoff)
             .execute(&self.pool)
             .await
@@ -1055,6 +1110,149 @@ impl MergeQueue {
         .map_err(|e| Error::DatabaseError(format!("Failed to reclaim stale entries: {e}")))?;
 
         Ok(result.rows_affected() as usize)
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AUTOMATIC SELF-HEALING (bd-2i5)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Detect and automatically recover stale locks and entries.
+    ///
+    /// This method is called automatically by `next_with_lock()` before attempting
+    /// to claim work, but can also be called explicitly for monitoring or
+    /// maintenance purposes.
+    ///
+    /// # Recovery Operations
+    ///
+    /// 1. Deletes expired processing locks from `queue_processing_lock`
+    /// 2. Resets stale claimed entries back to `pending` state
+    ///
+    /// An entry is considered stale if:
+    /// - `status = 'claimed'`
+    /// - `started_at IS NOT NULL`
+    /// - `started_at < now - lock_timeout_secs`
+    ///
+    /// # Returns
+    ///
+    /// Statistics about recovery actions performed, including counts of
+    /// locks cleaned and entries reclaimed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a database error if the cleanup queries fail.
+    ///
+    /// # Idempotence
+    ///
+    /// This method is idempotent - calling it multiple times is safe.
+    /// After the first call reclaims stale entries, subsequent calls will
+    /// report zero entries reclaimed.
+    #[allow(clippy::cast_sign_loss)]
+    pub async fn detect_and_recover_stale(&self) -> Result<RecoveryStats> {
+        let now = Self::now();
+
+        // Delete expired processing locks
+        let locks_cleaned = sqlx::query("DELETE FROM queue_processing_lock WHERE expires_at < ?1")
+            .bind(now)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to clean expired locks: {e}")))?
+            .rows_affected();
+
+        // Reset stale claimed entries to pending
+        let cutoff = now - self.lock_timeout_secs;
+        let entries_reclaimed = sqlx::query(
+            "UPDATE merge_queue
+             SET status = 'pending',
+                 started_at = NULL,
+                 agent_id = NULL,
+                 state_changed_at = ?1
+             WHERE status = 'claimed'
+               AND started_at IS NOT NULL
+               AND started_at < ?2",
+        )
+        .bind(now)
+        .bind(cutoff)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to reclaim stale entries: {e}")))?
+        .rows_affected();
+
+        Ok(RecoveryStats {
+            locks_cleaned: locks_cleaned as usize,
+            entries_reclaimed: entries_reclaimed as usize,
+            recovery_timestamp: now,
+        })
+    }
+
+    /// Get recovery statistics without performing recovery.
+    ///
+    /// This method counts expired locks and stale entries but does not
+    /// modify the database. It's useful for monitoring and health checks
+    /// where you want to observe system state without side effects.
+    ///
+    /// # Returns
+    ///
+    /// Statistics showing the count of expired locks and stale entries
+    /// that would be reclaimed if `detect_and_recover_stale()` were called.
+    ///
+    /// # Errors
+    ///
+    /// Returns a database error if the count queries fail.
+    #[allow(clippy::cast_sign_loss)]
+    pub async fn get_recovery_stats(&self) -> Result<RecoveryStats> {
+        let now = Self::now();
+
+        // Count expired locks (without deleting)
+        let locks_cleaned: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM queue_processing_lock WHERE expires_at < ?1")
+                .bind(now)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| Error::DatabaseError(format!("Failed to count expired locks: {e}")))?;
+
+        // Count stale entries (without reclaiming)
+        let cutoff = now - self.lock_timeout_secs;
+        let entries_reclaimed: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM merge_queue
+             WHERE status = 'claimed'
+               AND started_at IS NOT NULL
+               AND started_at < ?1",
+        )
+        .bind(cutoff)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to count stale entries: {e}")))?;
+
+        Ok(RecoveryStats {
+            locks_cleaned: locks_cleaned as usize,
+            entries_reclaimed: entries_reclaimed as usize,
+            recovery_timestamp: now,
+        })
+    }
+
+    /// Check if the processing lock is stale (expired).
+    ///
+    /// Returns `true` if a lock exists and its `expires_at` timestamp
+    /// is in the past. Returns `false` if no lock exists or if the lock
+    /// is still valid.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(true)` - Lock exists and is expired
+    /// - `Ok(false)` - No lock exists or lock is still valid
+    /// - `Err(_)` - Database error
+    ///
+    /// # Errors
+    ///
+    /// Returns a database error if unable to query the lock state.
+    pub async fn is_lock_stale(&self) -> Result<bool> {
+        let lock = self.get_processing_lock().await?;
+        let now = Self::now();
+
+        Ok(match lock {
+            Some(l) => l.expires_at < now,
+            None => false,
+        })
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1532,6 +1730,77 @@ impl MergeQueue {
         Ok(())
     }
 
+    /// Update rebase metadata with rebase count for observability.
+    ///
+    /// This method persists all rebase-related metadata including:
+    /// - `head_sha`: The new HEAD SHA after rebase
+    /// - `tested_against_sha`: The main branch SHA rebased onto
+    /// - `rebase_count`: Total number of rebase attempts (incremented)
+    /// - `last_rebase_at`: Timestamp of this rebase
+    ///
+    /// Also transitions status to 'testing' and emits a transitioned event.
+    ///
+    /// # Errors
+    /// - `Err(Error::NotFound)` if the workspace is not found
+    /// - `Err(Error::InvalidConfig)` if the entry is not in 'rebasing' status
+    /// - `Err(Error::DatabaseError)` if the database operation fails
+    #[allow(clippy::too_many_arguments)]
+    pub async fn update_rebase_metadata_with_count(
+        &self,
+        workspace: &str,
+        head_sha: &str,
+        tested_against_sha: &str,
+        rebase_count: i32,
+        rebase_timestamp: i64,
+    ) -> Result<()> {
+        let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
+
+        if entry.status != QueueStatus::Rebasing {
+            return Err(Error::InvalidConfig(format!(
+                "Cannot update rebase metadata for workspace '{}' in status '{}', expected 'rebasing'",
+                workspace,
+                entry.status.as_str()
+            )));
+        }
+
+        let now = Self::now();
+
+        let result = sqlx::query(
+            "UPDATE merge_queue SET status = 'testing', head_sha = ?1, tested_against_sha = ?2, \
+             state_changed_at = ?3, previous_state = 'rebasing', rebase_count = ?4, last_rebase_at = ?5 \
+             WHERE workspace = ?6",
+        )
+        .bind(head_sha)
+        .bind(tested_against_sha)
+        .bind(now)
+        .bind(rebase_count)
+        .bind(rebase_timestamp)
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!(
+                "Failed to update rebase metadata for '{workspace}': {e}"
+            ))
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(Error::NotFound(format!(
+                "Workspace '{workspace}' not found or update failed"
+            )));
+        }
+
+        let event_details = format!(
+            r#"{{"from": "rebasing", "to": "testing", "head_sha": "{head_sha}", "tested_against_sha": "{tested_against_sha}", "rebase_count": {rebase_count}}}"#
+        );
+        self.append_typed_event(entry.id, QueueEventType::Transitioned, Some(&event_details))
+            .await?;
+
+        Ok(())
+    }
+
     /// Update the `tested_against_sha` for an entry (for testing purposes).
     pub async fn update_tested_against(
         &self,
@@ -1887,6 +2156,24 @@ impl QueueRepository for MergeQueue {
             .await
     }
 
+    async fn update_rebase_metadata_with_count(
+        &self,
+        workspace: &str,
+        head_sha: &str,
+        tested_against_sha: &str,
+        rebase_count: i32,
+        rebase_timestamp: i64,
+    ) -> Result<()> {
+        self.update_rebase_metadata_with_count(
+            workspace,
+            head_sha,
+            tested_against_sha,
+            rebase_count,
+            rebase_timestamp,
+        )
+        .await
+    }
+
     async fn is_fresh(&self, workspace: &str, current_main_sha: &str) -> Result<bool> {
         self.is_fresh(workspace, current_main_sha).await
     }
@@ -1953,6 +2240,22 @@ impl QueueRepository for MergeQueue {
 
     async fn reclaim_stale(&self, stale_threshold_secs: i64) -> Result<usize> {
         self.reclaim_stale(stale_threshold_secs).await
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AUTOMATIC SELF-HEALING (bd-2i5)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async fn detect_and_recover_stale(&self) -> Result<RecoveryStats> {
+        self.detect_and_recover_stale().await
+    }
+
+    async fn get_recovery_stats(&self) -> Result<RecoveryStats> {
+        self.get_recovery_stats().await
+    }
+
+    async fn is_lock_stale(&self) -> Result<bool> {
+        self.is_lock_stale().await
     }
 }
 
@@ -4125,6 +4428,187 @@ mod tests {
         assert_eq!(updated.status, QueueStatus::Rebasing);
         assert_eq!(updated.head_sha, Some("head-before".to_string()));
         assert!(updated.tested_against_sha.is_none());
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CLEANUP TESTS - Proves terminal statuses are cleaned
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_merged_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add and merge a workspace following correct state machine:
+        // pending -> claimed -> rebasing -> testing -> ready_to_merge -> merging -> merged
+        queue.add("ws-merged", None, 5, None).await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::Testing)
+            .await?;
+        queue
+            .transition_to("ws-merged", QueueStatus::ReadyToMerge)
+            .await?;
+        queue.begin_merge("ws-merged").await?;
+        queue
+            .complete_merge("ws-merged", "merged-sha-123")
+            .await?;
+
+        // Verify entry exists with merged status
+        let entry = queue.get_by_workspace("ws-merged").await?;
+        assert!(
+            entry.is_some(),
+            "Entry should exist before cleanup"
+        );
+        assert_eq!(
+            entry.as_ref().map(|e| e.status),
+            Some(QueueStatus::Merged),
+            "Entry should be merged before cleanup"
+        );
+
+        // Run cleanup with zero duration (cleanup all terminal)
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 1, "Should clean up 1 merged entry");
+
+        // Verify entry is gone
+        let entry_after = queue.get_by_workspace("ws-merged").await?;
+        assert!(
+            entry_after.is_none(),
+            "Merged entry should be deleted after cleanup"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_cancelled_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-cancelled", None, 5, None).await?;
+        queue
+            .transition_to("ws-cancelled", QueueStatus::Cancelled)
+            .await?;
+
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 1, "Should clean up 1 cancelled entry");
+
+        let entry = queue.get_by_workspace("ws-cancelled").await?;
+        assert!(
+            entry.is_none(),
+            "Cancelled entry should be deleted after cleanup"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_failed_terminal_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Must go through claimed first, then fail from claimed
+        queue.add("ws-failed-terminal", None, 5, None).await?;
+        queue
+            .transition_to("ws-failed-terminal", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to_failed("ws-failed-terminal", "Unrecoverable error", false)
+            .await?;
+
+        // Verify it's failed_terminal
+        let entry = queue.get_by_workspace("ws-failed-terminal").await?;
+        assert_eq!(
+            entry.as_ref().map(|e| e.status),
+            Some(QueueStatus::FailedTerminal),
+            "Entry should be failed_terminal"
+        );
+
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 1, "Should clean up 1 failed_terminal entry");
+
+        let entry_after = queue.get_by_workspace("ws-failed-terminal").await?;
+        assert!(
+            entry_after.is_none(),
+            "Failed terminal entry should be deleted after cleanup"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_does_not_delete_pending_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add entries in various non-terminal states
+        queue.add("ws-pending", None, 5, None).await?;
+        queue.add("ws-pending-2", None, 5, None).await?;
+
+        // Run cleanup
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(cleaned, 0, "Should not clean up pending entries");
+
+        // Verify entries still exist
+        let stats = queue.stats().await?;
+        assert_eq!(stats.pending, 2, "Pending entries should remain");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_deletes_multiple_terminal_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Create merged entry (full state machine path)
+        queue.add("ws-merged-1", None, 5, None).await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::Testing)
+            .await?;
+        queue
+            .transition_to("ws-merged-1", QueueStatus::ReadyToMerge)
+            .await?;
+        queue.begin_merge("ws-merged-1").await?;
+        queue.complete_merge("ws-merged-1", "sha-1").await?;
+
+        // Create cancelled entry
+        queue.add("ws-cancelled-1", None, 5, None).await?;
+        queue
+            .transition_to("ws-cancelled-1", QueueStatus::Cancelled)
+            .await?;
+
+        // Create failed_terminal entry
+        queue.add("ws-failed-1", None, 5, None).await?;
+        queue
+            .transition_to("ws-failed-1", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to_failed("ws-failed-1", "Error", false)
+            .await?;
+
+        // Add a pending entry that should NOT be cleaned
+        queue.add("ws-pending-keep", None, 5, None).await?;
+
+        // Run cleanup
+        let cleaned = queue.cleanup(Duration::ZERO).await?;
+        assert_eq!(
+            cleaned, 3,
+            "Should clean up 3 terminal entries (merged, cancelled, failed_terminal)"
+        );
+
+        // Verify only pending entry remains
+        let stats = queue.stats().await?;
+        assert_eq!(stats.pending, 1, "Only pending entry should remain");
+        assert_eq!(stats.total, 1, "Total should be 1");
 
         Ok(())
     }

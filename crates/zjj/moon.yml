@@ -2,18 +2,18 @@ $schema: "https://moonrepo.dev/schemas/project.json"
 
 tasks:
   check:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo check --workspace --all-features"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo check --workspace --all-features"
   fmt:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check"
   fmt-fix:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all"
   clippy:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets --all-features -- -D warnings"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets --all-features -- -D warnings"
   build:
-    command: "env RUSTUP_TOOLCHAIN=nightly CARGO_BUILD_JOBS=24 cargo build --release --workspace"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo build --release --workspace"
   test:
-    command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"
+    script: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"
   quick:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check && env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets --all-features -- -D warnings"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets --all-features -- -D warnings"
   ci:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check && env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets --all-features -- -D warnings && env RUSTUP_TOOLCHAIN=nightly cargo check --workspace --all-features && mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets --all-features -- -D warnings && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo check --workspace --all-features && mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"

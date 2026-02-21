@@ -31,7 +31,19 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_synced INTEGER,
 
     -- JSON metadata for extensible session properties
-    metadata TEXT
+    metadata TEXT,
+
+    -- Parent session name for stacked sessions (bd-2kj)
+    parent_session TEXT,
+    FOREIGN KEY (parent_session) REFERENCES sessions(name) ON DELETE SET NULL,
+
+    -- Queue status for merge train integration (bd-2np)
+    -- Valid values: 'pending', 'claimed', 'rebasing', 'testing', 'ready_to_merge',
+    --                'merging', 'merged', 'failed_retryable', 'failed_terminal', 'cancelled'
+    queue_status TEXT DEFAULT NULL
+        CHECK(queue_status IS NULL OR queue_status IN
+              ('pending', 'claimed', 'rebasing', 'testing', 'ready_to_merge',
+               'merging', 'merged', 'failed_retryable', 'failed_terminal', 'cancelled'))
 );
 
 -- Workspace state transition history

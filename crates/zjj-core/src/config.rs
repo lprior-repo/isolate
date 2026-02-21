@@ -26,6 +26,12 @@
 //!
 //! [hooks]
 //! post_create = ["br sync", "npm install"]
+//!
+//! [conflict_resolution]
+//! mode = "hybrid"
+//! autonomy = 60
+//! security_keywords = ["password", "token", "secret"]
+//! log_resolutions = true
 //! ```
 
 use std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
@@ -36,6 +42,12 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
 
 use crate::{Error, Result};
+
+// Conflict resolution configuration
+pub mod conflict_resolution;
+pub use conflict_resolution::{
+    ConflictMode, ConflictResolutionConfig, PartialConflictResolutionConfig,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -194,6 +206,7 @@ pub struct Config {
     pub agent: AgentConfig,
     pub session: SessionConfig,
     pub recovery: RecoveryConfig,
+    pub conflict_resolution: ConflictResolutionConfig,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -284,6 +297,7 @@ pub struct AgentConfig {
 pub struct SessionConfig {
     pub auto_commit: ValidatedBool,
     pub commit_prefix: String,
+    pub max_sessions: usize,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -304,6 +318,7 @@ impl Default for Config {
             agent: AgentConfig::default(),
             session: SessionConfig::default(),
             recovery: RecoveryConfig::default(),
+            conflict_resolution: ConflictResolutionConfig::default(),
         }
     }
 }
@@ -405,6 +420,7 @@ impl Default for SessionConfig {
         Self {
             auto_commit: ValidatedBool(false),
             commit_prefix: "wip:".to_string(),
+            max_sessions: 100,
         }
     }
 }
@@ -453,6 +469,8 @@ pub struct PartialConfig {
     pub session: Option<PartialSessionConfig>,
     #[serde(default)]
     pub recovery: Option<PartialRecoveryConfig>,
+    #[serde(default)]
+    pub conflict_resolution: Option<PartialConflictResolutionConfig>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -547,6 +565,8 @@ pub struct PartialSessionConfig {
     pub auto_commit: Option<ValidatedBool>,
     #[serde(default)]
     pub commit_prefix: Option<String>,
+    #[serde(default)]
+    pub max_sessions: Option<usize>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -743,6 +763,7 @@ const VALID_KEYS: &[&str] = &[
     "agent",
     "session",
     "recovery",
+    "conflict_resolution",
     // Watch config
     "watch.enabled",
     "watch.debounce_ms",
@@ -784,6 +805,11 @@ const VALID_KEYS: &[&str] = &[
     "recovery.log_recovered",
     "recovery.auto_recover_corrupted_wal",
     "recovery.delete_corrupted_database",
+    // Conflict resolution config
+    "conflict_resolution.mode",
+    "conflict_resolution.autonomy",
+    "conflict_resolution.security_keywords",
+    "conflict_resolution.log_resolutions",
 ];
 
 /// Validate a configuration key
@@ -833,8 +859,9 @@ pub fn validate_key(key: &str) -> Result<()> {
             "  dashboard.refresh_ms, dashboard.theme, dashboard.columns, dashboard.vim_keys\n",
         );
         error_msg.push_str("  agent.command, agent.env\n");
-        error_msg.push_str("  session.auto_commit, session.commit_prefix\n");
+        error_msg.push_str("  session.auto_commit, session.commit_prefix, session.max_sessions\n");
         error_msg.push_str("  recovery.policy, recovery.log_recovered, recovery.auto_recover_corrupted_wal, recovery.delete_corrupted_database\n");
+        error_msg.push_str("  conflict_resolution.mode, conflict_resolution.autonomy, conflict_resolution.security_keywords, conflict_resolution.log_resolutions\n");
         error_msg.push_str("\nUse 'zjj config' to see current configuration.");
 
         Err(Error::ValidationError {
@@ -1157,6 +1184,7 @@ impl SessionConfig {
     fn merge(&mut self, other: Self) {
         self.auto_commit = other.auto_commit;
         self.commit_prefix = other.commit_prefix;
+        self.max_sessions = other.max_sessions;
     }
 }
 
@@ -1313,6 +1341,9 @@ impl SessionConfig {
         if let Some(commit_prefix) = partial.commit_prefix {
             self.commit_prefix = commit_prefix;
         }
+        if let Some(max_sessions) = partial.max_sessions {
+            self.max_sessions = max_sessions;
+        }
     }
 }
 
@@ -1412,6 +1443,9 @@ impl Config {
         if let Some(recovery) = partial.recovery {
             self.recovery.merge_partial(recovery);
         }
+        if let Some(conflict_resolution) = partial.conflict_resolution {
+            self.conflict_resolution.merge_partial(conflict_resolution);
+        }
     }
 
     /// Apply environment variable overrides
@@ -1489,6 +1523,40 @@ impl Config {
             })?;
         }
 
+        // ZJJ_CONFLICT_RESOLUTION_MODE
+        if let Ok(value) = std::env::var("ZJJ_CONFLICT_RESOLUTION_MODE") {
+            self.conflict_resolution.mode = value.parse().map_err(|e| {
+                Error::InvalidConfig(format!("Invalid ZJJ_CONFLICT_RESOLUTION_MODE value: {e}"))
+            })?;
+        }
+
+        // ZJJ_CONFLICT_RESOLUTION_AUTONOMY
+        if let Ok(value) = std::env::var("ZJJ_CONFLICT_RESOLUTION_AUTONOMY") {
+            self.conflict_resolution.autonomy = value.parse().map_err(|e| {
+                Error::InvalidConfig(format!(
+                    "Invalid ZJJ_CONFLICT_RESOLUTION_AUTONOMY value: {e}"
+                ))
+            })?;
+        }
+
+        // ZJJ_CONFLICT_RESOLUTION_LOG_RESOLUTIONS
+        if let Ok(value) = std::env::var("ZJJ_CONFLICT_RESOLUTION_LOG_RESOLUTIONS") {
+            self.conflict_resolution.log_resolutions = value.parse().map_err(|e| {
+                Error::InvalidConfig(format!(
+                    "Invalid ZJJ_CONFLICT_RESOLUTION_LOG_RESOLUTIONS value: {e}"
+                ))
+            })?;
+        }
+
+        // ZJJ_CONFLICT_RESOLUTION_SECURITY_KEYWORDS (comma-separated)
+        if let Ok(value) = std::env::var("ZJJ_CONFLICT_RESOLUTION_SECURITY_KEYWORDS") {
+            self.conflict_resolution.security_keywords = value
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+
         Ok(())
     }
 
@@ -1517,6 +1585,9 @@ impl Config {
                 constraints: Vec::new(),
             });
         }
+
+        // Validate conflict resolution config
+        self.conflict_resolution.validate()?;
 
         Ok(())
     }
@@ -1818,6 +1889,7 @@ typo_nested = "invalid""#;
 
         // Test both true and false values
         for bool_val in [true, false] {
+            let bool_str = if bool_val { "true" } else { "false" };
             let content = format!(
                 r#"
 workspace_dir = "../test"
@@ -1826,7 +1898,7 @@ default_template = "standard"
 state_db = ".zjj/state.db"
 
 [watch]
-enabled = {bool_val}
+enabled = {}
 debounce_ms = 100
 paths = [".beads/beads.db"]
 
@@ -1837,7 +1909,7 @@ post_merge = []
 
 [zellij]
 session_prefix = "zjj"
-use_tabs = {bool_val}
+use_tabs = {}
 layout_dir = ".zjj/layouts"
 
 [zellij.panes.main]
@@ -1856,7 +1928,7 @@ args = ["status", "--watch"]
 size = "50%"
 
 [zellij.panes.float]
-enabled = {bool_val}
+enabled = {}
 command = ""
 width = "80%"
 height = "60%"
@@ -1865,25 +1937,41 @@ height = "60%"
 refresh_ms = 1000
 theme = "default"
 columns = ["name", "status", "branch", "changes", "beads"]
-vim_keys = {bool_val}
+vim_keys = {}
 
 [agent]
 command = "claude"
 env = {{}}
 
 [session]
-auto_commit = {bool_val}
+auto_commit = {}
 commit_prefix = "wip:"
-"#
+max_sessions = 100
+
+[recovery]
+policy = "warn"
+log_recovered = true
+auto_recover_corrupted_wal = true
+delete_corrupted_database = false
+
+[conflict_resolution]
+mode = "hybrid"
+autonomy = 80
+security_keywords = ["api-key", "secret", "password"]
+log_resolutions = true
+"#,
+                bool_str, bool_str, bool_str, bool_str, bool_str
             );
             tokio::fs::write(&config_path, &content)
                 .await
                 .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
             let result = load_toml_file(&config_path).await;
+            let err = result.as_ref().err();
             assert!(
                 result.is_ok(),
-                "Valid boolean value {bool_val} should be accepted"
+                "Valid boolean value {bool_val} should be accepted, but got error: {:?}",
+                err
             );
         }
         Ok(())
@@ -1952,8 +2040,19 @@ env = {}
 [session]
 auto_commit = false
 commit_prefix = "wip:"
+max_sessions = 100
 
 [recovery]
+policy = "warn"
+log_recovered = true
+auto_recover_corrupted_wal = true
+delete_corrupted_database = false
+
+[conflict_resolution]
+mode = "hybrid"
+autonomy = 80
+security_keywords = ["api-key", "secret", "password"]
+log_resolutions = true
 "#;
         tokio::fs::write(&config_path, toml_content)
             .await

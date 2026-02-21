@@ -92,7 +92,9 @@ fn test_plan_with_step() {
     let plan = Plan::new("My Plan".to_string(), "Description".to_string())
         .expect("valid plan")
         .with_step("Step 1".to_string(), ActionStatus::Pending)
-        .with_step("Step 2".to_string(), ActionStatus::InProgress);
+        .expect("first step")
+        .with_step("Step 2".to_string(), ActionStatus::InProgress)
+        .expect("second step");
     assert_eq!(plan.steps.len(), 2);
     assert_eq!(plan.steps[0].order, 0);
     assert_eq!(plan.steps[1].order, 1);
@@ -172,11 +174,13 @@ fn test_recovery_with_action() {
         recoverable: true,
         recommended_action: "Retry the operation".to_string(),
     };
-    let recovery = Recovery::new("ISS-1".to_string(), assessment).with_action(
-        "Run fix command".to_string(),
-        Some("fix --auto".to_string()),
-        true,
-    );
+    let recovery = Recovery::new("ISS-1".to_string(), assessment)
+        .with_action(
+            "Run fix command".to_string(),
+            Some("fix --auto".to_string()),
+            true,
+        )
+        .expect("recovery action");
     assert_eq!(recovery.actions.len(), 1);
     assert!(recovery.actions[0].automatic);
 }
@@ -210,7 +214,8 @@ fn test_stack_with_entry() {
             PathBuf::from("/ws/1"),
             StackEntryStatus::Ready,
             Some("bd-123".to_string()),
-        );
+        )
+        .expect("stack entry");
     assert_eq!(stack.entries.len(), 1);
     assert_eq!(stack.entries[0].order, 0);
 }
@@ -269,11 +274,13 @@ fn test_train_with_step() {
             TrainAction::Sync,
             TrainStepStatus::Success,
         )
+        .expect("first train step")
         .with_step(
             "session-2".to_string(),
             TrainAction::Rebase,
             TrainStepStatus::Running,
         )
+        .expect("second train step")
         .with_status(TrainStatus::Running);
     assert_eq!(train.steps.len(), 2);
     assert_eq!(train.status, TrainStatus::Running);
@@ -467,12 +474,14 @@ fn test_stack_round_trip() {
             StackEntryStatus::Ready,
             Some("bd-123".to_string()),
         )
+        .expect("first stack entry")
         .with_entry(
             "session-2".to_string(),
             PathBuf::from("/ws/2"),
             StackEntryStatus::Pending,
             None,
-        );
+        )
+        .expect("second stack entry");
 
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: Stack = serde_json::from_str(&json).expect("deserialize");
@@ -491,11 +500,13 @@ fn test_train_round_trip() {
             TrainAction::Sync,
             TrainStepStatus::Success,
         )
+        .expect("first train step")
         .with_step(
             "session-2".to_string(),
             TrainAction::Rebase,
             TrainStepStatus::Running,
         )
+        .expect("second train step")
         .with_status(TrainStatus::Running);
 
     let json = serde_json::to_string(&original).expect("serialize");

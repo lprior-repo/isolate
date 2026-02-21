@@ -77,7 +77,10 @@ pub async fn run_pause(options: &PauseOptions) -> Result<()> {
         state: None,
         branch: None,
         last_synced: None,
+
         metadata: None,
+        parent_session: None,
+        queue_status: None,
     };
     db.update(&options.session, update).await?;
 
@@ -159,7 +162,10 @@ pub async fn run_resume(options: &ResumeOptions) -> Result<()> {
         state: None,
         branch: None,
         last_synced: None,
+
         metadata: None,
+        parent_session: None,
+        queue_status: None,
     };
     db.update(&options.session, update).await?;
 
