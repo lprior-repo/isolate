@@ -7,7 +7,8 @@
 //!   - WHEN cycle detected, THE SYSTEM SHALL provide CycleDetected variant with workspace and path
 //!   - WHEN parent not found, THE SYSTEM SHALL provide ParentNotFound variant with parent name
 //!   - WHEN depth exceeded, THE SYSTEM SHALL provide DepthExceeded variant with current and max
-//!   - WHEN parent invalid, THE SYSTEM SHALL provide InvalidParent variant with workspace and reason
+//!   - WHEN parent invalid, THE SYSTEM SHALL provide InvalidParent variant with workspace and
+//!     reason
 //!   - THE SYSTEM SHALL implement Display and Error traits
 //!   - THE SYSTEM SHALL NOT use unwrap in error creation
 //!
@@ -236,10 +237,10 @@ fn test_stack_error_in_result() {
     let result = fallible_function();
     assert!(result.is_err());
 
-    let error = result.expect_err("should have error");
+    let error = result.err().unwrap_or_else(|| panic!("should have error"));
     let message = format!("{error}");
-    assert!(message.contains("5"));
-    assert!(message.contains("3"));
+    assert!(message.contains('5'));
+    assert!(message.contains('3'));
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -331,24 +332,30 @@ fn test_stack_error_display_messages_are_readable() {
 #[test]
 fn test_stack_error_creation_no_unwrap() {
     // All variants should be constructible directly without unwrap
-    let _cycle = StackError::CycleDetected {
+    let cycle = StackError::CycleDetected {
         workspace: "test".to_string(),
         cycle_path: vec!["test".to_string()],
     };
 
-    let _parent_not_found = StackError::ParentNotFound {
+    let parent_not_found = StackError::ParentNotFound {
         parent_workspace: "parent".to_string(),
     };
 
-    let _depth_exceeded = StackError::DepthExceeded {
+    let depth_exceeded = StackError::DepthExceeded {
         current_depth: 5,
         max_depth: 3,
     };
 
-    let _invalid_parent = StackError::InvalidParent {
+    let invalid_parent = StackError::InvalidParent {
         workspace: "test".to_string(),
         reason: "test".to_string(),
     };
+
+    // Suppress unused variable warnings
+    drop(cycle);
+    drop(parent_not_found);
+    drop(depth_exceeded);
+    drop(invalid_parent);
 
     // If this compiles, no unwrap was needed
 }

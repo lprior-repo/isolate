@@ -8,6 +8,7 @@ pub mod queue_entities;
 pub mod queue_repository;
 pub mod queue_status;
 pub mod queue_submission;
+pub mod stack_depth;
 pub mod stack_error;
 pub mod train;
 pub mod worker_application;
@@ -31,6 +32,7 @@ pub use queue_submission::{
     push_bookmark_to_remote, submit_to_queue, QueueSubmissionError, QueueSubmissionRequest,
     QueueSubmissionResponse, SubmissionType, WorkspaceIdentity,
 };
+pub use stack_depth::calculate_stack_depth;
 pub use stack_error::StackError;
 pub use train::{
     calculate_positions, filter_processable, sort_by_priority, EntryResult, EntryResultKind,

@@ -114,3 +114,72 @@ pub stack_depth: i32,
 ### Files to Modify
 1. `sql_schemas/05_queue_tables.sql` - Add column
 2. `crates/zjj-core/src/coordination/queue_entities.rs` - Add field
+
+---
+
+## bd-1idz: Add calculate_stack_depth function
+
+### Bead Requirements
+- Pure function that calculates depth from parent chain
+- Traverses to root counting depth
+- Returns error for cycles
+- Returns 0 for no parent
+- Function is pure, no panic paths
+
+### Existing Patterns to Follow
+
+1. **StackError enum (stack_error.rs):**
+```rust
+pub enum StackError {
+    CycleDetected { workspace: String, cycle_path: Vec<String> },
+    ParentNotFound { parent_workspace: String },
+    DepthExceeded { current_depth: u32, max_depth: u32 },
+    InvalidParent { workspace: String, reason: String },
+}
+```
+
+2. **Pure function pattern:**
+- Takes inputs, returns Result<T, E>
+- No side effects
+- Uses `?` operator for early returns
+- Uses `map`/`and_then` for transformations
+
+3. **QueueEntry has parent_workspace field:**
+```rust
+pub parent_workspace: Option<String>,
+```
+
+### Implementation Plan
+
+1. **Create new module: `stack.rs`**
+   - Location: `crates/zjj-core/src/coordination/stack.rs`
+   - Contains pure stack operations
+
+2. **Function signature:**
+```rust
+/// Calculate the depth of a workspace in a stack hierarchy.
+///
+/// # Arguments
+/// * `workspace` - The workspace to calculate depth for
+/// * `entries` - Slice of queue entries to search for parents
+///
+/// # Returns
+/// * `Ok(u32)` - The depth (0 = root/no parent, 1 = first child, etc.)
+/// * `Err(StackError::CycleDetected)` - If a cycle is found in the chain
+pub fn calculate_stack_depth(
+    workspace: &str,
+    entries: &[QueueEntry],
+) -> Result<u32, StackError>
+```
+
+3. **Algorithm:**
+   - Start at given workspace
+   - Look up parent in entries slice
+   - If no parent, return 0
+   - If parent found, recurse/increment and continue
+   - Track visited workspaces to detect cycles
+   - Return error if cycle detected
+
+### Files to Create/Modify
+1. `crates/zjj-core/src/coordination/stack.rs` - New module with function
+2. `crates/zjj-core/src/coordination/mod.rs` - Export new module
