@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS merge_queue (
     -- Stack parent reference (for stacked PRs)
     parent_workspace TEXT,
 
+    -- Stack depth (0 = root, 1 = first child, etc.)
+    stack_depth INTEGER NOT NULL DEFAULT 0 CHECK(stack_depth >= 0),
+
     FOREIGN KEY (workspace) REFERENCES sessions(name) ON DELETE CASCADE
 );
 

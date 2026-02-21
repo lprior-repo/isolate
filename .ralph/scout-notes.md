@@ -1,4 +1,6 @@
-# Scout Notes - bd-1i1a: Add parent_workspace column
+# Scout Notes
+
+## bd-1i1a: Add parent_workspace column (COMPLETE)
 
 ## Bead Requirements
 - Add `parent_workspace` column to `merge_queue` table
@@ -69,3 +71,46 @@ pub parent_workspace: Option<String>,
 - `queue_status.rs` - No state machine changes
 - Repository methods - This bead only adds the column, not methods
 - Tests - Will be handled by ATDD test
+
+---
+
+## bd-3axf: Add stack_depth column
+
+### Bead Requirements
+- Add `stack_depth` column to `merge_queue` table
+- Column is INTEGER with default 0
+- Must be non-negative (CHECK constraint)
+- Used to track depth in stack hierarchy
+
+### Existing Patterns to Follow
+
+1. **Default integer columns in QueueEntry:**
+```rust
+#[sqlx(default)]
+pub attempt_count: i32,
+```
+
+2. **SQL CHECK constraint pattern (from status column):**
+```sql
+status TEXT NOT NULL DEFAULT 'pending'
+    CHECK(status IN ('pending', ...))
+```
+
+### Implementation Plan
+
+1. **SQL Schema (05_queue_tables.sql)** - Add after parent_workspace:
+```sql
+-- Stack depth (0 = root, 1 = first child, etc.)
+stack_depth INTEGER NOT NULL DEFAULT 0 CHECK(stack_depth >= 0),
+```
+
+2. **Rust struct (queue_entities.rs)** - Add field:
+```rust
+/// Depth in stack hierarchy (0 = root, no parent)
+#[sqlx(default)]
+pub stack_depth: i32,
+```
+
+### Files to Modify
+1. `sql_schemas/05_queue_tables.sql` - Add column
+2. `crates/zjj-core/src/coordination/queue_entities.rs` - Add field

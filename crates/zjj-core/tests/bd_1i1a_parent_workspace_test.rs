@@ -150,5 +150,6 @@ fn create_test_queue_entry_with_parent(parent_workspace: Option<String>) -> Queu
         last_rebase_at: None,
         // THIS FIELD MUST EXIST for tests to compile
         parent_workspace,
+        stack_depth: 0,
     }
 }

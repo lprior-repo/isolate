@@ -2,15 +2,16 @@
 
 ## Completed Beads
 - [x] bd-1i1a - queue: Add parent_workspace column (2026-02-21)
+- [x] bd-3axf - queue: Add stack_depth column (2026-02-21)
 
 ## Current Bead
-Ready to start: bd-3axf
+Ready to start: bd-umr4
 
 ## Bead Checklist
 
 ### Phase A: Data Model
 - [x] bd-1i1a - queue: Add parent_workspace column
-- [ ] bd-3axf - queue: Add stack_depth column
+- [x] bd-3axf - queue: Add stack_depth column
 - [ ] bd-umr4 - queue: Add dependents JSON column
 - [ ] bd-26kg - queue: Add stack_root column
 - [ ] bd-1ued - queue-status: Add StackMergeState enum
@@ -54,5 +55,5 @@ Ready to start: bd-3axf
 
 ## Statistics
 - Total: 32
-- Completed: 1
-- Remaining: 31
+- Completed: 2
+- Remaining: 30
