@@ -15,7 +15,7 @@
 #![allow(clippy::doc_markdown, clippy::unreadable_literal)]
 
 use zjj_core::coordination::{
-    queue_entities::QueueEntry,
+    queue_entities::{Dependents, QueueEntry},
     queue_status::{QueueStatus, WorkspaceQueueState},
 };
 
@@ -151,5 +151,6 @@ fn create_test_queue_entry_with_parent(parent_workspace: Option<String>) -> Queu
         // THIS FIELD MUST EXIST for tests to compile
         parent_workspace,
         stack_depth: 0,
+        dependents: Dependents::new(),
     }
 }

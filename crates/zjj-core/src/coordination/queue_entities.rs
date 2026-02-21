@@ -5,7 +5,87 @@
 //!
 //! Domain logic types are in `queue_status.rs` and operations in `queue.rs`.
 
+use std::ops::Deref;
+
 use super::queue_status::{QueueEventType, QueueStatus, WorkspaceQueueState};
+use crate::Error;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DEPENDENTS LIST (JSON wrapper for stack children)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// A list of dependent (child) workspace names stored as JSON in the database.
+///
+/// This newtype wrapper allows proper JSON serialization/deserialization
+/// for the `dependents` column while maintaining ergonomic Vec-like access.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Dependents(Vec<String>);
+
+impl Dependents {
+    /// Create an empty dependents list.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Create a dependents list from a vector of workspace names.
+    #[must_use]
+    pub const fn from_vec(workspaces: Vec<String>) -> Self {
+        Self(workspaces)
+    }
+
+    /// Convert to a vector of workspace names.
+    #[must_use]
+    pub fn into_inner(self) -> Vec<String> {
+        self.0
+    }
+
+    /// Check if the dependents list is empty.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Get the number of dependents.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl Deref for Dependents {
+    type Target = Vec<String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl TryFrom<Option<String>> for Dependents {
+    type Error = Error;
+
+    fn try_from(value: Option<String>) -> Result<Self, Self::Error> {
+        match value {
+            None => Ok(Self::new()),
+            Some(s) if s.is_empty() => Ok(Self::new()),
+            Some(s) => serde_json::from_str(&s).map(Self).map_err(|e| {
+                Error::DatabaseError(format!("Failed to deserialize dependents JSON: {e}"))
+            }),
+        }
+    }
+}
+
+impl From<Vec<String>> for Dependents {
+    fn from(workspaces: Vec<String>) -> Self {
+        Self(workspaces)
+    }
+}
+
+impl From<Dependents> for Vec<String> {
+    fn from(dependents: Dependents) -> Self {
+        dependents.0
+    }
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // QUEUE ENTRY (Infrastructure Layer - sqlx dependent)
@@ -48,6 +128,8 @@ pub struct QueueEntry {
     pub parent_workspace: Option<String>,
     #[sqlx(default)]
     pub stack_depth: i32,
+    #[sqlx(default, try_from = "Option<String>")]
+    pub dependents: Dependents,
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

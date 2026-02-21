@@ -4,7 +4,7 @@ Add your tasks below using: `ralph --add-task "description"`
 
 - [x] bd-1i1a: Add parent_workspace column (DONE - ATDD passes, clippy clean)
 - [x] bd-3axf: Add stack_depth column (DONE - ATDD passes, clippy clean)
-- [ ] bd-umr4: Add dependents JSON column
+- [x] bd-umr4: Add dependents JSON column (DONE - ATDD passes, clippy clean)
 - [ ] bd-26kg: Add stack_root column
 - [ ] bd-1ued: Add StackMergeState enum
 - [ ] bd-36h8: Add stack_merge_state column

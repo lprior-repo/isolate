@@ -884,6 +884,7 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
+    use crate::coordination::queue_entities::Dependents;
 
     #[test]
     fn test_train_step_kind_display() {
@@ -1043,6 +1044,7 @@ mod tests {
                 last_rebase_at: None,
                 parent_workspace: None,
                 stack_depth: 0,
+                dependents: Dependents::new(),
             },
             QueueEntry {
                 id: 2,
@@ -1067,6 +1069,7 @@ mod tests {
                 last_rebase_at: None,
                 parent_workspace: None,
                 stack_depth: 0,
+                dependents: Dependents::new(),
             },
         ];
 
@@ -1102,6 +1105,7 @@ mod tests {
                 last_rebase_at: None,
                 parent_workspace: None,
                 stack_depth: 0,
+                dependents: Dependents::new(),
             },
             QueueEntry {
                 id: 2,
@@ -1126,6 +1130,7 @@ mod tests {
                 last_rebase_at: None,
                 parent_workspace: None,
                 stack_depth: 0,
+                dependents: Dependents::new(),
             },
         ];
 
@@ -1161,6 +1166,7 @@ mod tests {
                 last_rebase_at: None,
                 parent_workspace: None,
                 stack_depth: 0,
+                dependents: Dependents::new(),
             },
             QueueEntry {
                 id: 2,
@@ -1185,6 +1191,7 @@ mod tests {
                 last_rebase_at: None,
                 parent_workspace: None,
                 stack_depth: 0,
+                dependents: Dependents::new(),
             },
         ];
 

@@ -304,6 +304,14 @@ impl MergeQueue {
                 "parent_workspace",
                 "ALTER TABLE merge_queue ADD COLUMN parent_workspace TEXT",
             ),
+            (
+                "stack_depth",
+                "ALTER TABLE merge_queue ADD COLUMN stack_depth INTEGER NOT NULL DEFAULT 0",
+            ),
+            (
+                "dependents",
+                "ALTER TABLE merge_queue ADD COLUMN dependents TEXT NOT NULL DEFAULT '[]'",
+            ),
         ];
 
         for (column_name, alter_sql) in migrations {
