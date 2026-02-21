@@ -24,7 +24,11 @@ use serde_json::Value;
 use tokio::time::sleep;
 use zjj_core::OutputFormat;
 
-use crate::{commands::get_session_db, db::SessionDb, session::Session, session::SessionStatus};
+use crate::{
+    commands::get_session_db,
+    db::SessionDb,
+    session::{Session, SessionStatus},
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOMAIN TYPES (Functional Core)
@@ -48,8 +52,8 @@ pub struct PeriodicCleanupConfig {
 impl Default for PeriodicCleanupConfig {
     fn default() -> Self {
         Self {
-            interval: Duration::from_hours(1),          // 1 hour
-            age_threshold: Duration::from_hours(2),     // 2 hours
+            interval: Duration::from_hours(1),                 // 1 hour
+            age_threshold: Duration::from_hours(2),            // 2 hours
             completed_age_threshold: Duration::from_hours(24), // 24 hours
             dry_run: false,
             format: OutputFormat::Json,
@@ -102,7 +106,7 @@ pub struct SkippedSession {
 /// A session is an orphan if:
 /// 1. Workspace directory doesn't exist, OR
 /// 2. Session is older than threshold AND has no active bead, OR
-/// 3. Session is completed and older than completed_age_threshold
+/// 3. Session is completed and older than `completed_age_threshold`
 async fn is_orphan_candidate(
     session: &Session,
     age_threshold: &Duration,
@@ -296,8 +300,13 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
     let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
     // 3. Find orphan candidates (async functional)
-    let orphan_candidates =
-        find_orphan_candidates(&sessions[..], &config.age_threshold, &config.completed_age_threshold, &now).await;
+    let orphan_candidates = find_orphan_candidates(
+        &sessions[..],
+        &config.age_threshold,
+        &config.completed_age_threshold,
+        &now,
+    )
+    .await;
 
     // 4. Categorize (pure functional)
     let (cleanable, skipped) = categorize_orphans(orphan_candidates);

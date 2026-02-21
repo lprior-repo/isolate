@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS merge_queue (
     rebase_count INTEGER NOT NULL DEFAULT 0,
     last_rebase_at INTEGER,
 
+    -- Stack parent reference (for stacked PRs)
+    parent_workspace TEXT,
+
     FOREIGN KEY (workspace) REFERENCES sessions(name) ON DELETE CASCADE
 );
 
@@ -107,6 +110,10 @@ CREATE INDEX IF NOT EXISTS idx_merge_queue_dedupe_key ON merge_queue(dedupe_key)
 -- Index for time-based ordering
 -- Used by: FIFO ordering within same priority
 CREATE INDEX IF NOT EXISTS idx_merge_queue_added_at ON merge_queue(added_at);
+
+-- Index for parent_workspace lookups (stack queries)
+-- Used by: finding children in a stack
+CREATE INDEX IF NOT EXISTS idx_merge_queue_parent_workspace ON merge_queue(parent_workspace);
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- QUEUE PROCESSING LOCK TABLE

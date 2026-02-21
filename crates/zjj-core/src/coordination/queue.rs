@@ -195,7 +195,8 @@ impl MergeQueue {
                 attempt_count INTEGER DEFAULT 0,
                 max_attempts INTEGER DEFAULT 3,
                 rebase_count INTEGER DEFAULT 0,
-                last_rebase_at INTEGER
+                last_rebase_at INTEGER,
+                parent_workspace TEXT
             )",
         )
         .execute(&self.pool)
@@ -299,6 +300,10 @@ impl MergeQueue {
                 "last_rebase_at",
                 "ALTER TABLE merge_queue ADD COLUMN last_rebase_at INTEGER",
             ),
+            (
+                "parent_workspace",
+                "ALTER TABLE merge_queue ADD COLUMN parent_workspace TEXT",
+            ),
         ];
 
         for (column_name, alter_sql) in migrations {
@@ -381,6 +386,16 @@ impl MergeQueue {
         .await
         .map_err(|e| {
             Error::DatabaseError(format!("Failed to create workspace_state index: {e}"))
+        })?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_merge_queue_parent_workspace
+             ON merge_queue(parent_workspace)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to create parent_workspace index: {e}"))
         })?;
 
         Ok(())
@@ -1031,7 +1046,8 @@ impl MergeQueue {
         // - failed_terminal: unrecoverable failures
         // - cancelled: manually cancelled entries
         // Note: 'completed' and 'failed' are legacy aliases for 'merged' and 'failed_terminal'
-        const TERMINAL_STATUSES: &str = "'merged', 'failed_terminal', 'cancelled', 'completed', 'failed'";
+        const TERMINAL_STATUSES: &str =
+            "'merged', 'failed_terminal', 'cancelled', 'completed', 'failed'";
 
         // First delete related queue_events to avoid FK constraint violation
         if max_age.is_zero() {
@@ -4456,16 +4472,11 @@ mod tests {
             .transition_to("ws-merged", QueueStatus::ReadyToMerge)
             .await?;
         queue.begin_merge("ws-merged").await?;
-        queue
-            .complete_merge("ws-merged", "merged-sha-123")
-            .await?;
+        queue.complete_merge("ws-merged", "merged-sha-123").await?;
 
         // Verify entry exists with merged status
         let entry = queue.get_by_workspace("ws-merged").await?;
-        assert!(
-            entry.is_some(),
-            "Entry should exist before cleanup"
-        );
+        assert!(entry.is_some(), "Entry should exist before cleanup");
         assert_eq!(
             entry.as_ref().map(|e| e.status),
             Some(QueueStatus::Merged),

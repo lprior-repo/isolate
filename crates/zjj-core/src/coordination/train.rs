@@ -1041,6 +1041,7 @@ mod tests {
                 max_attempts: 3,
                 rebase_count: 0,
                 last_rebase_at: None,
+                parent_workspace: None,
             },
             QueueEntry {
                 id: 2,
@@ -1063,6 +1064,7 @@ mod tests {
                 max_attempts: 3,
                 rebase_count: 0,
                 last_rebase_at: None,
+                parent_workspace: None,
             },
         ];
 
@@ -1096,6 +1098,7 @@ mod tests {
                 max_attempts: 3,
                 rebase_count: 0,
                 last_rebase_at: None,
+                parent_workspace: None,
             },
             QueueEntry {
                 id: 2,
@@ -1118,6 +1121,7 @@ mod tests {
                 max_attempts: 3,
                 rebase_count: 0,
                 last_rebase_at: None,
+                parent_workspace: None,
             },
         ];
 
@@ -1151,6 +1155,7 @@ mod tests {
                 max_attempts: 3,
                 rebase_count: 0,
                 last_rebase_at: None,
+                parent_workspace: None,
             },
             QueueEntry {
                 id: 2,
@@ -1173,6 +1178,7 @@ mod tests {
                 max_attempts: 3,
                 rebase_count: 0,
                 last_rebase_at: None,
+                parent_workspace: None,
             },
         ];
 

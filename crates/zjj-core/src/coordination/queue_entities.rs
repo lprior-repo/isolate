@@ -44,6 +44,8 @@ pub struct QueueEntry {
     pub rebase_count: i32,
     #[sqlx(default)]
     pub last_rebase_at: Option<i64>,
+    #[sqlx(default)]
+    pub parent_workspace: Option<String>,
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
