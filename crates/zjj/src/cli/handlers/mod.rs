@@ -32,6 +32,7 @@ pub mod integrity;
 pub mod introspection;
 pub mod json_format;
 pub mod queue;
+pub mod stack;
 pub mod sync;
 pub mod template;
 pub mod utility;
@@ -54,6 +55,7 @@ pub use self::{
         handle_introspect, handle_validate, handle_whatif, handle_whereami, handle_whoami,
     },
     queue::handle_queue,
+    stack::handle_stack,
     sync::{handle_abort, handle_diff, handle_done, handle_submit, handle_sync},
     template::handle_template,
     utility::{
@@ -196,6 +198,7 @@ pub async fn run_cli() -> Result<()> {
             Some(("integrity", sub_m)) => handle_integrity(sub_m).await,
             Some(("query", sub_m)) => handle_query(sub_m).await,
             Some(("queue", sub_m)) => handle_queue(sub_m).await,
+            Some(("stack", sub_m)) => handle_stack(sub_m).await,
             Some(("context", sub_m)) => handle_context(sub_m).await,
             Some(("done", sub_m)) => handle_done(sub_m).await,
             Some(("submit", sub_m)) => handle_submit(sub_m).await,

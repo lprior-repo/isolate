@@ -7,6 +7,8 @@ incremental = true
 rustc-wrapper = "sccache"
 
 [term]
+# Quiet output for cleaner test output
+quiet = true
 # Better progress reporting
 progress.when = "auto"
 progress.width = 80

@@ -1607,6 +1607,56 @@ fn parse_worker_id(value: &str) -> Result<String, String> {
     }
 }
 
+pub fn cmd_stack() -> ClapCommand {
+    ClapCommand::new("stack")
+        .about("Query stack relationships for workspaces in the merge queue")
+        .long_about(
+            "Commands for querying stack context (depth, parent, children, root)
+            for workspaces in the merge queue.
+
+            Stacked PRs allow multiple dependent changes to be queued and merged
+            in order. This command helps understand the stack hierarchy.",
+        )
+        .subcommand_required(true)
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+        .subcommand(cmd_stack_status())
+}
+
+pub fn cmd_stack_status() -> ClapCommand {
+    ClapCommand::new("status")
+        .about("Show stack context for a workspace in the queue")
+        .long_about(
+            "Display stack information for a workspace including:
+            - Stack depth (how many ancestors)
+            - Parent workspace (if any)
+            - Direct children in the stack
+            - Root workspace of the stack",
+        )
+        .after_help(after_help_text(
+            &[
+                "zjj stack status feature-auth        Show stack context",
+                "zjj stack status feature-auth --json Output as JSON",
+            ],
+            None,
+        ))
+        .arg(
+            Arg::new("workspace")
+                .required(true)
+                .help("Workspace name to query stack status for"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 pub fn cmd_context() -> ClapCommand {
     ClapCommand::new("context")
         .about("Show complete environment context (AI agent query)")
@@ -3659,7 +3709,9 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_retry())
         .subcommand(cmd_rollback())
         // Merge queue coordination
+        .subcommand(cmd_queue())
+        // Stack queries
+        .subcommand(cmd_stack())
         // Database backups
         .subcommand(cmd_backup())
-        .subcommand(cmd_queue())
 }
