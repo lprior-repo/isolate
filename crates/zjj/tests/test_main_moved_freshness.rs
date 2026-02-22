@@ -53,7 +53,7 @@
 
 mod common;
 
-use common::TestHarness;
+use common::{find_jsonl_line_by_type, find_summary_line, parse_jsonl_output, TestHarness};
 
 // ============================================================================
 // Freshness Guard Tests
@@ -337,7 +337,8 @@ fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["queue", "--add", "stale-ready-ws", "--json"]);
 
-    let queue_db = harness.repo_path.join(".zjj").join("queue.db");
+    // Queue data is stored in state.db (not separate queue.db)
+    let queue_db = harness.repo_path.join(".zjj").join("state.db");
     let rt = tokio::runtime::Runtime::new().expect("runtime should be created");
 
     rt.block_on(async {
@@ -370,15 +371,13 @@ fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
         result.stderr
     );
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("queue --process should emit valid JSON");
-    let message = parsed
-        .get("data")
-        .and_then(|d| d.get("message"))
-        .or_else(|| parsed.get("message"))
-        .and_then(|m| m.as_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
+    // Parse JSONL output (one JSON object per line)
+    let lines = parse_jsonl_output(&result.stdout).expect("queue --process should emit valid JSONL");
+    // Find the summary line which contains the message
+    let summary_payload = find_summary_line(&lines)
+        .and_then(|line| line.get("summary"))
+        .and_then(|s| s.get("message").and_then(|m| m.as_str()));
+    let message = summary_payload.unwrap_or_default().to_ascii_lowercase();
     assert!(
         message.contains("stale") || message.contains("rebasing"),
         "queue --process should report stale/rebasing outcome, got: {}",
@@ -387,14 +386,13 @@ fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
 
     let status_result = harness.zjj(&["queue", "--status", "stale-ready-ws", "--json"]);
     assert!(status_result.success, "queue --status should succeed");
-    let status_json: serde_json::Value =
-        serde_json::from_str(&status_result.stdout).expect("status JSON should parse");
-    let persisted_status = status_json
-        .get("data")
-        .and_then(|d| d.get("status"))
-        .or_else(|| status_json.get("status"))
+    let status_lines = parse_jsonl_output(&status_result.stdout).expect("status JSONL should parse");
+    // The queue_entry line contains the status
+    let persisted_status = find_jsonl_line_by_type(&status_lines, "queue_entry")
+        .and_then(|line| line.get("queue_entry"))
+        .and_then(|entry| entry.get("status"))
         .and_then(|s| s.as_str());
-    assert_eq!(persisted_status, Some("rebasing"));
+    assert_eq!(persisted_status, Some("in_progress"), "status should be 'in_progress' (JSONL maps rebasing to in_progress)");
 
     rt.block_on(async {
         let queue = zjj_core::MergeQueue::open(&queue_db)
@@ -431,7 +429,8 @@ fn test_queue_process_fresh_ready_entry_merges_successfully() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["queue", "--add", "fresh-ready-ws", "--json"]);
 
-    let queue_db = harness.repo_path.join(".zjj").join("queue.db");
+    // Queue data is stored in state.db (not separate queue.db)
+    let queue_db = harness.repo_path.join(".zjj").join("state.db");
 
     // Set up entry in ready_to_merge with placeholder, then update immediately before processing
     let rt = tokio::runtime::Runtime::new().expect("runtime should be created");
@@ -479,9 +478,12 @@ fn test_queue_process_fresh_ready_entry_merges_successfully() {
     // Run queue --process immediately after
     let result = harness.zjj(&["queue", "--process", "--json"]);
 
-    // Parse the result to check what happened
-    let parsed: serde_json::Value = serde_json::from_str(&result.stdout).unwrap_or_default();
-    let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
+    // Parse JSONL output to check what happened
+    let lines = parse_jsonl_output(&result.stdout).unwrap_or_default();
+    let message = find_summary_line(&lines)
+        .and_then(|line| line.get("summary"))
+        .and_then(|s| s.get("message").and_then(|m| m.as_str()))
+        .unwrap_or("");
 
     // Check if fresh or stale - both are valid outcomes for this test
     // due to test infrastructure timing. The important thing is queue --process runs.

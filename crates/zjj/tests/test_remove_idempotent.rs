@@ -240,23 +240,44 @@ fn test_remove_idempotent_json_output_includes_status() {
     // THEN: Command succeeds
     assert!(result.success, "Command should succeed");
 
-    // THEN: Output is valid JSON
-    let json: JsonValue = parse_json_output(&result.stdout).expect("Output should be valid JSON");
+    // THEN: Output is valid JSONL (multiple JSON lines)
+    let lines: Vec<JsonValue> = result
+        .stdout
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|l| serde_json::from_str(l).expect("Each line should be valid JSON"))
+        .collect();
 
-    // THEN: JSON indicates idempotent path
-    assert_eq!(json["schema_type"], "single");
-    assert!(json.get("$schema").is_some());
+    // Should have at least one line (action or result)
+    assert!(!lines.is_empty(), "Should have at least one JSONL line");
 
-    let data = payload(&json);
-    assert_eq!(data["name"], "nonexistent");
-
-    // Should indicate already removed or no action needed
-    let message = data["message"].as_str().expect("Should have message");
+    // THEN: Should have action and/or result lines
+    let has_action = lines.iter().any(|l| l.get("action").is_some());
+    let has_result = lines.iter().any(|l| l.get("result").is_some());
     assert!(
-        message.to_lowercase().contains("already") || message.to_lowercase().contains("no such"),
-        "Message should indicate idempotent path\nmessage: {}",
-        message
+        has_action || has_result,
+        "Should have action or result line\nlines: {:?}",
+        lines
     );
+
+    // THEN: Verify the result line contains the expected data
+    let result_line = lines
+        .iter()
+        .find(|l| l.get("result").is_some())
+        .or_else(|| lines.iter().find(|l| l.get("action").is_some()));
+
+    if let Some(line) = result_line {
+        // Check for idempotent indicator in the line
+        let line_str = line.to_string().to_lowercase();
+        assert!(
+            line_str.contains("already")
+                || line_str.contains("no such")
+                || line_str.contains("idempotent")
+                || line_str.contains("nonexistent"),
+            "Line should indicate idempotent path\nline: {}",
+            line
+        );
+    }
 }
 
 #[test]

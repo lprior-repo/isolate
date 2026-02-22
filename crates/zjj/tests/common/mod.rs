@@ -689,6 +689,50 @@ pub fn parse_json_output(s: &str) -> Result<JsonValue, serde_json::Error> {
     serde_json::from_str(s)
 }
 
+/// Parse JSONL output from CLI commands, returning all parsed JSON lines.
+///
+/// JSONL format has one JSON object per line. This function filters empty lines
+/// and parses each non-empty line as a JSON value.
+pub fn parse_jsonl_output(s: &str) -> Result<Vec<JsonValue>, serde_json::Error> {
+    s.lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str(line))
+        .collect()
+}
+
+/// Get the first JSON line from JSONL output that matches a given variant type.
+///
+/// The JSONL format uses variant names as top-level keys (e.g., `{"session": {...}}`).
+/// Returns `None` if no line matches.
+pub fn find_jsonl_line_by_type<'a>(lines: &'a [JsonValue], type_name: &str) -> Option<&'a JsonValue> {
+    lines.iter().find(|line| line.get(type_name).is_some())
+}
+
+/// Get the payload from a JSONL line for a given variant type.
+///
+/// For `{"session": {"name": "foo"}}`, this returns `{"name": "foo"}`.
+pub fn get_jsonl_payload<'a>(line: &'a JsonValue, type_name: &str) -> Option<&'a JsonValue> {
+    line.get(type_name)
+}
+
+/// Get all JSON lines from JSONL output that match a given variant type.
+pub fn filter_jsonl_lines_by_type<'a>(
+    lines: &'a [JsonValue],
+    type_name: &'a str,
+) -> impl Iterator<Item = &'a JsonValue> + use<'a> {
+    lines.iter().filter(move |line| line.get(type_name).is_some())
+}
+
+/// Find a line with a "result" type from JSONL output.
+pub fn find_result_line(lines: &[JsonValue]) -> Option<&JsonValue> {
+    find_jsonl_line_by_type(lines, "result")
+}
+
+/// Find a line with a "summary" type from JSONL output.
+pub fn find_summary_line(lines: &[JsonValue]) -> Option<&JsonValue> {
+    find_jsonl_line_by_type(lines, "summary")
+}
+
 /// Return envelope payload (`data`) when present, otherwise return root object.
 pub fn payload(json: &JsonValue) -> &JsonValue {
     json.get("data").map_or(json, |v| v)
@@ -732,6 +776,33 @@ pub fn validate_schema_envelope(
     let json =
         parse_json_output(json_str).map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
 
+    validate_envelope_fields(&json, command_name, json_str)
+}
+
+/// Validate that JSONL output lines contain proper schema envelope structure.
+///
+/// For JSONL output, we check the first line for envelope fields since
+/// each line should be self-describing.
+pub fn validate_jsonl_schema_envelope(
+    json_str: &str,
+    command_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let lines = parse_jsonl_output(json_str)
+        .map_err(|e| format!("{command_name}: Invalid JSONL: {e}"))?;
+
+    let first_line = lines
+        .first()
+        .ok_or_else(|| format!("{command_name}: Empty JSONL output"))?;
+
+    validate_envelope_fields(first_line, command_name, json_str)
+}
+
+/// Common envelope field validation logic.
+fn validate_envelope_fields(
+    json: &JsonValue,
+    command_name: &str,
+    json_str: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let required_fields: &[&str] = &["$schema", "_schema_version", "success"];
 
     required_fields.iter().try_for_each(|&field| {

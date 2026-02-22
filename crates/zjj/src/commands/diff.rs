@@ -538,55 +538,38 @@ mod tests {
         // - diff content should be in the data field
     }
 
-    /// Test diff should support Human output format
+    /// Test diff output uses JSONL format
     #[tokio::test]
-    async fn test_diff_human_output_format() {
-        let format = OutputFormat::Human;
-        assert!(!format.is_json());
+    async fn test_diff_uses_jsonl_format() {
+        // All diff output is JSONL format
+        let format = OutputFormat::Json;
+        assert!(format.is_json());
 
-        // When diff is called with OutputFormat::Human:
-        // - diff output should be human-readable text
-        // - diff should be sent to pager if available
+        // Diff content is in Result line with data field
+        // Format is always JSONL for AI-first design
     }
 
-    /// Test diff output structure changes based on format
-    #[tokio::test]
-    async fn test_diff_respects_output_format() {
-        // For JSON format: diff content should be in Result line with data field
-        let json_format = OutputFormat::Json;
-        assert!(json_format.is_json());
-
-        // For Human format: diff should be displayed to terminal/pager
-        let human_format = OutputFormat::Human;
-        assert!(!human_format.is_json());
-    }
-
-    /// Test diff --stat works with both output formats
+    /// Test diff --stat works with JSONL output
     #[tokio::test]
     async fn test_diff_stat_with_format() {
-        // stat diff should work with JSON format
-        let json_format = OutputFormat::Json;
-        assert!(json_format.is_json());
+        // stat diff works with JSONL format
+        let format = OutputFormat::Json;
+        assert!(format.is_json());
 
-        // stat diff should work with Human format
-        let human_format = OutputFormat::Human;
-        assert!(!human_format.is_json());
-
-        // When stat=true is passed along with format:
-        // diff::run("session", true, OutputFormat::Json) should output JSONL Result
-        // diff::run("session", true, OutputFormat::Human) should output text stat
+        // When stat=true is passed:
+        // diff::run("session", true, OutputFormat::Json) outputs JSONL Result
+        // with stat information in the data field
     }
 
-    /// Test `OutputFormat::from_json_flag` converts correctly
+    /// Test `OutputFormat::from_json_flag` always returns Json
     #[tokio::test]
     async fn test_diff_from_json_flag() {
-        let json_flag = true;
-        let format = OutputFormat::from_json_flag(json_flag);
+        // All output is JSONL in AI-first design
+        let format = OutputFormat::from_json_flag(true);
         assert_eq!(format, OutputFormat::Json);
 
-        let human_flag = false;
-        let format2 = OutputFormat::from_json_flag(human_flag);
-        assert_eq!(format2, OutputFormat::Human);
+        let format2 = OutputFormat::from_json_flag(false);
+        assert_eq!(format2, OutputFormat::Json);
     }
 
     /// Test diff preserves format through conversion chain
@@ -602,11 +585,10 @@ mod tests {
     /// Test diff never panics during format processing
     #[tokio::test]
     async fn test_diff_format_no_panics() {
-        // Both formats should be processable without panic
-        for format in &[OutputFormat::Json, OutputFormat::Human] {
-            let _ = format.is_json();
-            let _ = format.to_string();
-        }
+        // JSONL format should be processable without panic
+        let format = OutputFormat::Json;
+        let _ = format.is_json();
+        let _ = format.to_string();
     }
 
     // ============================================================================

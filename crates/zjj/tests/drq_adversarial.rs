@@ -32,7 +32,7 @@
 mod common;
 use std::fs;
 
-use common::{parse_json_output, payload, TestHarness};
+use common::{parse_jsonl_output, find_result_line, TestHarness};
 use serde_json::Value as JsonValue;
 
 // ============================================================================
@@ -78,12 +78,10 @@ fn test_workspace_exists_without_db_entry() {
             "List should succeed after recovered add\nStdout: {}\nStderr: {}",
             list_after.stdout, list_after.stderr
         );
-        let parsed =
-            parse_json_output(&list_after.stdout).unwrap_or_else(|_| serde_json::json!({}));
-        let sessions = payload(&parsed).as_array().cloned().unwrap_or_default();
-        let has_session = sessions.iter().any(|session| {
-            session
-                .get("name")
+        // JSONL format: each line is a session
+        let lines = parse_jsonl_output(&list_after.stdout).unwrap_or_default();
+        let has_session = lines.iter().any(|line| {
+            line.get("name")
                 .and_then(serde_json::Value::as_str)
                 .is_some_and(|name| name == "zombie-session")
         });
@@ -142,14 +140,14 @@ fn test_db_entry_exists_without_workspace() {
     let query_result = harness.zjj(&["query", "session-exists", "ghost-session", "--json"]);
     assert!(query_result.success, "Query should succeed");
 
-    // Functional pattern: Parse JSON with unwrap_or_else for zero-allocation fallback
-    // Railway-Oriented Programming: Errors flow through ? operator
-    let json: JsonValue =
-        parse_json_output(&query_result.stdout).unwrap_or_else(|_| serde_json::json!({}));
+    // JSONL format: parse lines and find the result line
+    let lines = parse_jsonl_output(&query_result.stdout).unwrap_or_default();
+    let json = find_result_line(&lines).cloned().unwrap_or_else(|| serde_json::json!({}));
 
     // Current contract: existence is DB-backed even if workspace has been removed.
-    let exists = payload(&json)
-        .get("exists")
+    let exists = json
+        .get("data")
+        .and_then(|d| d.get("exists"))
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
     assert!(
@@ -157,8 +155,9 @@ fn test_db_entry_exists_without_workspace() {
         "query session-exists currently reports true when DB row exists"
     );
 
-    let status = payload(&json)
-        .get("session")
+    let status = json
+        .get("data")
+        .and_then(|d| d.get("session"))
         .and_then(|session| session.get("status"))
         .and_then(serde_json::Value::as_str)
         .unwrap_or("unknown");
@@ -236,15 +235,17 @@ fn test_json_success_matches_exit_code() {
     for args in commands {
         let result = harness.zjj(args);
 
-        // Parse JSON if available
-        if let Ok(json) = serde_json::from_str::<JsonValue>(&result.stdout) {
-            if let Some(success) = json.get("success").and_then(serde_json::Value::as_bool) {
-                assert_eq!(
-                    success,
-                    result.success,
-                    "JSON success field ({success}) must match exit code ({success}={}) for command {:?}\nOutput: {}",
-                    result.success, args, &result.stdout
-                );
+        // JSONL format: parse lines and check first line for success field
+        if let Ok(lines) = parse_jsonl_output(&result.stdout) {
+            if let Some(first_line) = lines.first() {
+                if let Some(success) = first_line.get("success").and_then(serde_json::Value::as_bool) {
+                    assert_eq!(
+                        success,
+                        result.success,
+                        "JSON success field ({success}) must match exit code ({success}={}) for command {:?}\nOutput: {}",
+                        result.success, args, &result.stdout
+                    );
+                }
             }
         }
     }
@@ -284,10 +285,9 @@ fn test_clean_command_detects_orphans() {
     let clean_result = harness.zjj(&["clean", "--dry-run", "--json"]);
     assert!(clean_result.success, "clean should succeed");
 
-    // Functional pattern: Parse JSON with unwrap_or_else for zero-allocation fallback
-    // Provides default empty object to allow test continuation
-    let json: JsonValue =
-        parse_json_output(&clean_result.stdout).unwrap_or_else(|_| serde_json::json!({}));
+    // JSONL format: parse lines and find the result line
+    let lines = parse_jsonl_output(&clean_result.stdout).unwrap_or_default();
+    let json: JsonValue = find_result_line(&lines).cloned().unwrap_or_else(|| serde_json::json!({}));
 
     // CURRENT CHAMPION: Does not report orphaned workspace
     // EXPECTED: Lists orphaned workspaces and suggests actions
@@ -422,17 +422,19 @@ fn test_error_messages_are_actionable() {
         let result = harness.zjj(args);
 
         if !result.success {
-            // Try to parse as JSON
-            if let Ok(json) = serde_json::from_str::<JsonValue>(&result.stdout) {
-                if let Some(error) = json.get("error") {
-                    // EXPECTED: Error should have actionable recovery info
-                    let has_recovery = error.get("recovery").is_some()
-                        || error.get("suggestion").is_some()
-                        || error.get("resolution").is_some();
+            // Try to parse as JSONL
+            if let Ok(lines) = parse_jsonl_output(&result.stdout) {
+                if let Some(first_line) = lines.first() {
+                    if let Some(error) = first_line.get("error") {
+                        // EXPECTED: Error should have actionable recovery info
+                        let has_recovery = error.get("recovery").is_some()
+                            || error.get("suggestion").is_some()
+                            || error.get("resolution").is_some();
 
-                    if !has_recovery {
-                        missing_recovery_count += 1;
-                        // Track error scenarios lacking recovery field
+                        if !has_recovery {
+                            missing_recovery_count += 1;
+                            // Track error scenarios lacking recovery field
+                        }
                     }
                 }
             }

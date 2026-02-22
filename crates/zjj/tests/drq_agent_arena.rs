@@ -44,7 +44,7 @@
 //! - **Round 5**: Error semantics (retryable vs permanent failures)
 
 mod common;
-use common::{parse_json_output, payload, session_entries, validate_schema_envelope, TestHarness};
+use common::{parse_jsonl_output, validate_jsonl_schema_envelope, find_result_line, TestHarness};
 use serde_json::Value as JsonValue;
 
 // ============================================================================
@@ -78,7 +78,7 @@ fn test_all_json_outputs_use_schema_envelope() -> Result<(), Box<dyn std::error:
         .iter()
         .map(|args| (args, harness.zjj(args)))
         .try_for_each(|(args, result)| {
-            validate_schema_envelope(&result.stdout, args[0]).map_err(
+            validate_jsonl_schema_envelope(&result.stdout, args[0]).map_err(
                 |e| -> Box<dyn std::error::Error> {
                     format!(
                         "{} schema validation failed\nStdout: {}\nStderr: {}\nError: {}",
@@ -105,7 +105,9 @@ fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Erro
     let result = harness.zjj(&["status", "test-session", "--json"]);
     assert!(result.success);
 
-    let json = parse_json_output(&result.stdout)?;
+    // JSONL format: parse lines and validate first line
+    let lines = parse_jsonl_output(&result.stdout)?;
+    let json = lines.first().ok_or_else(|| "Empty JSONL output")?;
 
     // All JSON outputs must have these fields
     assert!(json.get("$schema").is_some(), "Missing $schema field");
@@ -131,7 +133,7 @@ fn test_diff_uses_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let result = harness.zjj(&["diff", "test-session", "--json"]);
     // Diff might fail if no changes, but JSON format should still be consistent
     if result.success {
-        validate_schema_envelope(&result.stdout, "diff")?;
+        validate_jsonl_schema_envelope(&result.stdout, "diff")?;
     }
     Ok(())
 }
@@ -163,8 +165,9 @@ fn test_failed_add_leaves_no_artifacts() -> Result<(), Box<dyn std::error::Error
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success);
 
-    let json = parse_json_output(&list_result.stdout)?;
-    let count = session_entries(&json).map(Vec::len).unwrap_or(0);
+    // JSONL format: each line is a session
+    let lines = parse_jsonl_output(&list_result.stdout)?;
+    let count = lines.len();
     assert_eq!(count, 1, "Should have exactly 1 session");
 
     Ok(())
@@ -190,8 +193,8 @@ fn test_remove_cleans_up_all_artifacts() -> Result<(), Box<dyn std::error::Error
 
     // Verify session is not in database
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = parse_json_output(&list_result.stdout)?;
-    let count = session_entries(&json).map(Vec::len).unwrap_or(0);
+    let lines = parse_jsonl_output(&list_result.stdout)?;
+    let count = lines.len();
     assert_eq!(count, 0, "Should have 0 sessions after remove");
     Ok(())
 }
@@ -220,21 +223,24 @@ fn test_complete_agent_workflow() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Query session state
     let query_result = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
     assert!(query_result.success);
-    let json: JsonValue = parse_json_output(&query_result.stdout)?;
-    assert_eq!(payload(&json)["exists"], true);
+    // JSONL format: find result line
+    let lines = parse_jsonl_output(&query_result.stdout)?;
+    let result_line = find_result_line(&lines).ok_or_else(|| "No result line in JSONL output")?;
+    assert_eq!(result_line["data"]["exists"], true);
 
     // 5. Remove session (cleanup)
     harness.assert_success(&["remove", "feature-1", "-f"]);
 
     // 6. Verify cleanup
     let query_result2 = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
-    let json2: JsonValue = parse_json_output(&query_result2.stdout)?;
+    let lines2 = parse_jsonl_output(&query_result2.stdout)?;
+    let result_line2 = find_result_line(&lines2).ok_or_else(|| "No result line in JSONL output")?;
     assert_eq!(
-        json2["success"], true,
+        result_line2["success"], true,
         "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
         query_result2.stdout, query_result2.stderr
     );
-    assert_eq!(payload(&json2)["exists"], false);
+    assert_eq!(result_line2["data"]["exists"], false);
     Ok(())
 }
 
@@ -251,20 +257,26 @@ fn test_context_command_for_agents() -> Result<(), Box<dyn std::error::Error>> {
     let result = harness.zjj(&["context", "--json"]);
     assert!(result.success, "context command should succeed");
 
-    let json: JsonValue = parse_json_output(&result.stdout)?;
+    // JSONL format: parse lines and validate
+    let lines = parse_jsonl_output(&result.stdout)?;
+    validate_jsonl_schema_envelope(&result.stdout, "context")?;
 
     // Context should provide actionable environment and repository state
-    validate_schema_envelope(&result.stdout, "context")?;
+    // Look for these fields across all output lines
+    let has_location = lines.iter().any(|line| line.get("location").is_some());
+    let has_repository = lines.iter().any(|line| line.get("repository").is_some());
+    let has_suggestions = lines.iter().any(|line| line.get("suggestions").is_some());
+
     assert!(
-        json.get("location").is_some(),
+        has_location,
         "Context should include location"
     );
     assert!(
-        json.get("repository").is_some(),
+        has_repository,
         "Context should include repository details"
     );
     assert!(
-        json.get("suggestions").is_some(),
+        has_suggestions,
         "Context should include suggestions"
     );
     Ok(())
@@ -283,9 +295,13 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
     let initial_count = || -> Result<usize, Box<dyn std::error::Error>> {
         let result = harness.zjj(&["query", "session-count", "--json"]);
         assert!(result.success);
-        let json: JsonValue = parse_json_output(&result.stdout)?;
-        let count = json["count"]
+        // JSONL format: find result line
+        let lines = parse_jsonl_output(&result.stdout)?;
+        let result_line = find_result_line(&lines)
+            .ok_or_else(|| format!("No result line in session-count output: {}", result.stdout))?;
+        let count = result_line["data"]["count"]
             .as_u64()
+            .or_else(|| result_line["count"].as_u64())
             .ok_or_else(|| format!("Missing count in session-count output: {}", result.stdout))?;
         Ok(usize::try_from(count).unwrap_or(usize::MAX))
     };
@@ -355,8 +371,8 @@ fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> 
 
     // Verify all sessions exist independently
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = parse_json_output(&list_result.stdout)?;
-    let count = session_entries(&json).map(Vec::len).unwrap_or(0);
+    let lines = parse_jsonl_output(&list_result.stdout)?;
+    let count = lines.len();
     assert_eq!(count, 3, "Should have 3 sessions");
 
     // Verify each session can be queried independently using functional traversal
@@ -395,7 +411,9 @@ fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::e
     let result = harness.zjj(&["status", "nonexistent", "--json"]);
     assert!(!result.success, "Should fail for non-existent session");
 
-    let json: JsonValue = parse_json_output(&result.stdout)?;
+    // JSONL format: parse lines and find error in first line
+    let lines = parse_jsonl_output(&result.stdout)?;
+    let json = lines.first().ok_or_else(|| "Empty JSONL output")?;
 
     // Define required error fields
     let error_fields: &[&str] = &["code", "message", "exit_code"];
@@ -432,7 +450,8 @@ fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::
 
     // Test not found error (exit code 2)
     let result1 = harness.zjj(&["status", "nonexistent", "--json"]);
-    let json1: JsonValue = parse_json_output(&result1.stdout)?;
+    let lines1 = parse_jsonl_output(&result1.stdout)?;
+    let json1 = lines1.first().ok_or_else(|| "Empty JSONL output for status")?;
     assert_eq!(
         json1["error"]["exit_code"], 2,
         "Not found should be exit code 2"
@@ -440,7 +459,8 @@ fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::
 
     // Test validation error (exit code 1)
     let result2 = harness.zjj(&["add", "123invalid", "--no-open", "--json"]);
-    let json2: JsonValue = parse_json_output(&result2.stdout)?;
+    let lines2 = parse_jsonl_output(&result2.stdout)?;
+    let json2 = lines2.first().ok_or_else(|| "Empty JSONL output for add")?;
     assert_eq!(
         json2["error"]["exit_code"], 1,
         "Validation error should be exit code 1"
@@ -464,20 +484,23 @@ fn test_query_session_exists_for_missing_session() -> Result<(), Box<dyn std::er
     // Query a non-existent session
     let result = harness.zjj(&["query", "session-exists", "nonexistent", "--json"]);
 
-    let json: JsonValue = parse_json_output(&result.stdout)?;
-    validate_schema_envelope(&result.stdout, "query session-exists")?;
+    // JSONL format: parse lines
+    let lines = parse_jsonl_output(&result.stdout)?;
+    validate_jsonl_schema_envelope(&result.stdout, "query session-exists")?;
+    let result_line = find_result_line(&lines)
+        .ok_or_else(|| "No result line in session-exists output")?;
     assert_eq!(
-        json["success"], true,
+        result_line["success"], true,
         "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
     assert_eq!(
-        payload(&json)["exists"],
+        result_line["data"]["exists"],
         false,
         "Missing session should not exist"
     );
     assert!(
-        payload(&json).get("session").is_none(),
+        result_line["data"].get("session").is_none(),
         "Missing session should not include session details"
     );
     Ok(())
@@ -496,20 +519,23 @@ fn test_query_session_exists_for_existing_session() -> Result<(), Box<dyn std::e
     // Query an existing session
     let result = harness.zjj(&["query", "session-exists", "test-session", "--json"]);
 
-    let json: JsonValue = parse_json_output(&result.stdout)?;
-    validate_schema_envelope(&result.stdout, "query session-exists")?;
+    // JSONL format: parse lines
+    let lines = parse_jsonl_output(&result.stdout)?;
+    validate_jsonl_schema_envelope(&result.stdout, "query session-exists")?;
+    let result_line = find_result_line(&lines)
+        .ok_or_else(|| "No result line in session-exists output")?;
     assert_eq!(
-        json["success"], true,
+        result_line["success"], true,
         "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
     assert_eq!(
-        payload(&json)["exists"],
+        result_line["data"]["exists"],
         true,
         "Created session should exist"
     );
     assert_eq!(
-        payload(&json)["session"]["name"],
+        result_line["data"]["session"]["name"],
         "test-session",
         "Session payload should include session metadata"
     );
@@ -529,29 +555,32 @@ fn test_query_can_run_includes_prerequisite_summary() -> Result<(), Box<dyn std:
     harness.assert_success(&["init"]);
 
     let result = harness.zjj(&["query", "can-run", "add", "--json"]);
-    let json: JsonValue = parse_json_output(&result.stdout)?;
-    validate_schema_envelope(&result.stdout, "query can-run")?;
+    // JSONL format: parse lines
+    let lines = parse_jsonl_output(&result.stdout)?;
+    validate_jsonl_schema_envelope(&result.stdout, "query can-run")?;
+    let result_line = find_result_line(&lines)
+        .ok_or_else(|| "No result line in can-run output")?;
     assert_eq!(
-        json["success"], true,
+        result_line["success"], true,
         "can-run should return success=true envelope\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
     assert!(
-        payload(&json)
+        result_line["data"]
             .get("can_run")
             .and_then(JsonValue::as_bool)
             .is_some(),
         "can-run should include boolean can_run"
     );
     assert!(
-        payload(&json)
+        result_line["data"]
             .get("prerequisites_total")
             .and_then(JsonValue::as_u64)
             .is_some(),
         "can-run should include prerequisite totals"
     );
     assert!(
-        payload(&json)
+        result_line["data"]
             .get("prerequisites_met")
             .and_then(JsonValue::as_u64)
             .is_some(),
@@ -573,14 +602,17 @@ fn test_query_suggest_name_finds_next_available_name() -> Result<(), Box<dyn std
     let result = harness.zjj(&["query", "suggest-name", "feature-{n}", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = parse_json_output(&result.stdout)?;
-    validate_schema_envelope(&result.stdout, "query suggest-name")?;
+    // JSONL format: parse lines
+    let lines = parse_jsonl_output(&result.stdout)?;
+    validate_jsonl_schema_envelope(&result.stdout, "query suggest-name")?;
+    let result_line = find_result_line(&lines)
+        .ok_or_else(|| "No result line in suggest-name output")?;
     assert_eq!(
-        payload(&json)["pattern"],
+        result_line["data"]["pattern"],
         "feature-{n}",
         "Pattern should round-trip in response"
     );
-    let suggested = payload(&json)["suggested"].as_str().unwrap_or("");
+    let suggested = result_line["data"]["suggested"].as_str().unwrap_or("");
     assert!(
         suggested.starts_with("feature-"),
         "Suggested name should follow requested pattern"
@@ -624,7 +656,7 @@ fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::erro
             (query_args[0], result)
         })
         .try_for_each(|(query_name, result)| {
-            validate_schema_envelope(&result.stdout, query_name).map_err(
+            validate_jsonl_schema_envelope(&result.stdout, query_name).map_err(
                 |e| -> Box<dyn std::error::Error> {
                     format!(
                         "{} schema validation failed\nStdout: {}\nStderr: {}\nError: {}",

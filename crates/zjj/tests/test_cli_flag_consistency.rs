@@ -155,9 +155,10 @@ fn test_remove_dry_run_json_preview() {
         "Expected DRY-RUN preview in JSON output: {}",
         result.stdout
     );
+    // JSONL format uses variant names like "result" and "action" as top-level keys
     assert!(
-        result.stdout.contains("remove-response"),
-        "Expected remove-response schema in JSON output: {}",
+        result.stdout.contains("\"result\":") || result.stdout.contains("\"action\":"),
+        "Expected 'result' or 'action' variant in JSONL output: {}",
         result.stdout
     );
 }
@@ -453,14 +454,66 @@ fn test_list_contract_and_json_combined() {
         result.stderr
     );
 
-    // Verify output is valid JSON
+    // When --contract is used, output is a single JSON object (pretty-printed),
+    // not JSONL. Parse the entire output as a single JSON object.
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
     assert!(
         parsed.is_ok(),
-        "Output should be valid JSON: {}\nstderr: {}",
+        "Output should be valid JSON (contract format): {}\nstderr: {}",
         result.stdout,
         result.stderr
     );
+
+    // Verify it's a contract object with expected fields
+    let json = parsed.expect("already checked is_ok");
+    assert!(
+        json.get("command").is_some() || json.get("intent").is_some(),
+        "Contract should have 'command' or 'intent' field: {}",
+        result.stdout
+    );
+}
+
+#[test]
+fn test_list_json_alone_is_jsonl() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+
+    // Test: --json alone should produce JSONL output
+    let result = harness.zjj(&["list", "--json"]);
+    assert!(
+        result.success,
+        "Should accept --json (stderr: {})",
+        result.stderr
+    );
+
+    // Verify output is valid JSONL (each line is a valid JSON object)
+    let lines: Vec<&str> = result
+        .stdout
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    assert!(
+        !lines.is_empty(),
+        "Output should contain at least one JSONL line: {}\nstderr: {}",
+        result.stdout,
+        result.stderr
+    );
+
+    // Verify each line is valid JSON
+    for (idx, line) in lines.iter().enumerate() {
+        let parsed: Result<serde_json::Value, _> = serde_json::from_str(line);
+        assert!(
+            parsed.is_ok(),
+            "Line {} should be valid JSON: {}\nFull output: {}\nstderr: {}",
+            idx,
+            line,
+            result.stdout,
+            result.stderr
+        );
+    }
 }
 
 #[test]

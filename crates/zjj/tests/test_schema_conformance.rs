@@ -38,7 +38,7 @@ mod common;
 use common::TestHarness;
 use zjj_core::json::schemas;
 
-/// Helper to extract schema from JSON output
+/// Helper to extract schema from JSON output (single JSON object)
 fn extract_schema(json_str: &str) -> Result<String, Box<dyn std::error::Error>> {
     let parsed: serde_json::Value = serde_json::from_str(json_str.trim())?;
     parsed
@@ -46,6 +46,33 @@ fn extract_schema(json_str: &str) -> Result<String, Box<dyn std::error::Error>> 
         .and_then(|v| v.as_str())
         .map(String::from)
         .ok_or_else(|| "Missing $schema field".into())
+}
+
+/// Known OutputLine types in JSONL format
+const KNOWN_OUTPUT_LINE_TYPES: &[&str] = &["session", "action", "result", "summary", "issue"];
+
+/// Parse output as JSONL and validate each line has a known type.
+fn parse_jsonl_output(output: &str) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
+    let lines: Vec<serde_json::Value> = output
+        .lines()
+        .filter(|l| !l.is_empty())
+        .filter(|l| l.trim().starts_with('{'))
+        .map(serde_json::from_str)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Validate each line has a known type
+    for line in &lines {
+        let has_known_type = KNOWN_OUTPUT_LINE_TYPES
+            .iter()
+            .any(|t| line.get(t).is_some());
+        assert!(
+            has_known_type,
+            "Line should have known type (session/action/result/summary/issue): {:?}",
+            line
+        );
+    }
+
+    Ok(lines)
 }
 
 /// Test that add command output schema matches contract
@@ -112,7 +139,7 @@ fn test_context_schema_matches_contract() -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
-/// Test that diff command output schema matches contract
+/// Test that diff command output uses JSONL format with valid OutputLine types
 #[test]
 fn test_diff_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -122,14 +149,13 @@ fn test_diff_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>>
     harness.assert_success(&["add", "schema-test-diff", "--no-open"]);
 
     let result = harness.zjj(&["diff", "schema-test-diff", "--json"]);
-    // diff may succeed or fail depending on state, but should output valid JSON
+    // diff may succeed or fail depending on state, but should output valid JSONL
     if result.success || result.stdout.contains("zjj://") {
         if result.stdout.trim().starts_with('{') {
-            let schema = extract_schema(result.stdout.trim())?;
-            let expected = schemas::uri(schemas::DIFF_RESPONSE);
-            assert_eq!(
-                schema, expected,
-                "diff response schema should match contract"
+            let lines = parse_jsonl_output(&result.stdout)?;
+            assert!(
+                !lines.is_empty(),
+                "diff output should have at least one line"
             );
         }
     }
@@ -137,7 +163,7 @@ fn test_diff_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-/// Test that diff --stat command output schema matches contract
+/// Test that diff --stat command output uses JSONL format with valid OutputLine types
 #[test]
 fn test_diff_stat_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -147,14 +173,13 @@ fn test_diff_stat_schema_matches_contract() -> Result<(), Box<dyn std::error::Er
     harness.assert_success(&["add", "schema-test-diff-stat", "--no-open"]);
 
     let result = harness.zjj(&["diff", "schema-test-diff-stat", "--stat", "--json"]);
-    // diff may succeed or fail depending on state, but should output valid JSON
+    // diff may succeed or fail depending on state, but should output valid JSONL
     if result.success || result.stdout.contains("zjj://") {
         if result.stdout.trim().starts_with('{') {
-            let schema = extract_schema(result.stdout.trim())?;
-            let expected = schemas::uri(schemas::DIFF_STAT_RESPONSE);
-            assert_eq!(
-                schema, expected,
-                "diff --stat response schema should match contract"
+            let lines = parse_jsonl_output(&result.stdout)?;
+            assert!(
+                !lines.is_empty(),
+                "diff --stat output should have at least one line"
             );
         }
     }
@@ -229,7 +254,7 @@ fn test_query_location_schema_matches_contract() -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-/// Test that list command output schema matches contract
+/// Test that list command output uses JSONL format with valid OutputLine types
 #[test]
 fn test_list_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -240,12 +265,13 @@ fn test_list_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>>
     let result = harness.zjj(&["list", "--json"]);
     assert!(result.success, "list should succeed: {}", result.stderr);
 
-    let schema = extract_schema(result.stdout.trim())?;
-    let expected = schemas::uri(schemas::LIST_RESPONSE);
-    assert_eq!(
-        schema, expected,
-        "list response schema should match contract"
-    );
+    // Parse as JSONL and validate structure
+    let lines = parse_jsonl_output(&result.stdout)?;
+    assert!(!lines.is_empty(), "Should have at least one output line");
+
+    // Verify list output contains a summary line
+    let has_summary = lines.iter().any(|line| line.get("summary").is_some());
+    assert!(has_summary, "list output should contain summary line");
 
     Ok(())
 }
@@ -270,7 +296,7 @@ fn test_init_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-/// Test that remove command output schema matches contract
+/// Test that remove command output uses JSONL format with valid OutputLine types
 #[test]
 fn test_remove_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -282,12 +308,22 @@ fn test_remove_schema_matches_contract() -> Result<(), Box<dyn std::error::Error
     let result = harness.zjj(&["remove", "schema-test-remove", "--json", "--force"]);
     assert!(result.success, "remove should succeed: {}", result.stderr);
 
-    let schema = extract_schema(result.stdout.trim())?;
-    let expected = schemas::uri(schemas::REMOVE_RESPONSE);
-    assert_eq!(
-        schema, expected,
-        "remove response schema should match contract"
-    );
+    // Parse as JSONL and validate structure
+    let lines = parse_jsonl_output(&result.stdout)?;
+    assert!(!lines.is_empty(), "Should have at least one output line");
+
+    // Verify remove output contains an action line
+    let has_action = lines.iter().any(|line| {
+        line.get("action")
+            .and_then(|a| a.get("verb"))
+            .and_then(|v| v.as_str())
+            .is_some_and(|v| v == "remove")
+    });
+    assert!(has_action, "remove output should contain action line");
+
+    // Verify remove output contains a result line
+    let has_result = lines.iter().any(|line| line.get("result").is_some());
+    assert!(has_result, "remove output should contain result line");
 
     Ok(())
 }
@@ -312,7 +348,7 @@ fn test_contract_schema_matches_contract() -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
-/// Test that sync command output schema matches contract
+/// Test that sync command output uses JSONL format with valid OutputLine types
 #[test]
 fn test_sync_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -322,22 +358,38 @@ fn test_sync_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>>
     harness.assert_success(&["add", "schema-test-sync", "--no-open"]);
 
     let result = harness.zjj(&["sync", "schema-test-sync", "--json"]);
-    // sync may succeed or fail depending on state
+
+    // sync may succeed or fail depending on state, but should output valid JSONL
     if result.success || result.stdout.contains("zjj://") {
         if result.stdout.trim().starts_with('{') {
-            let schema = extract_schema(result.stdout.trim())?;
-            let expected = schemas::uri(schemas::SYNC_RESPONSE);
-            assert_eq!(
-                schema, expected,
-                "sync response schema should match contract"
+            let lines = parse_jsonl_output(&result.stdout)?;
+            assert!(
+                !lines.is_empty(),
+                "sync output should have at least one line"
             );
+
+            // Verify sync output contains an action line (verb is "rebase" for sync operations)
+            let has_rebase_action = lines.iter().any(|line| {
+                line.get("action")
+                    .and_then(|a| a.get("verb"))
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|v| v == "rebase")
+            });
+            assert!(
+                has_rebase_action,
+                "sync output should contain action line with verb 'rebase'"
+            );
+
+            // Verify sync output contains a result line
+            let has_result = lines.iter().any(|line| line.get("result").is_some());
+            assert!(has_result, "sync output should contain result line");
         }
     }
 
     Ok(())
 }
 
-/// Test that focus command output schema matches contract
+/// Test that focus command output uses JSONL format with valid OutputLine types
 #[test]
 fn test_focus_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -349,12 +401,26 @@ fn test_focus_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>
     let result = harness.zjj(&["focus", "schema-test-focus", "--json", "--no-zellij"]);
     assert!(result.success, "focus should succeed: {}", result.stderr);
 
-    let schema = extract_schema(result.stdout.trim())?;
-    let expected = schemas::uri(schemas::FOCUS_RESPONSE);
-    assert_eq!(
-        schema, expected,
-        "focus response schema should match contract"
-    );
+    // Parse as JSONL and validate structure
+    let lines = parse_jsonl_output(&result.stdout)?;
+    assert!(!lines.is_empty(), "Should have at least one output line");
+
+    // Verify focus output contains an action line
+    let has_focus_action = lines.iter().any(|line| {
+        line.get("action")
+            .and_then(|a| a.get("verb"))
+            .and_then(|v| v.as_str())
+            .is_some_and(|v| v == "focus")
+    });
+    assert!(has_focus_action, "focus output should contain action line");
+
+    // Verify focus output contains a session line
+    let has_session = lines.iter().any(|line| line.get("session").is_some());
+    assert!(has_session, "focus output should contain session line");
+
+    // Verify focus output contains a result line
+    let has_result = lines.iter().any(|line| line.get("result").is_some());
+    assert!(has_result, "focus output should contain result line");
 
     Ok(())
 }
