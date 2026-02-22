@@ -1,11 +1,24 @@
-//! Remove a session and its workspace
+//! Remove a session and its workspace - JSONL output for AI-first control plane
+
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
 
 pub mod atomic;
 
 use std::io::Write;
 
 use anyhow::Result;
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use zjj_core::{
+    output::{
+        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine,
+        ResultKind, ResultOutput,
+    },
+    OutputFormat,
+};
 
 use crate::{
     cli::is_inside_zellij,
@@ -13,14 +26,13 @@ use crate::{
         get_session_db,
         remove::atomic::{cleanup_session_atomically, RemoveError},
     },
-    json::RemoveOutput,
 };
 
 /// Options for the remove command
 #[derive(Debug, Clone, Default)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct RemoveOptions {
-    /// Skip pre_remove hooks (no-op for confirmation, which is removed)
+    /// Skip pre_remove hooks (non-interactive - no confirmation prompts)
     pub force: bool,
     /// Squash-merge to main before removal
     pub merge: bool,
@@ -41,6 +53,56 @@ pub async fn run(name: &str) -> Result<()> {
     run_with_options(name, &RemoveOptions::default()).await
 }
 
+/// Emit an action line to stdout
+fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
+    let action = Action::new(verb.to_string(), target.to_string(), status)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    emit_stdout(&OutputLine::Action(action))
+}
+
+/// Emit a result line to stdout
+fn emit_result(success: bool, message: String) -> Result<()> {
+    let result = if success {
+        ResultOutput::success(ResultKind::Command, message)
+    } else {
+        ResultOutput::failure(ResultKind::Command, message)
+    }
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+    emit_stdout(&OutputLine::Result(result))
+}
+
+/// Emit an issue line to stdout
+fn emit_issue(
+    id: &str,
+    title: String,
+    kind: IssueKind,
+    severity: IssueSeverity,
+    session: Option<&str>,
+    suggestion: Option<&str>,
+) -> Result<()> {
+    let mut issue =
+        Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if let Some(s) = session {
+        issue = issue.with_session(s.to_string());
+    }
+    if let Some(s) = suggestion {
+        issue = issue.with_suggestion(s.to_string());
+    }
+
+    emit_stdout(&OutputLine::Issue(issue))
+}
+
+/// Map RemoveError to appropriate IssueKind
+const fn remove_error_to_issue_kind(error: &RemoveError) -> IssueKind {
+    match error {
+        RemoveError::WorkspaceInaccessible { .. } => IssueKind::ResourceNotFound,
+        RemoveError::WorkspaceRemovalFailed { .. } => IssueKind::Io,
+        RemoveError::DatabaseDeletionFailed { .. } => IssueKind::Internal,
+        RemoveError::ZellijTabCloseFailed { .. } => IssueKind::External,
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 /// Run the remove command with options
 pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
@@ -50,21 +112,29 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
     let session = match db.get(name).await? {
         Some(session) => session,
         None if options.idempotent => {
-            let message = format!("Session '{name}' already removed");
             if options.format.is_json() {
-                let output = RemoveOutput {
-                    name: name.to_string(),
-                    message,
-                };
-                let envelope = SchemaEnvelope::new("remove-response", "single", output);
-                let json_str = serde_json::to_string(&envelope)?;
-                writeln!(std::io::stdout(), "{json_str}")?;
+                emit_action("remove", name, ActionStatus::Skipped)?;
+                emit_result(true, format!("Session '{name}' already removed"))?;
             } else {
                 writeln!(std::io::stdout(), "Session '{name}' already removed")?;
             }
             return Ok(());
         }
         None => {
+            if options.format.is_json() {
+                emit_issue(
+                    "REMOVE-001",
+                    format!("Session '{name}' not found"),
+                    IssueKind::ResourceNotFound,
+                    IssueSeverity::Error,
+                    Some(name),
+                    Some("Use 'zjj list' to see available sessions"),
+                )?;
+                let result =
+                    ResultOutput::failure(ResultKind::Command, format!("Session '{name}' not found"))
+                        .map_err(|e| anyhow::anyhow!("{e}"))?;
+                emit_stdout(&OutputLine::Result(result))?;
+            }
             return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
                 "Session '{name}' not found"
             ))));
@@ -77,13 +147,8 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             session.workspace_path
         );
         if options.format.is_json() {
-            let output = RemoveOutput {
-                name: name.to_string(),
-                message,
-            };
-            let envelope = SchemaEnvelope::new("remove-response", "single", output);
-            let json_str = serde_json::to_string(&envelope)?;
-            writeln!(std::io::stdout(), "{json_str}")?;
+            emit_action("remove", name, ActionStatus::Pending)?;
+            emit_result(true, message)?;
         } else {
             writeln!(std::io::stdout(), "{message}")?;
         }
@@ -105,33 +170,32 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
     match cleanup_session_atomically(&db, &session, true).await {
         Ok(result) => {
             if options.format.is_json() {
-                let output = RemoveOutput {
-                    name: name.to_string(),
-                    message: if result.removed {
-                        format!("Removed session '{name}'")
-                    } else {
-                        "Session removal completed with warnings".to_string()
-                    },
+                emit_action("remove", name, ActionStatus::Completed)?;
+                let message = if result.removed {
+                    format!("Removed session '{name}'")
+                } else {
+                    "Session removal completed with warnings".to_string()
                 };
-                let envelope = SchemaEnvelope::new("remove-response", "single", output);
-                let json_str = serde_json::to_string(&envelope)?;
-                writeln!(std::io::stdout(), "{json_str}")?;
+                emit_result(true, message)?;
             } else if result.removed {
                 writeln!(std::io::stdout(), "Removed session '{name}'")?;
             }
             Ok(())
         }
-        Err(RemoveError::WorkspaceInaccessible { .. }) => {
+        Err(RemoveError::WorkspaceInaccessible { path, reason }) => {
             // Workspace already gone - try to clean up database record
             db.delete(name).await?;
             if options.format.is_json() {
-                let output = RemoveOutput {
-                    name: name.to_string(),
-                    message: format!("Session '{name}' removed (workspace was already gone)"),
-                };
-                let envelope = SchemaEnvelope::new("remove-response", "single", output);
-                let json_str = serde_json::to_string(&envelope)?;
-                writeln!(std::io::stdout(), "{json_str}")?;
+                emit_issue(
+                    "REMOVE-002",
+                    format!("Workspace inaccessible: {path} - {reason}"),
+                    IssueKind::ResourceNotFound,
+                    IssueSeverity::Warning,
+                    Some(name),
+                    Some("Session database record cleaned up"),
+                )?;
+                emit_action("cleanup", name, ActionStatus::Completed)?;
+                emit_result(true, format!("Session '{name}' removed (workspace was already gone)"))?;
             } else {
                 writeln!(
                     std::io::stdout(),
@@ -143,6 +207,19 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
         Err(e) => {
             // Log error details
             tracing::error!("Failed to remove session '{}': {}", name, e);
+
+            if options.format.is_json() {
+                let kind = remove_error_to_issue_kind(&e);
+                emit_issue(
+                    "REMOVE-003",
+                    format!("Failed to remove session: {e}"),
+                    kind,
+                    IssueSeverity::Error,
+                    Some(name),
+                    Some("Check workspace permissions and try again"),
+                )?;
+                emit_result(false, format!("Failed to remove session '{name}'"))?;
+            }
 
             // Return IoError for exit code 3
             Err(anyhow::Error::new(zjj_core::Error::IoError(format!(
@@ -193,6 +270,8 @@ fn merge_to_main(name: &str, _workspace_path: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
     use anyhow::Context;
     use tempfile::TempDir;
 
@@ -287,91 +366,158 @@ mod tests {
         assert!(matches!(err, zjj_core::Error::ValidationError { .. }));
     }
 
-    // Phase 1 RED tests: Remove JSON output should be wrapped with SchemaEnvelope
-
     #[tokio::test]
-    async fn test_remove_json_has_envelope() -> Result<()> {
-        use crate::json::RemoveOutput;
+    async fn test_emit_action_produces_valid_jsonl() -> Result<()> {
+        let action = Action::new(
+            "remove".to_string(),
+            "test-session".to_string(),
+            ActionStatus::Completed,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        // Create sample RemoveOutput
-        let output = RemoveOutput {
-            name: "test-session".to_string(),
-            message: "Removed session 'test-session'".to_string(),
-        };
-
-        // Wrap with SchemaEnvelope (this is what the command actually prints)
-        let envelope = SchemaEnvelope::new("remove-response", "single", output);
-        let json_str = serde_json::to_string(&envelope)?;
+        let output_line = OutputLine::Action(action);
+        let json_str = serde_json::to_string(&output_line)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        // Verify SchemaEnvelope fields are present
+        assert!(parsed.is_object());
         assert!(
-            parsed.get("$schema").is_some(),
-            "JSON output should have $schema field"
+            parsed.get("action").is_some(),
+            "OutputLine::Action must have 'action' key"
+        );
+        let action_obj = parsed
+            .get("action")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("action value must be an object"))?;
+        assert!(
+            action_obj.get("verb").is_some(),
+            "Action must have 'verb' field"
         );
         assert!(
-            parsed.get("_schema_version").is_some(),
-            "JSON output should have _schema_version field"
+            action_obj.get("target").is_some(),
+            "Action must have 'target' field"
         );
         assert!(
-            parsed.get("schema_type").is_some(),
-            "JSON output should have schema_type field"
-        );
-
-        // Verify schema_type is "single"
-        assert_eq!(
-            parsed.get("schema_type").and_then(|v| v.as_str()),
-            Some("single"),
-            "schema_type should be 'single' for RemoveOutput"
+            action_obj.get("status").is_some(),
+            "Action must have 'status' field"
         );
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_remove_schema_format() -> Result<()> {
-        use crate::json::RemoveOutput;
+    async fn test_emit_result_produces_valid_jsonl() -> Result<()> {
+        let result =
+            ResultOutput::success(ResultKind::Command, "Removed session".to_string())
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        // Create sample output
-        let output = RemoveOutput {
-            name: "cancelled-session".to_string(),
-            message: "Removal cancelled".to_string(),
-        };
-
-        // Wrap with SchemaEnvelope
-        let envelope = SchemaEnvelope::new("remove-response", "single", output);
-        let json_str = serde_json::to_string(&envelope)?;
+        let output_line = OutputLine::Result(result);
+        let json_str = serde_json::to_string(&output_line)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        // Verify $schema format matches zjj://<command>/v1 pattern
-        let schema_value = parsed.get("$schema").and_then(|v| v.as_str());
+        assert!(parsed.is_object());
         assert!(
-            schema_value.is_some(),
-            "$schema field should be present and be a string"
+            parsed.get("result").is_some(),
+            "OutputLine::Result must have 'result' key"
         );
-        let Some(schema) = schema_value else {
-            return Ok(());
-        };
+        let result_obj = parsed
+            .get("result")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
         assert!(
-            schema.starts_with("zjj://"),
-            "$schema should start with 'zjj://', got: {schema}"
-        );
-        assert!(
-            schema.ends_with("/v1"),
-            "$schema should end with '/v1', got: {schema}"
+            result_obj.get("success").is_some(),
+            "Result must have 'success' field"
         );
         assert!(
-            schema.contains("remove"),
-            "$schema should contain 'remove' for remove command, got: {schema}"
+            result_obj.get("message").is_some(),
+            "Result must have 'message' field"
         );
-
-        // Verify _schema_version is "1.0"
         assert_eq!(
-            parsed.get("_schema_version").and_then(|v| v.as_str()),
-            Some("1.0"),
-            "_schema_version should be '1.0'"
+            result_obj.get("success").and_then(|v| v.as_bool()),
+            Some(true),
+            "Success result should have success=true"
         );
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_emit_issue_produces_valid_jsonl() -> Result<()> {
+        let issue = Issue::new(
+            "REMOVE-001".to_string(),
+            "Session not found".to_string(),
+            IssueKind::ResourceNotFound,
+            IssueSeverity::Error,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?
+        .with_session("test-session".to_string());
+
+        let output_line = OutputLine::Issue(issue);
+        let json_str = serde_json::to_string(&output_line)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.is_object());
+        assert!(
+            parsed.get("issue").is_some(),
+            "OutputLine::Issue must have 'issue' key"
+        );
+        let issue_obj = parsed
+            .get("issue")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("issue value must be an object"))?;
+        assert!(issue_obj.get("id").is_some(), "Issue must have 'id' field");
+        assert!(
+            issue_obj.get("title").is_some(),
+            "Issue must have 'title' field"
+        );
+        assert!(
+            issue_obj.get("kind").is_some(),
+            "Issue must have 'kind' field"
+        );
+        assert!(
+            issue_obj.get("severity").is_some(),
+            "Issue must have 'severity' field"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_remove_error_to_issue_kind_mapping() {
+        let workspace_inaccessible =
+            RemoveError::WorkspaceInaccessible {
+                path: "/tmp/test".into(),
+                reason: "not found".into(),
+            };
+        assert!(matches!(
+            remove_error_to_issue_kind(&workspace_inaccessible),
+            IssueKind::ResourceNotFound
+        ));
+
+        let workspace_removal_failed = RemoveError::WorkspaceRemovalFailed {
+            path: "/tmp/test".into(),
+            source: std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied"),
+        };
+        assert!(matches!(
+            remove_error_to_issue_kind(&workspace_removal_failed),
+            IssueKind::Io
+        ));
+
+        let db_deletion_failed = RemoveError::DatabaseDeletionFailed {
+            name: "test".into(),
+            source: zjj_core::Error::NotFound("test".into()),
+        };
+        assert!(matches!(
+            remove_error_to_issue_kind(&db_deletion_failed),
+            IssueKind::Internal
+        ));
+
+        let zellij_failed = RemoveError::ZellijTabCloseFailed {
+            tab: "zjj:test".into(),
+            source: anyhow::anyhow!("failed"),
+        };
+        assert!(matches!(
+            remove_error_to_issue_kind(&zellij_failed),
+            IssueKind::External
+        ));
     }
 }
