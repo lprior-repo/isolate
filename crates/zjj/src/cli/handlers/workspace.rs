@@ -277,14 +277,20 @@ pub async fn handle_clone(sub_m: &ArgMatches) -> Result<()> {
 
 pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
-    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
+    let session = sub_m
+        .get_one::<String>("name")
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
     let options = session_mgmt::PauseOptions { session, format };
     session_mgmt::run_pause(&options).await
 }
 
 pub async fn handle_resume(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
-    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
+    let session = sub_m
+        .get_one::<String>("name")
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
     let options = session_mgmt::ResumeOptions { session, format };
     session_mgmt::run_resume(&options).await
 }
