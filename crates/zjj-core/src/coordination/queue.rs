@@ -804,11 +804,17 @@ impl MergeQueue {
         }
     }
 
+    /// Get the next pending entry that is not blocked in a stack.
+    ///
+    /// Filters out entries with `stack_merge_state = 'blocked'` to ensure
+    /// blocked stack entries don't get picked up until their parent merges.
     pub async fn next(&self) -> Result<Option<QueueEntry>> {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue WHERE status = 'pending' \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue \
+                 WHERE status = 'pending' \
+                 AND (stack_merge_state IS NULL OR stack_merge_state != 'blocked') \
                  ORDER BY priority ASC, added_at ASC LIMIT 1",
         )
         .fetch_optional(&self.pool)
