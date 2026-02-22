@@ -1,92 +1,162 @@
-//! Switch to a session's Zellij tab
+//! Switch to a session's Zellij tab - JSONL output for AI-first control plane
+
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+#![allow(clippy::too_many_arguments)]
+
+use std::path::PathBuf;
 
 use anyhow::Result;
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use zjj_core::{
+    output::{
+        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
+        ResultOutput, SessionOutput,
+    },
+    OutputFormat,
+};
 
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
     commands::get_session_db,
-    json::FocusOutput,
+    session::SessionStatus,
 };
 
-/// Options for the focus command
+const fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus {
+    match status {
+        SessionStatus::Active => zjj_core::types::SessionStatus::Active,
+        SessionStatus::Paused => zjj_core::types::SessionStatus::Paused,
+        SessionStatus::Completed => zjj_core::types::SessionStatus::Completed,
+        SessionStatus::Failed => zjj_core::types::SessionStatus::Failed,
+        SessionStatus::Creating => zjj_core::types::SessionStatus::Creating,
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct FocusOptions {
-    /// Output format
     pub format: OutputFormat,
-    /// Skip Zellij integration entirely (for non-TTY environments)
     pub no_zellij: bool,
 }
 
-/// Run the focus command with options
+fn emit_session_and_result(session: &crate::session::Session) -> Result<()> {
+    let workspace_path: PathBuf = session.workspace_path.clone().into();
+
+    let session_output = SessionOutput::new(
+        session.name.clone(),
+        to_core_status(session.status),
+        session.state,
+        workspace_path,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let session_output = if let Some(branch) = &session.branch {
+        session_output.with_branch(branch.clone())
+    } else {
+        session_output
+    };
+
+    emit_stdout(&OutputLine::Session(session_output))?;
+
+    let result = ResultOutput::success(
+        ResultKind::Command,
+        format!("Focused on session '{}'", session.name),
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+    emit_stdout(&OutputLine::Result(result))?;
+
+    Ok(())
+}
+
+fn emit_issue(
+    id: &str,
+    title: String,
+    kind: IssueKind,
+    severity: IssueSeverity,
+    session: Option<&str>,
+    suggestion: Option<&str>,
+) -> Result<()> {
+    let mut issue =
+        Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if let Some(s) = session {
+        issue = issue.with_session(s.to_string());
+    }
+    if let Some(s) = suggestion {
+        issue = issue.with_suggestion(s.to_string());
+    }
+
+    emit_stdout(&OutputLine::Issue(issue))?;
+    Ok(())
+}
+
 pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()> {
     let db = get_session_db().await?;
 
-    // Resolve the name
-    let resolved_name = name
-        .ok_or_else(|| anyhow::anyhow!("Session name is required. Usage: zjj focus <name>"))?
-        .to_string();
+    let Some(name) = name.filter(|n| !n.trim().is_empty()) else {
+        emit_issue(
+            "FOCUS-001",
+            "Session name is required".to_string(),
+            IssueKind::Validation,
+            IssueSeverity::Error,
+            None,
+            Some("Usage: zjj focus <name>"),
+        )?;
+        return Err(anyhow::anyhow!(
+            "Session name is required. Usage: zjj focus <name>"
+        ));
+    };
 
-    // Get the session (we might need to fetch it again if it was provided by name)
-    // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get(&resolved_name).await?.ok_or_else(|| {
-        anyhow::Error::new(zjj_core::Error::NotFound(format!(
-            "Session '{resolved_name}' not found"
-        )))
-    })?;
-
-    let zellij_tab = session.zellij_tab;
+    let Some(session) = db.get(name).await? else {
+        emit_issue(
+            "FOCUS-002",
+            format!("Session '{name}' not found"),
+            IssueKind::ResourceNotFound,
+            IssueSeverity::Error,
+            Some(name),
+            Some("Use 'zjj list' to see available sessions"),
+        )?;
+        return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
+            "Session '{name}' not found"
+        ))));
+    };
 
     if options.no_zellij {
-        // Skip Zellij integration - just print info
-        if options.format.is_json() {
-            let output = FocusOutput {
-                name: resolved_name.clone(),
-                zellij_tab: zellij_tab.clone(),
-                message: format!(
-                    "Session '{resolved_name}' is in tab '{zellij_tab}' (Zellij disabled)"
-                ),
-            };
-            let envelope = SchemaEnvelope::new("focus-response", "single", output);
-            println!("{}", serde_json::to_string(&envelope)?);
-        } else {
-            println!("Session '{resolved_name}' is in tab '{zellij_tab}'");
-            println!("Workspace path: {}", session.workspace_path);
-        }
-    } else if is_inside_zellij() {
-        // Inside Zellij: Switch to the tab
+        let action = Action::new(
+            "focus".to_string(),
+            name.to_string(),
+            ActionStatus::Completed,
+        );
+        emit_stdout(&OutputLine::Action(action))?;
+        emit_session_and_result(&session)?;
+        return Ok(());
+    }
+
+    let zellij_tab = session.zellij_tab.clone();
+
+    if is_inside_zellij() {
         run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
 
-        if options.format.is_json() {
-            let output = FocusOutput {
-                name: resolved_name.clone(),
-                zellij_tab,
-                message: format!("Switched to session '{resolved_name}'"),
-            };
-            let envelope = SchemaEnvelope::new("focus-response", "single", output);
-            println!("{}", serde_json::to_string(&envelope)?);
-        } else {
-            println!("Switched to session '{resolved_name}'");
-        }
+        let action = Action::new(
+            "switch-tab".to_string(),
+            zellij_tab,
+            ActionStatus::Completed,
+        )
+        .with_result(format!("Switched to session '{name}'"));
+        emit_stdout(&OutputLine::Action(action))?;
+        emit_session_and_result(&session)?;
     } else {
-        // Outside Zellij: Attach to the Zellij session
-        // User will land in session and can navigate to desired tab
-        if options.format.is_json() {
-            let output = FocusOutput {
-                name: resolved_name.clone(),
-                zellij_tab: zellij_tab.clone(),
-                message: format!(
-                    "Session '{resolved_name}' is in tab '{zellij_tab}'. Attaching to Zellij session..."
-                ),
-            };
-            let envelope = SchemaEnvelope::new("focus-response", "single", output);
-            println!("{}", serde_json::to_string(&envelope)?);
-        } else {
-            println!("Session '{resolved_name}' is in tab '{zellij_tab}'");
-            println!("Attaching to Zellij session...");
-        }
+        let action = Action::new(
+            "attach".to_string(),
+            zellij_tab.clone(),
+            ActionStatus::InProgress,
+        )
+        .with_result(format!("Attaching to Zellij session for '{name}'"));
+        emit_stdout(&OutputLine::Action(action))?;
+        emit_session_and_result(&session)?;
         attach_to_zellij_session(None).await?;
-        // Note: This never returns - we exec into Zellij
     }
 
     Ok(())
@@ -94,7 +164,15 @@ pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Res
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use std::path::PathBuf;
+
     use tempfile::TempDir;
+    use zjj_core::output::{
+        Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
+        ResultOutput, SessionOutput,
+    };
 
     use super::*;
     use crate::db::SessionDb;
@@ -110,11 +188,9 @@ mod tests {
     async fn test_focus_session_not_found() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
-        // Try to get a non-existent session
         let result = db.get("nonexistent").await?;
         assert!(result.is_none());
 
-        // Verify the error message format when session not found
         let session_name = "nonexistent";
         let result = db
             .get(session_name)
@@ -133,10 +209,8 @@ mod tests {
     async fn test_focus_session_exists() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
-        // Create a session
         let session = db.create("test-session", "/tmp/test").await?;
 
-        // Verify we can retrieve it
         let retrieved = db.get("test-session").await?;
         assert!(retrieved.is_some());
 
@@ -151,10 +225,8 @@ mod tests {
     async fn test_focus_session_with_hyphens() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
-        // Create a session with hyphens in the name
         let _session = db.create("my-test-session", "/tmp/my-test").await?;
 
-        // Verify we can retrieve it
         let retrieved = db.get("my-test-session").await?;
         assert!(retrieved.is_some());
 
@@ -169,10 +241,8 @@ mod tests {
     async fn test_focus_session_with_underscores() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
-        // Create a session with underscores in the name
         let _session = db.create("my_test_session", "/tmp/my_test").await?;
 
-        // Verify we can retrieve it
         let retrieved = db.get("my_test_session").await?;
         assert!(retrieved.is_some());
 
@@ -187,10 +257,8 @@ mod tests {
     async fn test_focus_session_with_mixed_special_chars() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
-        // Create a session with mixed special characters
         let _session = db.create("my-test_123", "/tmp/my-test_123").await?;
 
-        // Verify we can retrieve it
         let retrieved = db.get("my-test_123").await?;
         assert!(retrieved.is_some());
 
@@ -205,7 +273,6 @@ mod tests {
     async fn test_zellij_tab_format() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
-        // Create sessions and verify tab name format
         let session1 = db.create("session1", "/tmp/s1").await?;
         assert_eq!(session1.zellij_tab, "zjj:session1");
 
@@ -220,18 +287,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_inside_zellij_detection() {
-        // Save original value
         let original = std::env::var("ZELLIJ").ok();
 
-        // Test when ZELLIJ env var is not set
         std::env::remove_var("ZELLIJ");
         assert!(!is_inside_zellij());
 
-        // Test when ZELLIJ env var is set
         std::env::set_var("ZELLIJ", "1");
         assert!(is_inside_zellij());
 
-        // Restore original value
         if let Some(val) = original {
             std::env::set_var("ZELLIJ", val);
         } else {
@@ -239,91 +302,195 @@ mod tests {
         }
     }
 
-    // Phase 1 RED tests: Focus JSON output should be wrapped with SchemaEnvelope
-
     #[tokio::test]
-    async fn test_focus_json_has_envelope() -> Result<()> {
-        use crate::json::FocusOutput;
+    async fn test_session_output_is_valid_jsonl() -> Result<()> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .map_err(|e| anyhow::anyhow!("{e}"))?
+            .as_secs();
 
-        // Create sample FocusOutput
-        let output = FocusOutput {
+        let session = crate::session::Session {
+            id: None,
             name: "test-session".to_string(),
+            workspace_path: "/tmp/test".to_string(),
+            status: SessionStatus::Active,
+            state: zjj_core::WorkspaceState::Created,
             zellij_tab: "zjj:test-session".to_string(),
-            message: "Switched to session".to_string(),
+            branch: None,
+            metadata: None,
+            created_at: now,
+            updated_at: now,
+            last_synced: None,
+            parent_session: None,
+            queue_status: None,
         };
 
-        // Wrap with SchemaEnvelope (this is what the command actually prints)
-        let envelope = SchemaEnvelope::new("focus-response", "single", output);
-        let json_str = serde_json::to_string(&envelope)?;
+        let workspace_path: PathBuf = session.workspace_path.clone().into();
+        let session_output = SessionOutput::new(
+            session.name.clone(),
+            to_core_status(session.status),
+            session.state,
+            workspace_path,
+        )?;
+
+        let output_line = OutputLine::Session(session_output);
+        let json_str = serde_json::to_string(&output_line)?;
+
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        assert!(parsed.is_object(), "OutputLine should serialize to JSON");
 
-        // Verify SchemaEnvelope fields are present
         assert!(
-            parsed.get("$schema").is_some(),
-            "JSON output should have $schema field"
-        );
-        assert!(
-            parsed.get("_schema_version").is_some(),
-            "JSON output should have _schema_version field"
-        );
-        assert!(
-            parsed.get("schema_type").is_some(),
-            "JSON output should have schema_type field"
-        );
-
-        // Verify schema_type is "single"
-        assert_eq!(
-            parsed.get("schema_type").and_then(|v| v.as_str()),
-            Some("single"),
-            "schema_type should be 'single' for FocusOutput"
+            parsed.get("type").is_some(),
+            "OutputLine must have 'type' field"
         );
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_focus_schema_format() -> Result<()> {
-        use crate::json::FocusOutput;
+    async fn test_issue_output_is_valid_jsonl() -> Result<()> {
+        let issue = Issue::new(
+            "FOCUS-001".to_string(),
+            "Session name is required".to_string(),
+            IssueKind::Validation,
+            IssueSeverity::Error,
+        )?
+        .with_suggestion("Usage: zjj focus <name>".to_string());
 
-        // Create sample output
-        let output = FocusOutput {
-            name: "my-feature".to_string(),
-            zellij_tab: "zjj:my-feature".to_string(),
-            message: "Focused".to_string(),
-        };
+        let output_line = OutputLine::Issue(issue);
+        let json_str = serde_json::to_string(&output_line)?;
 
-        // Wrap with SchemaEnvelope
-        let envelope = SchemaEnvelope::new("focus-response", "single", output);
-        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        assert!(parsed.is_object());
+
+        assert!(parsed.get("type").is_some(), "Issue must have 'type' field");
+        assert!(parsed.get("id").is_some(), "Issue must have 'id' field");
+        assert!(
+            parsed.get("title").is_some(),
+            "Issue must have 'title' field"
+        );
+        assert!(parsed.get("kind").is_some(), "Issue must have 'kind' field");
+        assert!(
+            parsed.get("severity").is_some(),
+            "Issue must have 'severity' field"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_result_output_is_valid_jsonl() -> Result<()> {
+        let result = ResultOutput::success(ResultKind::Command, "Focused on session".to_string())?;
+
+        let output_line = OutputLine::Result(result);
+        let json_str = serde_json::to_string(&output_line)?;
+
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        assert!(parsed.is_object());
+
+        assert!(
+            parsed.get("type").is_some(),
+            "Result must have 'type' field"
+        );
+        assert!(
+            parsed.get("success").is_some(),
+            "Result must have 'success' field"
+        );
+        assert!(
+            parsed.get("message").is_some(),
+            "Result must have 'message' field"
+        );
+
+        assert_eq!(
+            parsed.get("success").and_then(|v| v.as_bool()),
+            Some(true),
+            "Success result should have success=true"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_action_output_is_valid_jsonl() -> Result<()> {
+        let action = Action::new(
+            "focus".to_string(),
+            "test-session".to_string(),
+            ActionStatus::Completed,
+        )
+        .with_result("Switched to session".to_string());
+
+        let output_line = OutputLine::Action(action);
+        let json_str = serde_json::to_string(&output_line)?;
+
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        assert!(parsed.is_object());
+
+        assert!(
+            parsed.get("type").is_some(),
+            "Action must have 'type' field"
+        );
+        assert!(
+            parsed.get("verb").is_some(),
+            "Action must have 'verb' field"
+        );
+        assert!(
+            parsed.get("target").is_some(),
+            "Action must have 'target' field"
+        );
+        assert!(
+            parsed.get("status").is_some(),
+            "Action must have 'status' field"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_to_core_status_converts_all_variants() {
+        assert_eq!(
+            to_core_status(SessionStatus::Active),
+            zjj_core::types::SessionStatus::Active
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Paused),
+            zjj_core::types::SessionStatus::Paused
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Completed),
+            zjj_core::types::SessionStatus::Completed
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Failed),
+            zjj_core::types::SessionStatus::Failed
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Creating),
+            zjj_core::types::SessionStatus::Creating
+        );
+    }
+
+    #[tokio::test]
+    async fn test_emit_issue_produces_valid_jsonl() -> Result<()> {
+        let issue = Issue::new(
+            "FOCUS-TEST".to_string(),
+            "Test issue".to_string(),
+            IssueKind::Validation,
+            IssueSeverity::Warning,
+        )?
+        .with_session("test-session".to_string());
+
+        let json_str = serde_json::to_string(&OutputLine::Issue(issue))?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        // Verify $schema format matches zjj://<command>/v1 pattern
-        let schema_value = parsed.get("$schema").and_then(|v| v.as_str());
-        assert!(
-            schema_value.is_some(),
-            "$schema field should be present and be a string"
-        );
-        let Some(schema) = schema_value else {
-            return Ok(());
-        };
-        assert!(
-            schema.starts_with("zjj://"),
-            "$schema should start with 'zjj://', got: {schema}"
-        );
-        assert!(
-            schema.ends_with("/v1"),
-            "$schema should end with '/v1', got: {schema}"
-        );
-        assert!(
-            schema.contains("focus"),
-            "$schema should contain 'focus' for focus command, got: {schema}"
-        );
-
-        // Verify _schema_version is "1.0"
+        assert!(parsed.is_object());
+        assert_eq!(parsed.get("type").and_then(|v| v.as_str()), Some("issue"));
         assert_eq!(
-            parsed.get("_schema_version").and_then(|v| v.as_str()),
-            Some("1.0"),
-            "_schema_version should be '1.0'"
+            parsed.get("id").and_then(|v| v.as_str()),
+            Some("FOCUS-TEST")
+        );
+        assert_eq!(
+            parsed.get("severity").and_then(|v| v.as_str()),
+            Some("warning")
         );
 
         Ok(())
