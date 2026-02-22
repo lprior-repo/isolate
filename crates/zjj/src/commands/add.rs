@@ -369,6 +369,16 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
+    // Check max_sessions limit before creating
+    let current_sessions = db.list(None).await?;
+    if current_sessions.len() >= cfg.session.max_sessions {
+        return Err(anyhow::anyhow!(
+            "Session limit reached: {} sessions already exist (max: {}). Use 'zjj remove' to free up space.",
+            current_sessions.len(),
+            cfg.session.max_sessions
+        ));
+    }
+
     // Construct workspace path from config's workspace_dir
     let workspace_base = root.join(&cfg.workspace_dir);
     let workspace_path = workspace_base.join(&options.name);
@@ -421,6 +431,16 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
     let workspace_path = root.join(&cfg.workspace_dir).join(&options.name);
     let workspace_path_str = workspace_path.display().to_string();
+
+    // Check max_sessions limit before creating
+    let current_sessions = db.list(None).await?;
+    if current_sessions.len() >= cfg.session.max_sessions {
+        return Err(anyhow::anyhow!(
+            "Session limit reached: {} sessions already exist (max: {}). Use 'zjj remove' to free up space.",
+            current_sessions.len(),
+            cfg.session.max_sessions
+        ));
+    }
 
     // Phase 2: Check for existing session and handle early exit
     if let Some(existing) = db.get(&options.name).await? {
