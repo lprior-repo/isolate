@@ -187,10 +187,21 @@ fn emit_result_failure(message: &str) -> Result<()> {
 // HUMAN-READABLE OUTPUT HELPERS (for non-JSON mode)
 // ============================================================================
 
-/// Output human-readable result
-fn output_human_result(name: &str, workspace_path: &str, mode: &str, created: bool) {
+/// Output human-readable result (only for non-JSON mode)
+fn output_human_result(
+    name: &str,
+    workspace_path: &str,
+    mode: &str,
+    created: bool,
+    format: OutputFormat,
+) {
+    // Only output human-readable text in non-JSON mode
+    if format.is_json() {
+        return;
+    }
+
     match (created, mode) {
-        (false, "idempotent") | (false, "command replay") => {
+        (false, "idempotent" | "command replay") => {
             println!("Session '{name}' already exists (idempotent)");
         }
         (false, _) => {
@@ -273,7 +284,7 @@ fn output_result(
         };
         emit_result_success(&result_message)?;
     } else {
-        output_human_result(name, workspace_path, mode, created);
+        output_human_result(name, workspace_path, mode, created, format);
     }
 
     Ok(())
@@ -706,7 +717,18 @@ async fn handle_zellij_interaction(
                 options.format,
                 Some(session),
             )?;
-            if !options.format.is_json() {
+            if options.format.is_json() {
+                // Emit Issue line for JSON mode
+                let issue = Issue::new(
+                    "ADD-002".to_string(),
+                    "Zellij tab not created in non-interactive environment".to_string(),
+                    IssueKind::Configuration,
+                    IssueSeverity::Hint,
+                )
+                .map(|i| i.with_suggestion("Use --no-zellij flag to suppress this message, or run from an interactive terminal".to_string()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+                emit_stdout(&OutputLine::Issue(issue)).map_err(|e| anyhow::anyhow!("{e}"))?;
+            } else {
                 eprintln!("Note: Zellij tab not created in non-interactive environment.");
                 eprintln!("Use --no-zellij flag to suppress this message, or run from an interactive terminal.");
             }

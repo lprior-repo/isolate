@@ -13,8 +13,9 @@
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use serde_json::json;
-use zjj_core::output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType};
+use zjj_core::output::{
+    emit_stdout, Issue, IssueKind, IssueSeverity, OutputLine, SessionOutput, Summary, SummaryType,
+};
 use zjj_core::{OutputFormat, WorkspaceStateFilter};
 
 use crate::{
@@ -49,6 +50,12 @@ impl std::fmt::Display for BeadCounts {
     }
 }
 
+/// Emit an issue line to stdout before returning an error.
+fn emit_issue(id: &str, title: String, kind: IssueKind) -> Result<()> {
+    let issue = Issue::new(id.to_string(), title, kind, IssueSeverity::Error)?;
+    Ok(emit_stdout(&OutputLine::Issue(issue))?)
+}
+
 /// Run the list command
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -59,19 +66,48 @@ pub async fn run(
     agent: Option<&str>,
     state: Option<&str>,
 ) -> Result<()> {
-    let db = get_session_db().await?;
+    let db = match get_session_db().await {
+        Ok(db) => db,
+        Err(e) => {
+            emit_issue(
+                "LIST-001",
+                format!("Database error: {e}"),
+                IssueKind::External,
+            )?;
+            return Err(e);
+        }
+    };
 
     let state_filter = match state {
-        Some(value) => Some(WorkspaceStateFilter::from_str(value).map_err(anyhow::Error::new)?),
+        Some(value) => match WorkspaceStateFilter::from_str(value) {
+            Ok(filter) => Some(filter),
+            Err(e) => {
+                let err = anyhow::Error::new(e);
+                emit_issue(
+                    "LIST-002",
+                    format!("Invalid state filter: {err}"),
+                    IssueKind::Validation,
+                )?;
+                return Err(err);
+            }
+        },
         None => None,
     };
 
     // Filter sessions: exclude completed/failed unless --all is used
     // Functional iterator chain for filtering
-    let sessions: Vec<Session> = db
-        .list(None)
-        .await?
-        .into_iter()
+    let sessions: Vec<Session> = match db.list(None).await {
+        Ok(s) => s,
+        Err(e) => {
+            emit_issue(
+                "LIST-003",
+                format!("Failed to list sessions: {e}"),
+                IssueKind::External,
+            )?;
+            return Err(e.into());
+        }
+    }
+    .into_iter()
         .filter(|s| {
             let status_matches =
                 all || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
@@ -103,62 +139,75 @@ pub async fn run(
     let beads_count = get_beads_count().await.unwrap_or_default();
     let session_count = sessions.len();
 
-    let sessions_json = sessions
-        .iter()
-        .map(|session| {
-            json!({
-                "name": session.name,
-                "status": session.status.to_string(),
-                "state": session.state.to_string(),
-                "workspace_path": session.workspace_path,
-                "zellij_tab": session.zellij_tab,
-                "branch": session.branch,
-                "created_at": session.created_at,
-                "updated_at": session.updated_at,
-                "last_synced": session.last_synced,
-                "metadata": session.metadata,
-                "parent_session": session.parent_session,
-            })
-        })
-        .collect::<Vec<_>>();
-
     if format.is_json() {
-        let data = json!({
-            "sessions": sessions_json,
-            "count": session_count,
-            "beads": {
-                "open": beads_count.open,
-                "in_progress": beads_count.in_progress,
-                "blocked": beads_count.blocked,
-            },
-        });
+        // Emit each session as a JSONL line
+        for session in &sessions {
+            let workspace_path: PathBuf = session.workspace_path.clone().into();
 
-        let output = json!({
-            "$schema": "zjj://list-response/v1",
-            "_schema_version": "1.0",
-            "schema_type": "single",
-            "success": true,
-            "schema": "list-response",
-            "type": "single",
-            "data": data,
-            "sessions": data["sessions"],
-            "count": data["count"],
-        });
+            let output_session = match SessionOutput::new(
+                session.name.clone(),
+                to_core_status(session.status),
+                session.state,
+                workspace_path,
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    emit_issue(
+                        "LIST-004",
+                        format!("Invalid session data: {e}"),
+                        IssueKind::Validation,
+                    )?;
+                    return Err(anyhow::anyhow!("{e}"));
+                }
+            };
 
-        println!("{}", serde_json::to_string(&output)?);
+            let output_session = if let Some(branch) = &session.branch {
+                output_session.with_branch(branch.clone())
+            } else {
+                output_session
+            };
+
+            emit_stdout(&OutputLine::Session(output_session))?;
+        }
+
+        let summary_text = format!(
+            "Listed {} session(s), beads: {}/{}/{}",
+            session_count, beads_count.open, beads_count.in_progress, beads_count.blocked
+        );
+        let summary = match Summary::new(SummaryType::Count, summary_text) {
+            Ok(s) => s,
+            Err(e) => {
+                emit_issue(
+                    "LIST-005",
+                    format!("Failed to create summary: {e}"),
+                    IssueKind::External,
+                )?;
+                return Err(anyhow::anyhow!("{e}"));
+            }
+        };
+        emit_stdout(&OutputLine::Summary(summary))?;
         return Ok(());
     }
 
     for session in &sessions {
         let workspace_path: PathBuf = session.workspace_path.clone().into();
 
-        let output_session = SessionOutput::new(
+        let output_session = match SessionOutput::new(
             session.name.clone(),
             to_core_status(session.status),
             session.state,
             workspace_path,
-        )
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                emit_issue(
+                    "LIST-006",
+                    format!("Invalid session data: {e}"),
+                    IssueKind::Validation,
+                )?;
+                return Err(anyhow::anyhow!("{e}"));
+            }
+        };
 
         let output_session = if let Some(branch) = &session.branch {
             output_session.with_branch(branch.clone())
@@ -173,8 +222,17 @@ pub async fn run(
         "Listed {} session(s), beads: {}/{}/{}",
         session_count, beads_count.open, beads_count.in_progress, beads_count.blocked
     );
-    let summary =
-        Summary::new(SummaryType::Count, summary_text).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let summary = match Summary::new(SummaryType::Count, summary_text) {
+        Ok(s) => s,
+        Err(e) => {
+            emit_issue(
+                "LIST-007",
+                format!("Failed to create summary: {e}"),
+                IssueKind::External,
+            )?;
+            return Err(anyhow::anyhow!("{e}"));
+        }
+    };
     emit_stdout(&OutputLine::Summary(summary))?;
 
     Ok(())

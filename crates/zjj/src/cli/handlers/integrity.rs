@@ -75,7 +75,7 @@ pub async fn handle_doctor(sub_m: &ArgMatches) -> Result<()> {
     let fix = sub_m.get_flag("fix");
     let dry_run = sub_m.get_flag("dry-run");
     let verbose = sub_m.get_flag("verbose");
-    doctor::run(format, fix, dry_run, verbose).await
+    doctor::run(format.is_json(), fix, dry_run, verbose).await
 }
 
 pub async fn handle_clean(sub_m: &ArgMatches) -> Result<()> {

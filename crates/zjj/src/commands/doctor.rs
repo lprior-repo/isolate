@@ -15,6 +15,13 @@
 //! Warnings (`CheckStatus::Warn`) do not cause non-zero exit codes - only failures
 //! (`CheckStatus::Fail`) do.
 
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -24,10 +31,12 @@ use sqlx::Row;
 use tokio::process::Command;
 use zjj_core::{
     config::{load_config, Config},
-    introspection::{CheckStatus, DoctorCheck, DoctorFixOutput, FixResult, UnfixableIssue},
-    json::SchemaEnvelope,
+    introspection::{CheckStatus, DoctorCheck, FixResult, UnfixableIssue},
+    output::{
+        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, Summary,
+        SummaryType,
+    },
     workspace_integrity::{CorruptionType, IntegrityValidator, ValidationResult},
-    OutputFormat,
 };
 
 use crate::{
@@ -39,19 +48,40 @@ use crate::{
     session::SessionStatus,
 };
 
-/// Doctor command JSON output (matches documented schema)
-#[derive(Debug, Clone, serde::Serialize)]
-struct DoctorJsonResponse {
-    checks: Vec<DoctorCheck>,
-    summary: DoctorSummary,
+/// Convert check status to issue kind
+const fn status_to_kind(status: CheckStatus) -> IssueKind {
+    match status {
+        CheckStatus::Pass => IssueKind::Validation,
+        CheckStatus::Warn => IssueKind::Configuration,
+        CheckStatus::Fail => IssueKind::StateConflict,
+    }
 }
 
-/// Summary of health check results
-#[derive(Debug, Clone, serde::Serialize)]
-struct DoctorSummary {
-    passed: usize,
-    warnings: usize,
-    failed: usize,
+/// Convert check status to issue severity
+const fn status_to_severity(status: CheckStatus) -> IssueSeverity {
+    match status {
+        CheckStatus::Pass => IssueSeverity::Hint,
+        CheckStatus::Warn => IssueSeverity::Warning,
+        CheckStatus::Fail => IssueSeverity::Error,
+    }
+}
+
+/// Convert check name to issue ID (lowercase, spaces to underscores)
+fn name_to_id(name: &str) -> String {
+    name.to_lowercase().replace(' ', "_")
+}
+
+/// Emit a check result as an Issue output line
+fn emit_check_as_issue(check: &DoctorCheck) -> Result<()> {
+    let issue = Issue::new(
+        name_to_id(&check.name),
+        check.message.clone(),
+        status_to_kind(check.status),
+        status_to_severity(check.status),
+    )?
+    .with_suggestion(check.suggestion.clone().unwrap_or_default());
+
+    Ok(emit_stdout(&OutputLine::Issue(issue))?)
 }
 
 async fn check_for_recent_recovery() -> Option<String> {
@@ -91,13 +121,13 @@ async fn check_for_recent_recovery() -> Option<String> {
 }
 
 /// Run health checks
-pub async fn run(format: OutputFormat, fix: bool, dry_run: bool, verbose: bool) -> Result<()> {
+pub async fn run(_format: bool, fix: bool, dry_run: bool, verbose: bool) -> Result<()> {
     let checks = run_all_checks().await;
 
     if fix {
-        run_fixes(&checks, format, dry_run, verbose).await
+        run_fixes(&checks, dry_run, verbose).await
     } else {
-        show_health_report(&checks, format)
+        show_health_report(&checks)
     }
 }
 
@@ -1183,11 +1213,12 @@ async fn check_workflow_violations() -> DoctorCheck {
 /// - 0: All checks passed (healthy system)
 /// - 1: One or more checks failed (unhealthy system)
 /// - 2: System recovered from corruption (recovery detected)
-#[allow(clippy::too_many_lines)]
-// Long function because: single-pass report generation with format branching
-// (JSON vs human-readable). Splitting would require passing intermediate state
-// through multiple functions, reducing clarity.
-fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
+fn show_health_report(checks: &[DoctorCheck]) -> Result<()> {
+    // Emit each check as an Issue
+    for check in checks {
+        emit_check_as_issue(check)?;
+    }
+
     // Calculate summary statistics
     let warnings = checks
         .iter()
@@ -1200,64 +1231,12 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     let passed = checks.len() - warnings - errors;
     let healthy = errors == 0;
 
-    // Check if recovery occurred (any check with "recovered" in details)
-    // Note: Currently unused but kept for future diagnostic enhancement
-    let _has_recovery = checks.iter().any(|check| {
-        check
-            .details
-            .as_ref()
-            .and_then(|d| d.get("recovered"))
-            .and_then(serde_json::Value::as_bool)
-            .is_some_and(|v| v)
-    });
-
-    if format.is_json() {
-        let response = DoctorJsonResponse {
-            checks: checks.to_vec(),
-            summary: DoctorSummary {
-                passed,
-                warnings,
-                failed: errors,
-            },
-        };
-        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
-        let json_str = serde_json::to_string_pretty(&envelope)?;
-
-        if !healthy {
-            // Return the JSON as an error to allow the CLI wrapper to handle the exit
-            // but main.rs will see it starts with '{' and output it as-is.
-            anyhow::bail!("{json_str}");
-        }
-
-        println!("{json_str}");
-        return Ok(());
-    }
-
-    println!("zjj System Health Check");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!();
-
-    for check in checks {
-        let symbol = match check.status {
-            CheckStatus::Pass => "✓",
-            CheckStatus::Warn => "⚠",
-            CheckStatus::Fail => "✗",
-        };
-
-        println!("{symbol} {:<25} {}", check.name, check.message);
-
-        if let Some(ref suggestion) = check.suggestion {
-            println!("  → {suggestion}");
-        }
-    }
-
-    println!();
-    println!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)");
-
-    let auto_fixable = checks.iter().filter(|c| c.auto_fixable).count();
-    if auto_fixable > 0 {
-        println!("Some issues can be auto-fixed: zjj doctor --fix");
-    }
+    // Emit summary
+    let summary = Summary::new(
+        SummaryType::Count,
+        format!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)"),
+    )?;
+    emit_stdout(&OutputLine::Summary(summary))?;
 
     // Return error if system is unhealthy (has failures)
     if !healthy {
@@ -1275,39 +1254,42 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
 ///
 /// # Returns
 /// - Ok(()) after printing dry-run report
-fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
+fn show_dry_run_report(checks: &[DoctorCheck]) -> Result<()> {
     let fixable_checks: Vec<&DoctorCheck> = checks
         .iter()
         .filter(|c| c.auto_fixable && c.status != CheckStatus::Pass)
         .collect();
 
-    if format.is_json() {
-        let dry_run_output = serde_json::json!({
-            "dry_run": true,
-            "would_fix": fixable_checks.iter().map(|c| {
-                serde_json::json!({
-                    "name": c.name,
-                    "status": format!("{:?}", c.status),
-                    "description": describe_fix(c)
-                })
-            }).collect::<Vec<_>>()
-        });
-        println!("{}", serde_json::to_string_pretty(&dry_run_output)?);
-    } else if fixable_checks.is_empty() {
-        println!("Dry-run mode: No auto-fixable issues found");
-    } else {
-        println!("Dry-run mode: would fix the following:");
-        println!();
-        for check in fixable_checks {
-            println!(
-                "  • {}: {}",
-                check.name,
-                describe_fix(check).unwrap_or_else(|| "No fix description available".to_string())
-            );
-        }
-        println!();
-        println!("No changes will be made. Run without --dry-run to apply fixes.");
+    if fixable_checks.is_empty() {
+        let summary = Summary::new(
+            SummaryType::Info,
+            "Dry-run mode: No auto-fixable issues found".to_string(),
+        )?;
+        emit_stdout(&OutputLine::Summary(summary))?;
+        return Ok(());
     }
+
+    // Emit a plan for each fixable check
+    for check in &fixable_checks {
+        let description = describe_fix(check)
+            .unwrap_or_else(|| "No fix description available".to_string());
+        let action = Action::new(
+            "would_fix".to_string(),
+            check.name.clone(),
+            ActionStatus::Pending,
+        )
+        .with_result(description);
+        emit_stdout(&OutputLine::Action(action))?;
+    }
+
+    let summary = Summary::new(
+        SummaryType::Info,
+        format!(
+            "Dry-run mode: {} issue(s) would be fixed. Run without --dry-run to apply.",
+            fixable_checks.len()
+        ),
+    )?;
+    emit_stdout(&OutputLine::Summary(summary))?;
 
     Ok(())
 }
@@ -1368,23 +1350,13 @@ fn describe_fix(check: &DoctorCheck) -> Option<String> {
 /// # Exit Codes
 /// - 0: All critical issues were fixed or none existed
 /// - 1: Critical issues remain unfixed
-async fn run_fixes(
-    checks: &[DoctorCheck],
-    format: OutputFormat,
-    dry_run: bool,
-    verbose: bool,
-) -> Result<()> {
+async fn run_fixes(checks: &[DoctorCheck], dry_run: bool, verbose: bool) -> Result<()> {
     // If dry-run, show what would be fixed and exit
     if dry_run {
-        show_dry_run_report(checks, format)?;
+        show_dry_run_report(checks)?;
         return Ok(());
     }
 
-    // Show verbose header
-    if verbose && !format.is_json() {
-        println!("Attempting to fix auto-fixable issues...");
-        println!();
-    }
     let (fixed, unable_to_fix) = futures::stream::iter(checks)
         .fold(
             (vec![], vec![]),
@@ -1406,11 +1378,6 @@ async fn run_fixes(
                     return (fixed, unable_to_fix);
                 }
 
-                // Show verbose progress
-                if verbose && !format.is_json() {
-                    println!("Fixing {}...", check.name);
-                }
-
                 // Try to fix the issue
                 let fix_result = match check.name.as_str() {
                     "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run).await,
@@ -1424,19 +1391,34 @@ async fn run_fixes(
                 };
 
                 match fix_result {
-                    Ok(action) => {
-                        if verbose && !format.is_json() {
-                            println!("  ✓ {}: {}", check.name, action);
+                    Ok(action_description) => {
+                        if verbose {
+                            // Emit action completed
+                            let action = Action::new(
+                                "fix".to_string(),
+                                check.name.clone(),
+                                ActionStatus::Completed,
+                            )
+                            .with_result(action_description.clone());
+                            // Ignore emit errors in fold - they're non-critical
+                            let _ = emit_stdout(&OutputLine::Action(action));
                         }
                         fixed.push(FixResult {
                             issue: check.name.clone(),
-                            action,
+                            action: action_description,
                             success: true,
                         });
                     }
                     Err(reason) => {
-                        if verbose && !format.is_json() {
-                            println!("  ✗ {}: Fix failed: {}", check.name, reason);
+                        if verbose {
+                            let action = Action::new(
+                                "fix".to_string(),
+                                check.name.clone(),
+                                ActionStatus::Failed,
+                            )
+                            .with_result(reason.clone());
+                            // Ignore emit errors in fold - they're non-critical
+                            let _ = emit_stdout(&OutputLine::Action(action));
                         }
                         unable_to_fix.push(UnfixableIssue {
                             issue: check.name.clone(),
@@ -1450,28 +1432,47 @@ async fn run_fixes(
         )
         .await;
 
-    let output = DoctorFixOutput {
-        fixed,
-        unable_to_fix,
-    };
+    // Emit fix results as Issues
+    for fix in &fixed {
+        let issue = Issue::new(
+            name_to_id(&fix.issue),
+            format!("Fixed: {}", fix.action),
+            IssueKind::Validation,
+            IssueSeverity::Hint,
+        )?;
+        emit_stdout(&OutputLine::Issue(issue))?;
+    }
+
+    for unfixable in &unable_to_fix {
+        let issue = Issue::new(
+            name_to_id(&unfixable.issue),
+            unfixable.reason.clone(),
+            IssueKind::StateConflict,
+            IssueSeverity::Error,
+        )?
+        .with_suggestion(unfixable.suggestion.clone());
+        emit_stdout(&OutputLine::Issue(issue))?;
+    }
 
     // Count critical (Fail status) issues that couldn't be fixed
     let critical_unfixed = checks
         .iter()
         .filter(|c| {
-            c.status == CheckStatus::Fail && !output.fixed.iter().any(|f| f.issue == c.name)
+            c.status == CheckStatus::Fail && !fixed.iter().any(|f| f.issue == c.name)
         })
         .count();
 
-    if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(&output)?);
-        if critical_unfixed > 0 {
-            std::process::exit(1);
-        }
-        return Ok(());
-    }
-
-    show_fix_results(&output);
+    // Emit summary
+    let summary = Summary::new(
+        SummaryType::Count,
+        format!(
+            "Auto-fix: {} fixed, {} unable to fix, {} critical remaining",
+            fixed.len(),
+            unable_to_fix.len(),
+            critical_unfixed
+        ),
+    )?;
+    emit_stdout(&OutputLine::Summary(summary))?;
 
     if critical_unfixed > 0 {
         anyhow::bail!("Auto-fix completed but {critical_unfixed} critical issue(s) remain unfixed");
@@ -1683,36 +1684,6 @@ async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<Strin
         .await
         .map_err(|e| anyhow::anyhow!("Failed to delete database: {e}"))?;
     Ok("Deleted corrupted database file. It will be recreated on next run.".to_string())
-}
-
-fn show_fix_results(output: &DoctorFixOutput) {
-    if !output.fixed.is_empty() {
-        println!("Fixed Issues:");
-        for fix in &output.fixed {
-            let symbol = if fix.success { "✓" } else { "✗" };
-            println!(
-                "{symbol} {fix_issue}: {fix_action}",
-                fix_issue = fix.issue,
-                fix_action = fix.action
-            );
-        }
-        println!();
-    }
-
-    if !output.unable_to_fix.is_empty() {
-        println!("Unable to Fix:");
-        for issue in &output.unable_to_fix {
-            println!(
-                "✗ {issue_name}: {issue_reason}",
-                issue_name = issue.issue,
-                issue_reason = issue.reason
-            );
-            println!(
-                "  → {issue_suggestion}",
-                issue_suggestion = issue.suggestion
-            );
-        }
-    }
 }
 
 /// Fix orphaned workspaces
@@ -1983,113 +1954,5 @@ mod tests {
         // They should have different purposes
         assert!(jj_check.message.contains("JJ") || jj_check.message.contains("installed"));
         assert!(init_check.message.contains("zjj") || init_check.message.contains("initialized"));
-    }
-
-    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
-    // These tests FAIL initially - they verify envelope structure and format
-    // Implementation in Phase 4 (GREEN) will make them pass
-
-    #[tokio::test]
-    async fn test_doctor_json_has_envelope() -> Result<()> {
-        // Verify envelope wrapping for doctor command output
-        use zjj_core::json::SchemaEnvelope;
-
-        let response = DoctorJsonResponse {
-            checks: vec![],
-            summary: DoctorSummary {
-                passed: 0,
-                warnings: 0,
-                failed: 0,
-            },
-        };
-        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(
-            parsed.get("_schema_version").and_then(|v| v.as_str()),
-            Some("1.0")
-        );
-        assert_eq!(
-            parsed.get("schema_type").and_then(|v| v.as_str()),
-            Some("single")
-        );
-        assert!(parsed.get("success").is_some(), "Missing success field");
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_doctor_checks_wrapped() -> Result<()> {
-        // Verify health check results are wrapped in envelope
-        use zjj_core::json::SchemaEnvelope;
-
-        let checks = vec![DoctorCheck {
-            name: "JJ Installation".to_string(),
-            status: CheckStatus::Pass,
-            message: "JJ is installed".to_string(),
-            suggestion: None,
-            auto_fixable: false,
-            details: None,
-        }];
-        let response = DoctorJsonResponse {
-            checks,
-            summary: DoctorSummary {
-                passed: 1,
-                warnings: 0,
-                failed: 0,
-            },
-        };
-        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert!(parsed.get("success").is_some(), "Missing success field");
-        assert!(parsed.get("checks").is_some(), "Missing checks field");
-        assert!(parsed.get("summary").is_some(), "Missing summary field");
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_doctor_summary_structure() -> Result<()> {
-        // Verify summary structure matches documented schema
-        use zjj_core::json::SchemaEnvelope;
-
-        let response = DoctorJsonResponse {
-            checks: vec![],
-            summary: DoctorSummary {
-                passed: 8,
-                warnings: 2,
-                failed: 1,
-            },
-        };
-        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        let summary = parsed
-            .get("summary")
-            .ok_or_else(|| anyhow::anyhow!("summary field missing"))?;
-
-        assert_eq!(
-            summary.get("passed").and_then(serde_json::Value::as_u64),
-            Some(8),
-            "passed count should match"
-        );
-        assert_eq!(
-            summary.get("warnings").and_then(serde_json::Value::as_u64),
-            Some(2),
-            "warnings count should match"
-        );
-        assert_eq!(
-            summary.get("failed").and_then(serde_json::Value::as_u64),
-            Some(1),
-            "failed count should match"
-        );
-
-        Ok(())
     }
 }

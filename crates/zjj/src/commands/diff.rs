@@ -1,31 +1,20 @@
-//! Show diff between session and main branch
+//! Show diff between session and main branch - JSONL output for AI-first control plane
 
-use std::{path::Path, process::Stdio};
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
+use std::{io, path::Path, process::Stdio};
 
 use anyhow::Result;
-use serde::Serialize;
 use tokio::{io::AsyncWriteExt, process::Command};
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use zjj_core::output::{emit_stdout, OutputLine, ResultKind, ResultOutput, SessionOutput};
+use zjj_core::OutputFormat;
 
 use crate::commands::{determine_main_branch, get_session_db};
-
-/// JSON output structure for diff command
-#[derive(Serialize)]
-struct DiffOutput {
-    session: String,
-    diff_type: String,
-    content: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    stats: Option<DiffStats>,
-}
-
-/// Diff statistics for JSON output
-#[derive(Serialize)]
-struct DiffStats {
-    files_changed: usize,
-    insertions: usize,
-    deletions: usize,
-}
 
 /// Build diff command arguments
 fn build_diff_args(stat: bool, main_branch: &str) -> Vec<String> {
@@ -43,8 +32,8 @@ fn build_diff_args(stat: bool, main_branch: &str) -> Vec<String> {
 }
 
 /// Map JJ command error to proper error type
-fn map_jj_error(e: &std::io::Error, operation: &str) -> anyhow::Error {
-    anyhow::Error::new(if e.kind() == std::io::ErrorKind::NotFound {
+fn map_jj_error(e: &io::Error, operation: &str) -> anyhow::Error {
+    anyhow::Error::new(if e.kind() == io::ErrorKind::NotFound {
         zjj_core::Error::JjCommandError {
             operation: operation.to_string(),
             source: format!(
@@ -128,34 +117,51 @@ async fn detect_session_from_workspace(db: &crate::db::SessionDb) -> Result<Opti
     Ok(None)
 }
 
-/// Handle diff output based on format
-async fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat) {
+/// Handle diff output using JSONL output format.
+///
+/// For JSON format: emit Result line with diff content in data field.
+/// For Human format: display to terminal with optional pager.
+async fn handle_diff_output(
+    stdout: &str,
+    name: &str,
+    stat: bool,
+    format: OutputFormat,
+    session: Option<&crate::session::Session>,
+) -> Result<()> {
     if format.is_json() {
-        let stats = stat.then(|| parse_stat_output(stdout));
-        let diff_output = DiffOutput {
-            session: name.to_string(),
-            diff_type: if stat { "stat" } else { "full" }.to_string(),
-            content: stdout.to_string(),
-            stats,
-        };
-        // Wrap in SchemaEnvelope for consistent JSON output (DRQ Round 1)
-        let envelope = SchemaEnvelope::new(
-            if stat {
-                "diff-stat-response"
-            } else {
-                "diff-response"
-            },
-            "single",
-            diff_output,
-        );
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        // Emit session context first (if available)
+        if let Some(sess) = session {
+            let session_output = SessionOutput::new(
+                sess.name.clone(),
+                to_core_status(sess.status),
+                sess.state.clone(),
+                sess.workspace_path.clone().into(),
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to create session output: {e}"))?;
+
+            emit_stdout(&OutputLine::Session(session_output))
+                .map_err(|e| anyhow::anyhow!("Failed to emit session output: {e}"))?;
+        }
+
+        // Build diff data payload
+        let diff_data = serde_json::json!({
+            "session": name,
+            "diff_type": if stat { "stat" } else { "full" },
+            "content": stdout,
+        });
+
+        // Emit diff result
+        let result = ResultOutput::success(ResultKind::Command, format!("Diff for {}", name))
+            .map_err(|e| anyhow::anyhow!("Failed to create result output: {e}"))?
+            .with_data(diff_data);
+
+        emit_stdout(&OutputLine::Result(result))
+            .map_err(|e| anyhow::anyhow!("Failed to emit diff result: {e}"))?;
     } else if stat {
+        // Human format with stat - print directly
         print!("{stdout}");
     } else {
+        // Human format with full diff - use pager if available
         match get_pager() {
             Some(pager) => {
                 let mut child = Command::new(&pager).stdin(Stdio::piped()).spawn().ok();
@@ -169,6 +175,19 @@ async fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: Output
             }
             None => print!("{stdout}"),
         }
+    }
+
+    Ok(())
+}
+
+/// Convert local `SessionStatus` to core `SessionStatus`
+const fn to_core_status(status: crate::session::SessionStatus) -> zjj_core::types::SessionStatus {
+    match status {
+        crate::session::SessionStatus::Active => zjj_core::types::SessionStatus::Active,
+        crate::session::SessionStatus::Paused => zjj_core::types::SessionStatus::Paused,
+        crate::session::SessionStatus::Completed => zjj_core::types::SessionStatus::Completed,
+        crate::session::SessionStatus::Failed => zjj_core::types::SessionStatus::Failed,
+        crate::session::SessionStatus::Creating => zjj_core::types::SessionStatus::Creating,
     }
 }
 
@@ -236,49 +255,8 @@ pub async fn run(name: Option<&str>, stat: bool, format: OutputFormat) -> Result
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    handle_diff_output(&stdout, &session_name, stat, format).await;
+    handle_diff_output(&stdout, &session_name, stat, format, Some(&session)).await?;
     Ok(())
-}
-
-/// Parse stat output to extract statistics
-fn parse_stat_output(stat_output: &str) -> DiffStats {
-    stat_output.lines().fold(
-        DiffStats {
-            files_changed: 0,
-            insertions: 0,
-            deletions: 0,
-        },
-        |mut acc, line| {
-            // Count file change lines (e.g., " file.txt | 5 ++-")
-            if line.contains('|') {
-                acc.files_changed += 1;
-            }
-            // Parse summary line (e.g., "1 file changed, 3 insertions(+), 1 deletion(-)")
-            if line.contains("changed") {
-                // Split by comma and parse each segment
-                line.split(',').for_each(|segment| {
-                    let segment = segment.trim();
-                    // Look for insertion(s)
-                    if segment.contains("insertion") {
-                        if let Some(num_str) = segment.split_whitespace().next() {
-                            if let Ok(n) = num_str.parse::<usize>() {
-                                acc.insertions = n;
-                            }
-                        }
-                    }
-                    // Look for deletion(s)
-                    if segment.contains("deletion") {
-                        if let Some(num_str) = segment.split_whitespace().next() {
-                            if let Ok(n) = num_str.parse::<usize>() {
-                                acc.deletions = n;
-                            }
-                        }
-                    }
-                });
-            }
-            acc
-        },
-    )
 }
 
 /// Get the pager command from environment or defaults
@@ -421,110 +399,199 @@ mod tests {
         assert_eq!(revset2, "abc123..@");
     }
 
+    /// Test that build_diff_args produces correct arguments for stat
+    #[test]
+    fn test_build_diff_args_stat() {
+        let args = build_diff_args(true, "main");
+        assert!(args.contains(&"--stat".to_string()));
+        assert!(args.contains(&"--from".to_string()));
+        assert!(args.contains(&"main".to_string()));
+        assert!(args.contains(&"--to".to_string()));
+        assert!(args.contains(&"@".to_string()));
+    }
+
+    /// Test that build_diff_args produces correct arguments for full diff
+    #[test]
+    fn test_build_diff_args_full() {
+        let args = build_diff_args(false, "main");
+        assert!(args.contains(&"--git".to_string()));
+        assert!(args.contains(&"--from".to_string()));
+        assert!(args.contains(&"main".to_string()));
+        assert!(args.contains(&"--to".to_string()));
+        assert!(args.contains(&"@".to_string()));
+    }
+
+    /// Test that map_jj_error handles not found correctly
+    #[test]
+    fn test_map_jj_error_not_found() {
+        let error = io::Error::new(io::ErrorKind::NotFound, "not found");
+        let mapped = map_jj_error(&error, "test");
+
+        // Should be a JjCommandError with is_not_found = true
+        let err_string = mapped.to_string();
+        assert!(err_string.contains("not installed") || err_string.contains("not found"));
+    }
+
+    /// Test that map_jj_error handles other errors correctly
+    #[test]
+    fn test_map_jj_error_other() {
+        let error = io::Error::new(io::ErrorKind::PermissionDenied, "permission denied");
+        let mapped = map_jj_error(&error, "test");
+
+        // Should be an IoError
+        let err_string = mapped.to_string();
+        assert!(err_string.contains("Failed to execute"));
+    }
+
+    /// Test that to_core_status converts correctly
+    #[test]
+    fn test_to_core_status() {
+        use crate::session::SessionStatus;
+
+        assert_eq!(
+            to_core_status(SessionStatus::Active),
+            zjj_core::types::SessionStatus::Active
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Paused),
+            zjj_core::types::SessionStatus::Paused
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Completed),
+            zjj_core::types::SessionStatus::Completed
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Failed),
+            zjj_core::types::SessionStatus::Failed
+        );
+        assert_eq!(
+            to_core_status(SessionStatus::Creating),
+            zjj_core::types::SessionStatus::Creating
+        );
+    }
+
+    // ============================================================================
+    // JSONL Output Tests for diff.rs
+    // ============================================================================
+
+    /// Test that ResultOutput can be created for diff
+    #[test]
+    fn test_result_output_for_diff() {
+        let diff_data = serde_json::json!({
+            "session": "test-session",
+            "diff_type": "full",
+            "content": "diff content here",
+        });
+
+        let result = ResultOutput::success(ResultKind::Command, "Diff for test-session".to_string())
+            .expect("Failed to create result")
+            .with_data(diff_data);
+
+        assert!(result.success);
+        assert_eq!(result.kind, ResultKind::Command);
+        assert!(result.data.is_some());
+    }
+
+    /// Test that ResultOutput handles stat diff type
+    #[test]
+    fn test_result_output_stat_diff() {
+        let diff_data = serde_json::json!({
+            "session": "test-session",
+            "diff_type": "stat",
+            "content": "1 file changed, 5 insertions(+), 2 deletions(-)",
+        });
+
+        let result = ResultOutput::success(ResultKind::Command, "Diff for test-session".to_string())
+            .expect("Failed to create result")
+            .with_data(diff_data);
+
+        let data = result.data.expect("Data should be present");
+        assert_eq!(data["diff_type"], "stat");
+    }
+
     // ============================================================================
     // PHASE 2 (RED) - OutputFormat Migration Tests for diff.rs
-    // These tests FAIL until diff command accepts OutputFormat parameter
+    // These tests document the expected signature change (already implemented)
     // ============================================================================
 
-    /// RED: diff `run()` should accept `OutputFormat` parameter
+    /// Test diff `run()` accepts `OutputFormat` parameter
     #[tokio::test]
     async fn test_diff_run_signature_accepts_format() {
-        use zjj_core::OutputFormat;
-
-        // This test documents the expected signature change:
-        // Current: pub fn run(name: &str, stat: bool) -> Result<()>
-        // Expected: pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()>
+        // This test documents that run() now accepts OutputFormat parameter:
+        // Current: pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()>
 
         let format = OutputFormat::Json;
         assert_eq!(format, OutputFormat::Json);
 
-        // When run() is updated to accept format:
+        // When run() is called with OutputFormat::Json:
         // diff::run("session-name", false, OutputFormat::Json)
     }
 
-    /// RED: diff should support JSON output format
+    /// Test diff should support JSON output format
     #[tokio::test]
     async fn test_diff_json_output_format() {
-        use zjj_core::OutputFormat;
-
         let format = OutputFormat::Json;
         assert!(format.is_json());
 
         // When diff is called with OutputFormat::Json:
-        // - diff output should be formatted as JSON
-        // - diff should be wrapped in SchemaEnvelope
+        // - diff output should be formatted as JSONL Result line
+        // - diff content should be in the data field
     }
 
-    /// RED: diff should support Human output format
+    /// Test diff should support Human output format
     #[tokio::test]
     async fn test_diff_human_output_format() {
-        use zjj_core::OutputFormat;
+        let format = OutputFormat::Human;
+        assert!(!format.is_json());
 
-        let format = OutputFormat::Json;
-        assert!(format.is_json());
-
-        // When diff is called with OutputFormat::Json:
+        // When diff is called with OutputFormat::Human:
         // - diff output should be human-readable text
         // - diff should be sent to pager if available
     }
 
-    /// RED: diff output structure changes based on format
+    /// Test diff output structure changes based on format
     #[tokio::test]
     async fn test_diff_respects_output_format() {
-        use zjj_core::OutputFormat;
-
-        // For JSON format: diff content should be wrapped in envelope
+        // For JSON format: diff content should be in Result line with data field
         let json_format = OutputFormat::Json;
         assert!(json_format.is_json());
 
         // For Human format: diff should be displayed to terminal/pager
-        let human_format = OutputFormat::Json;
-        assert!(human_format.is_json());
-
-        // The implementation should check format variant:
-        // match format {
-        //     OutputFormat::Json => output_json_diff(...),
-        //     OutputFormat::Json => display_diff_with_pager(...),
-        // }
+        let human_format = OutputFormat::Human;
+        assert!(!human_format.is_json());
     }
 
-    /// RED: diff --stat works with both output formats
+    /// Test diff --stat works with both output formats
     #[tokio::test]
     async fn test_diff_stat_with_format() {
-        use zjj_core::OutputFormat;
-
         // stat diff should work with JSON format
         let json_format = OutputFormat::Json;
         assert!(json_format.is_json());
 
         // stat diff should work with Human format
-        let human_format = OutputFormat::Json;
-        assert!(human_format.is_json());
+        let human_format = OutputFormat::Human;
+        assert!(!human_format.is_json());
 
         // When stat=true is passed along with format:
-        // diff::run("session", true, OutputFormat::Json) should output JSON stat
-        // diff::run("session", true, OutputFormat::Json) should output text stat
+        // diff::run("session", true, OutputFormat::Json) should output JSONL Result
+        // diff::run("session", true, OutputFormat::Human) should output text stat
     }
 
-    /// RED: `OutputFormat::from_json_flag` converts correctly
+    /// Test `OutputFormat::from_json_flag` converts correctly
     #[tokio::test]
     async fn test_diff_from_json_flag() {
-        use zjj_core::OutputFormat;
-
         let json_flag = true;
         let format = OutputFormat::from_json_flag(json_flag);
         assert_eq!(format, OutputFormat::Json);
 
         let human_flag = false;
         let format2 = OutputFormat::from_json_flag(human_flag);
-        assert_eq!(format2, OutputFormat::Json);
+        assert_eq!(format2, OutputFormat::Human);
     }
 
-    /// RED: diff preserves format through conversion chain
+    /// Test diff preserves format through conversion chain
     #[tokio::test]
     async fn test_diff_format_roundtrip() {
-        use zjj_core::OutputFormat;
-
         let json_bool = true;
         let format = OutputFormat::from_json_flag(json_bool);
         let restored_bool = format.to_json_flag();
@@ -532,22 +599,18 @@ mod tests {
         assert_eq!(json_bool, restored_bool);
     }
 
-    /// RED: diff never panics during format processing
+    /// Test diff never panics during format processing
     #[tokio::test]
     async fn test_diff_format_no_panics() {
-        use zjj_core::OutputFormat;
-
         // Both formats should be processable without panic
-        for format in &[OutputFormat::Json, OutputFormat::Json] {
-            let _ = format.is_json();
+        for format in &[OutputFormat::Json, OutputFormat::Human] {
             let _ = format.is_json();
             let _ = format.to_string();
         }
     }
 
     // ============================================================================
-    // PHASE 2 (RED) - --contract flag tests for diff command
-    // These tests document the expected behavior of --contract flag
+    // --contract flag tests for diff command
     // ============================================================================
 
     /// Test that --contract flag exists and outputs JSON schema
@@ -576,7 +639,7 @@ mod tests {
         assert!(contract.contains("name") || contract.contains("session"));
     }
 
-    /// Test that contract documents output format
+    /// Test that contract documents output schema
     #[test]
     fn test_diff_contract_documents_output_schema() {
         let contract = crate::cli::json_docs::ai_contracts::diff();

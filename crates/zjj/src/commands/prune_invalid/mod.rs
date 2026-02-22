@@ -7,12 +7,19 @@
 //!
 //! Supports --yes flag to skip confirmation for scripting/CI use.
 
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
 use std::io::Write;
 
 use anyhow::Result;
 use futures::{StreamExt, TryStreamExt};
-use serde::Serialize;
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use zjj_core::output::{emit_stdout, Action, ActionStatus, OutputLine, Summary, SummaryType};
+use zjj_core::OutputFormat;
 
 use crate::commands::get_session_db;
 
@@ -21,13 +28,6 @@ pub struct PruneInvalidOptions {
     pub yes: bool,
     pub dry_run: bool,
     pub format: OutputFormat,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct PruneInvalidOutput {
-    pub invalid_count: usize,
-    pub removed_count: usize,
-    pub invalid_sessions: Vec<String>,
 }
 
 pub async fn run(options: &PruneInvalidOptions) -> Result<()> {
@@ -53,14 +53,14 @@ pub async fn run(options: &PruneInvalidOptions) -> Result<()> {
         .await?;
 
     if invalid_sessions.is_empty() {
-        output_no_invalid(options.format);
+        output_no_invalid(options.format)?;
         return Ok(());
     }
 
     let invalid_names: Vec<String> = invalid_sessions.iter().map(|s| s.name.clone()).collect();
 
     if options.dry_run {
-        output_dry_run(&invalid_names, options.format);
+        output_dry_run(&invalid_names, options.format)?;
         return Ok(());
     }
 
@@ -82,7 +82,7 @@ pub async fn run(options: &PruneInvalidOptions) -> Result<()> {
 
         let response = response.trim().to_lowercase();
         if response != "y" && response != "yes" {
-            output_cancelled(&invalid_names, options.format);
+            output_cancelled(&invalid_names, options.format)?;
             return Ok(());
         }
     }
@@ -98,38 +98,33 @@ pub async fn run(options: &PruneInvalidOptions) -> Result<()> {
         })
         .await?;
 
-    output_result(removed_count, &invalid_names, options.format);
+    output_result(removed_count, &invalid_names, options.format)?;
 
     Ok(())
 }
 
-fn output_no_invalid(format: OutputFormat) {
+fn output_no_invalid(format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let output = PruneInvalidOutput {
-            invalid_count: 0,
-            removed_count: 0,
-            invalid_sessions: Vec::new(),
-        };
-        let envelope = SchemaEnvelope::new("prune-invalid-response", "single", output);
-        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
-            println!("{json_str}");
-        }
+        let summary = Summary::new(SummaryType::Status, "No invalid sessions found".to_string())?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
-        println!("✓ No invalid sessions found");
+        println!("No invalid sessions found");
         println!("  All sessions have valid workspaces");
     }
+    Ok(())
 }
 
-fn output_dry_run(invalid_names: &[String], format: OutputFormat) {
+fn output_dry_run(invalid_names: &[String], format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let output = PruneInvalidOutput {
-            invalid_count: invalid_names.len(),
-            removed_count: 0,
-            invalid_sessions: invalid_names.to_vec(),
-        };
-        let envelope = SchemaEnvelope::new("prune-invalid-response", "single", output);
-        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
-            println!("{json_str}");
+        let summary = Summary::new(
+            SummaryType::Info,
+            format!("Found {} invalid session(s) (dry-run)", invalid_names.len()),
+        )?;
+        emit_stdout(&OutputLine::Summary(summary))?;
+
+        for name in invalid_names {
+            let action = Action::new("discovered".to_string(), name.clone(), ActionStatus::Pending);
+            emit_stdout(&OutputLine::Action(action))?;
         }
     } else {
         println!(
@@ -142,41 +137,43 @@ fn output_dry_run(invalid_names: &[String], format: OutputFormat) {
         println!();
         println!("Run 'zjj prune-invalid --yes' to remove these sessions");
     }
+    Ok(())
 }
 
-fn output_cancelled(invalid_names: &[String], format: OutputFormat) {
+fn output_cancelled(invalid_names: &[String], format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let output = PruneInvalidOutput {
-            invalid_count: invalid_names.len(),
-            removed_count: 0,
-            invalid_sessions: invalid_names.to_vec(),
-        };
-        let envelope = SchemaEnvelope::new("prune-invalid-response", "single", output);
-        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
-            println!("{json_str}");
+        let summary = Summary::new(SummaryType::Status, "Prune cancelled".to_string())?;
+        emit_stdout(&OutputLine::Summary(summary))?;
+
+        for name in invalid_names {
+            let action = Action::new("remove".to_string(), name.clone(), ActionStatus::Skipped);
+            emit_stdout(&OutputLine::Action(action))?;
         }
     } else {
         println!("Prune cancelled");
     }
+    Ok(())
 }
 
-fn output_result(removed_count: usize, invalid_names: &[String], format: OutputFormat) {
+fn output_result(removed_count: usize, invalid_names: &[String], format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let output = PruneInvalidOutput {
-            invalid_count: invalid_names.len(),
-            removed_count,
-            invalid_sessions: invalid_names.to_vec(),
-        };
-        let envelope = SchemaEnvelope::new("prune-invalid-response", "single", output);
-        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
-            println!("{json_str}");
+        let summary = Summary::new(
+            SummaryType::Status,
+            format!("Removed {} invalid session(s)", removed_count),
+        )?;
+        emit_stdout(&OutputLine::Summary(summary))?;
+
+        for name in invalid_names {
+            let action = Action::new("remove".to_string(), name.clone(), ActionStatus::Completed);
+            emit_stdout(&OutputLine::Action(action))?;
         }
     } else {
-        println!("✓ Removed {removed_count} invalid session(s)");
+        println!("Removed {removed_count} invalid session(s)");
         for name in invalid_names {
             println!("  - {name}");
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -189,17 +186,5 @@ mod tests {
         assert!(!opts.yes);
         assert!(!opts.dry_run);
         assert!(opts.format.is_json());
-    }
-
-    #[test]
-    fn test_prune_invalid_output_structure() {
-        let output = PruneInvalidOutput {
-            invalid_count: 2,
-            removed_count: 2,
-            invalid_sessions: vec!["a".to_string(), "b".to_string()],
-        };
-        assert_eq!(output.invalid_count, 2);
-        assert_eq!(output.removed_count, 2);
-        assert_eq!(output.invalid_sessions.len(), 2);
     }
 }

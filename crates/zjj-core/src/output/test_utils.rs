@@ -111,11 +111,10 @@ impl VecEmitter {
 
 impl OutputEmitter for VecEmitter {
     fn emit(&self, line: &OutputLine) -> io::Result<()> {
-        let mut guard = self
-            .0
+        self.0
             .write()
-            .map_err(|_| io::Error::other("VecEmitter lock poisoned"))?;
-        guard.push(line.clone());
+            .map_err(|_| io::Error::other("VecEmitter lock poisoned"))?
+            .push(line.clone());
         Ok(())
     }
 }

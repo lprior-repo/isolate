@@ -166,9 +166,13 @@ pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
     }
 
     let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let format = get_format(sub_m);
     let watch = sub_m.get_flag("watch");
-    status::run(name, format, watch).await
+
+    if watch {
+        status::run_watch_mode(name).await
+    } else {
+        status::run(name).await
+    }
 }
 
 pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {

@@ -9,8 +9,6 @@
 
 pub mod atomic;
 
-use std::io::Write;
-
 use anyhow::Result;
 use zjj_core::{
     output::{
@@ -43,7 +41,8 @@ pub struct RemoveOptions {
     pub idempotent: bool,
     /// Preview operation without executing
     pub dry_run: bool,
-    /// Output format
+    /// Output format (unused - always emits JSONL)
+    #[allow(dead_code)]
     pub format: OutputFormat,
 }
 
@@ -114,31 +113,25 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
     let session = match db.get(name).await? {
         Some(session) => session,
         None if options.idempotent => {
-            if options.format.is_json() {
-                emit_action("remove", name, ActionStatus::Skipped)?;
-                emit_result(true, format!("Session '{name}' already removed"))?;
-            } else {
-                writeln!(std::io::stdout(), "Session '{name}' already removed")?;
-            }
+            emit_action("remove", name, ActionStatus::Skipped)?;
+            emit_result(true, format!("Session '{name}' already removed"))?;
             return Ok(());
         }
         None => {
-            if options.format.is_json() {
-                emit_issue(
-                    "REMOVE-001",
-                    format!("Session '{name}' not found"),
-                    IssueKind::ResourceNotFound,
-                    IssueSeverity::Error,
-                    Some(name),
-                    Some("Use 'zjj list' to see available sessions"),
-                )?;
-                let result = ResultOutput::failure(
-                    ResultKind::Command,
-                    format!("Session '{name}' not found"),
-                )
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
-                emit_stdout(&OutputLine::Result(result))?;
-            }
+            emit_issue(
+                "REMOVE-001",
+                format!("Session '{name}' not found"),
+                IssueKind::ResourceNotFound,
+                IssueSeverity::Error,
+                Some(name),
+                Some("Use 'zjj list' to see available sessions"),
+            )?;
+            let result = ResultOutput::failure(
+                ResultKind::Command,
+                format!("Session '{name}' not found"),
+            )
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+            emit_stdout(&OutputLine::Result(result))?;
             return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
                 "Session '{name}' not found"
             ))));
@@ -150,12 +143,8 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             "DRY-RUN: Would remove session '{name}' and workspace at '{}'",
             session.workspace_path
         );
-        if options.format.is_json() {
-            emit_action("remove", name, ActionStatus::Pending)?;
-            emit_result(true, message)?;
-        } else {
-            writeln!(std::io::stdout(), "{message}")?;
-        }
+        emit_action("remove", name, ActionStatus::Pending)?;
+        emit_result(true, message)?;
         return Ok(());
     }
 
@@ -173,60 +162,47 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
     let _inside_zellij = is_inside_zellij();
     match cleanup_session_atomically(&db, &session, true).await {
         Ok(result) => {
-            if options.format.is_json() {
-                emit_action("remove", name, ActionStatus::Completed)?;
-                let message = if result.removed {
-                    format!("Removed session '{name}'")
-                } else {
-                    "Session removal completed with warnings".to_string()
-                };
-                emit_result(true, message)?;
-            } else if result.removed {
-                writeln!(std::io::stdout(), "Removed session '{name}'")?;
-            }
+            emit_action("remove", name, ActionStatus::Completed)?;
+            let message = if result.removed {
+                format!("Removed session '{name}'")
+            } else {
+                "Session removal completed with warnings".to_string()
+            };
+            emit_result(true, message)?;
             Ok(())
         }
         Err(RemoveError::WorkspaceInaccessible { path, reason }) => {
             // Workspace already gone - try to clean up database record
             db.delete(name).await?;
-            if options.format.is_json() {
-                emit_issue(
-                    "REMOVE-002",
-                    format!("Workspace inaccessible: {path} - {reason}"),
-                    IssueKind::ResourceNotFound,
-                    IssueSeverity::Warning,
-                    Some(name),
-                    Some("Session database record cleaned up"),
-                )?;
-                emit_action("cleanup", name, ActionStatus::Completed)?;
-                emit_result(
-                    true,
-                    format!("Session '{name}' removed (workspace was already gone)"),
-                )?;
-            } else {
-                writeln!(
-                    std::io::stdout(),
-                    "Removed session '{name}' (workspace was already gone)"
-                )?;
-            }
+            emit_issue(
+                "REMOVE-002",
+                format!("Workspace inaccessible: {path} - {reason}"),
+                IssueKind::ResourceNotFound,
+                IssueSeverity::Warning,
+                Some(name),
+                Some("Session database record cleaned up"),
+            )?;
+            emit_action("cleanup", name, ActionStatus::Completed)?;
+            emit_result(
+                true,
+                format!("Session '{name}' removed (workspace was already gone)"),
+            )?;
             Ok(())
         }
         Err(e) => {
             // Log error details
             tracing::error!("Failed to remove session '{}': {}", name, e);
 
-            if options.format.is_json() {
-                let kind = remove_error_to_issue_kind(&e);
-                emit_issue(
-                    "REMOVE-003",
-                    format!("Failed to remove session: {e}"),
-                    kind,
-                    IssueSeverity::Error,
-                    Some(name),
-                    Some("Check workspace permissions and try again"),
-                )?;
-                emit_result(false, format!("Failed to remove session '{name}'"))?;
-            }
+            let kind = remove_error_to_issue_kind(&e);
+            emit_issue(
+                "REMOVE-003",
+                format!("Failed to remove session: {e}"),
+                kind,
+                IssueSeverity::Error,
+                Some(name),
+                Some("Check workspace permissions and try again"),
+            )?;
+            emit_result(false, format!("Failed to remove session '{name}'"))?;
 
             // Return IoError for exit code 3
             Err(anyhow::Error::new(zjj_core::Error::IoError(format!(

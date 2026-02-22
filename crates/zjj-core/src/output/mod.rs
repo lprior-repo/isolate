@@ -10,7 +10,7 @@
 //! - No human-readable formatting - AI consumers only
 //! - Streaming-friendly: emit one line at a time
 
-mod test_utils;
+pub mod test_utils;
 mod types;
 mod writer;
 
