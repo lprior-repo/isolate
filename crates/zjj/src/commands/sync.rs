@@ -1,4 +1,4 @@
-//! Sync a session's workspace with main branch
+//! Sync a session's workspace with main branch - JSONL output for AI-first control plane
 //!
 //! # Default Behavior (Explicit and Safe)
 //!
@@ -35,6 +35,13 @@
 //! zjj sync --dry-run
 //! ```
 
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
 use std::{io::Write, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
@@ -42,16 +49,71 @@ use fs4::fs_std::FileExt;
 use futures::StreamExt;
 use tokio::process::Command;
 use zjj_core::{
-    json::{ErrorDetail, SchemaEnvelope},
+    output::{
+        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
+        ResultOutput, Summary, SummaryType,
+    },
     OutputFormat,
 };
 
 use crate::{
     cli::run_command,
     commands::{determine_main_branch, get_session_db},
-    json::{SyncError, SyncOutput},
     session::SessionUpdate,
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JSONL EMIT HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+fn emit_action(verb: &str, target: &str, status: ActionStatus, result: Option<&str>) -> Result<()> {
+    let action = Action::new(verb.to_string(), target.to_string(), status);
+    let action = match result {
+        Some(r) => action.with_result(r.to_string()),
+        None => action,
+    };
+    emit_stdout(&OutputLine::Action(action)).map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+fn emit_summary(type_field: SummaryType, message: &str, details: Option<&str>) -> Result<()> {
+    let summary = Summary::new(type_field, message.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let summary = match details {
+        Some(d) => summary.with_details(d.to_string()),
+        None => summary,
+    };
+    emit_stdout(&OutputLine::Summary(summary)).map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+fn emit_issue(
+    id: &str,
+    title: String,
+    kind: IssueKind,
+    severity: IssueSeverity,
+    session: Option<&str>,
+    suggestion: Option<&str>,
+) -> Result<()> {
+    let issue =
+        Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let issue = match session {
+        Some(s) => issue.with_session(s.to_string()),
+        None => issue,
+    };
+    let issue = match suggestion {
+        Some(s) => issue.with_suggestion(s.to_string()),
+        None => issue,
+    };
+    emit_stdout(&OutputLine::Issue(issue)).map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+fn emit_result(success: bool, kind: ResultKind, message: &str) -> Result<()> {
+    let result = if success {
+        ResultOutput::success(kind, message.to_string())
+    } else {
+        ResultOutput::failure(kind, message.to_string())
+    }
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+    emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WORKSPACE DETECTION
@@ -345,15 +407,15 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
     sync_session_internal(&db, &session.name, &session.workspace_path, options.dry_run).await?;
 
     if options.format.is_json() {
-        let output = SyncOutput {
-            name: Some(name.to_string()),
-            synced_count: 1,
-            failed_count: 0,
-            errors: Vec::new(),
-        };
-        let envelope = SchemaEnvelope::new("sync-response", "single", output);
-        let json_str = serde_json::to_string(&envelope)?;
-        println!("{json_str}");
+        // Emit Action for the sync operation
+        emit_action(
+            "rebase",
+            name,
+            ActionStatus::Completed,
+            Some(&format!("Synced session '{name}' with main")),
+        )?;
+        // Emit Result for command completion
+        emit_result(true, ResultKind::Command, &format!("Synced session '{name}' with main"))?;
     } else if !options.dry_run {
         println!("Synced session '{name}' with main");
         println!();
@@ -378,7 +440,7 @@ pub async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
     // Route to appropriate handler based on format
     if options.format.is_json() {
-        sync_all_json(&db, sessions, options).await
+        sync_all_jsonl(&db, sessions, options).await
     } else {
         sync_all_text(&db, sessions, options).await
     }
@@ -387,22 +449,22 @@ pub async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 /// Handle case where no sessions are available to sync
 fn handle_empty_sync(options: SyncOptions) -> Result<()> {
     if options.format.is_json() {
-        let output = SyncOutput {
-            name: None,
-            synced_count: 0,
-            failed_count: 0,
-            errors: Vec::new(),
-        };
-        let envelope = SchemaEnvelope::new("sync-response", "single", output);
-        println!("{}", serde_json::to_string(&envelope)?);
+        // Emit Summary indicating no sessions
+        emit_summary(
+            SummaryType::Count,
+            "No sessions to sync",
+            Some("synced_count: 0, failed_count: 0"),
+        )?;
+        // Emit Result for command completion
+        emit_result(true, ResultKind::Command, "No sessions to sync")?;
     } else {
         println!("No sessions to sync");
     }
     Ok(())
 }
 
-/// Sync all sessions with JSON output
-async fn sync_all_json(
+/// Sync all sessions with JSONL output
+async fn sync_all_jsonl(
     db: &crate::db::SessionDb,
     sessions: Vec<crate::session::Session>,
     options: SyncOptions,
@@ -419,43 +481,74 @@ async fn sync_all_json(
         .collect()
         .await;
 
-    let (successes, errors): (Vec<_>, Vec<_>) =
-        results.into_iter().partition(|(_, res)| res.is_ok());
+    // Emit Action for each session as it completes
+    let (synced, failed): (Vec<_>, Vec<_>) = results.into_iter().fold(
+        (Vec::new(), Vec::new()),
+        |(mut synced_acc, mut failed_acc), (session, res)| {
+            match res {
+                Ok(()) => {
+                    // Emit Action for successful sync
+                    let action = Action::new(
+                        "rebase".to_string(),
+                        session.name.clone(),
+                        ActionStatus::Completed,
+                    )
+                    .with_result(format!("Synced '{}' with main", session.name));
+                    if let Err(e) = emit_stdout(&OutputLine::Action(action)) {
+                        eprintln!("Warning: Failed to emit action: {e}");
+                    }
+                    synced_acc.push(session.name);
+                }
+                Err(e) => {
+                    // Emit Issue for failed sync
+                    let issue = Issue::new(
+                        format!("SYNC-FAILED-{}", session.name),
+                        format!("Failed to sync session '{}'", session.name),
+                        IssueKind::External,
+                        IssueSeverity::Error,
+                    )
+                    .with_session(session.name.clone())
+                    .with_suggestion("Try 'jj resolve' to fix conflicts, then retry sync".to_string());
+                    if let Err(emit_err) = emit_stdout(&OutputLine::Issue(issue)) {
+                        eprintln!("Warning: Failed to emit issue: {emit_err}");
+                    }
+                    failed_acc.push((session.name, e));
+                }
+            }
+            (synced_acc, failed_acc)
+        },
+    );
 
-    let output = SyncOutput {
-        name: None,
-        synced_count: successes.len(),
-        failed_count: errors.len(),
-        errors: errors
-            .into_iter()
-            .filter_map(|(session, res)| {
-                res.err().map(|e| SyncError {
-                    name: session.name.clone(),
-                    error: ErrorDetail {
-                        code: "SYNC_FAILED".to_string(),
-                        message: e.to_string(),
-                        exit_code: 3,
-                        details: None,
-                        suggestion: Some(
-                            "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
-                        ),
-                    },
-                })
-            })
-            .collect(),
-    };
+    let synced_count = synced.len();
+    let failed_count = failed.len();
 
-    let has_failures = output.failed_count > 0;
-    let envelope = if has_failures {
-        SchemaEnvelope::new("sync-response", "single", output).as_error()
+    // Emit Summary with counts
+    emit_summary(
+        SummaryType::Count,
+        &format!("Synced {synced_count} session(s), {failed_count} failed"),
+        Some(&format!("synced_count: {synced_count}, failed_count: {failed_count}")),
+    )?;
+
+    // Emit final Result
+    if failed.is_empty() {
+        emit_result(
+            true,
+            ResultKind::Command,
+            &format!("Successfully synced {synced_count} session(s)"),
+        )?;
     } else {
-        SchemaEnvelope::new("sync-response", "single", output)
-    };
-
-    println!("{}", serde_json::to_string(&envelope)?);
-
-    if has_failures {
-        anyhow::bail!("Failed to sync {} session(s)", envelope.data.failed_count);
+        emit_result(
+            false,
+            ResultKind::Command,
+            &format!("Synced {synced_count} session(s), {failed_count} failed"),
+        )?;
+        // Build error message for the anyhow bail
+        let failed_names: Vec<&str> = failed.iter().map(|(name, _)| name.as_str()).collect();
+        anyhow::bail!(
+            "Failed to sync {} session(s): {}",
+            failed_count,
+            failed_names.join(", ")
+        );
     }
 
     Ok(())
