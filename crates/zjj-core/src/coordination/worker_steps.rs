@@ -774,6 +774,34 @@ mod tests {
         }
     }
 
+    /// Serializes moon gate tests to prevent environment variable race conditions.
+    /// Returns a guard that releases the lock when dropped.
+    ///
+    /// Recovers from poisoned mutex (if another test panicked while holding the lock).
+    #[cfg(unix)]
+    fn serialize_moon_tests() -> std::sync::MutexGuard<'static, ()> {
+        use std::sync::{Mutex, OnceLock};
+        static MOON_TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+        MOON_TEST_MUTEX
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Serializes rebase tests to prevent environment variable race conditions.
+    /// Returns a guard that releases the lock when dropped.
+    ///
+    /// Recovers from poisoned mutex (if another test panicked while holding the lock).
+    #[cfg(unix)]
+    fn serialize_rebase_tests() -> std::sync::MutexGuard<'static, ()> {
+        use std::sync::{Mutex, OnceLock};
+        static REBASE_TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+        REBASE_TEST_MUTEX
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     #[cfg(unix)]
     fn write_fake_jj_script(dir: &std::path::Path) -> std::io::Result<PathBuf> {
         let script = r#"#!/bin/sh
@@ -844,6 +872,8 @@ exit 1
     #[tokio::test]
     async fn test_rebase_step_persists_metadata_on_success(
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let _test_lock = serialize_rebase_tests(); // Prevent concurrent rebase tests
+
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let jj_path = write_fake_jj_script(temp_dir.path())?;
@@ -907,6 +937,8 @@ exit 1
     #[tokio::test]
     async fn test_rebase_step_conflict_marks_failed_retryable(
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let _test_lock = serialize_rebase_tests(); // Prevent concurrent rebase tests
+
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let jj_path = write_fake_jj_script(temp_dir.path())?;
@@ -1003,6 +1035,8 @@ exit 0
     #[cfg(unix)]
     #[tokio::test]
     async fn test_moon_gate_step_success() -> Result<(), Box<dyn std::error::Error>> {
+        let _test_lock = serialize_moon_tests(); // Prevent concurrent moon tests
+
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
@@ -1043,6 +1077,8 @@ exit 0
     #[tokio::test]
     async fn test_moon_gate_step_failure_marks_retryable() -> Result<(), Box<dyn std::error::Error>>
     {
+        let _test_lock = serialize_moon_tests(); // Prevent concurrent moon tests
+
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
@@ -1079,6 +1115,8 @@ exit 0
     #[cfg(unix)]
     #[tokio::test]
     async fn test_moon_gate_step_invalid_state() -> Result<(), Box<dyn std::error::Error>> {
+        let _test_lock = serialize_moon_tests(); // Prevent concurrent moon tests
+
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
@@ -1099,6 +1137,8 @@ exit 0
     #[cfg(unix)]
     #[tokio::test]
     async fn test_moon_gate_step_captures_stderr() -> Result<(), Box<dyn std::error::Error>> {
+        let _test_lock = serialize_moon_tests(); // Prevent concurrent moon tests
+
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
