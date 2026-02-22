@@ -229,6 +229,16 @@ pub trait QueueRepository: Send + Sync {
     async fn reclaim_stale(&self, stale_threshold_secs: i64) -> Result<usize>;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // STACK OPERATIONS (Graphite-style stacked PRs)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Get all direct children of a workspace in the stack.
+    ///
+    /// Returns entries where `parent_workspace == Some(workspace)`.
+    /// Returns an empty Vec if no children exist (not an error).
+    async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>>;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // AUTOMATIC SELF-HEALING (bd-2i5)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

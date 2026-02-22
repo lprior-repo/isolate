@@ -742,6 +742,24 @@ impl MergeQueue {
             .map_err(|e| Error::DatabaseError(format!("Failed to list entries: {e}")))
     }
 
+    /// Get all direct children of a workspace in the stack.
+    ///
+    /// Returns entries where `parent_workspace == Some(workspace)`.
+    /// Returns an empty Vec if no children exist (not an error).
+    pub async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>> {
+        sqlx::query_as::<_, QueueEntry>(
+            "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
+             completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+             previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue \
+             WHERE parent_workspace = ?1 \
+             ORDER BY priority ASC, added_at ASC",
+        )
+        .bind(workspace)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to get children: {e}")))
+    }
+
     pub async fn next(&self) -> Result<Option<QueueEntry>> {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
@@ -2272,6 +2290,14 @@ impl QueueRepository for MergeQueue {
 
     async fn reclaim_stale(&self, stale_threshold_secs: i64) -> Result<usize> {
         self.reclaim_stale(stale_threshold_secs).await
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // STACK OPERATIONS (Graphite-style stacked PRs)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>> {
+        self.get_children(workspace).await
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
