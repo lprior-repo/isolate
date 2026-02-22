@@ -258,6 +258,7 @@ impl TestHarness {
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("ZJJ_RECOVERY_POLICY", "silent")
             .env("PATH", &path_with_system_dirs);
 
         // Set ZJJ_JJ_PATH if jj binary was found
@@ -421,6 +422,7 @@ impl TestHarness {
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("ZJJ_RECOVERY_POLICY", "silent")
             .env("PATH", &path_with_system_dirs);
 
         // Set ZJJ_JJ_PATH if jj binary was found
@@ -536,6 +538,7 @@ impl TestHarness {
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("ZJJ_RECOVERY_POLICY", "silent")
             .env("PATH", &path_with_system_dirs);
 
         // Set ZJJ_JJ_PATH if jj binary was found

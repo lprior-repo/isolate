@@ -496,7 +496,7 @@ mod tests {
     fn test_assert_valid_jsonl() {
         let valid_jsonl = r#"{"type":"TrainStep"}
 {"type":"TrainResult"}
-{"type":"Train" "#;
+{"type":"Train"}"#;
         assert_valid_jsonl(valid_jsonl);
     }
 

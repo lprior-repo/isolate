@@ -65,11 +65,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_synced INTEGER,
     metadata TEXT,
     parent_session TEXT,
-    FOREIGN KEY (parent_session) REFERENCES sessions(name) ON DELETE SET NULL,
     queue_status TEXT DEFAULT NULL CHECK(queue_status IS NULL OR queue_status IN ('pending', 'claimed', 'rebasing', 'testing', 'ready_to_merge', 'merging', 'merged', 'failed_retryable', 'failed_terminal', 'cancelled')),
     removal_status TEXT DEFAULT NULL CHECK(removal_status IS NULL OR removal_status IN ('pending', 'failed', 'orphaned')),
     removal_error TEXT DEFAULT NULL,
-    removal_attempted_at INTEGER DEFAULT NULL
+    removal_attempted_at INTEGER DEFAULT NULL,
+    FOREIGN KEY (parent_session) REFERENCES sessions(name) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS state_transitions (
@@ -2197,7 +2197,7 @@ async fn query_session_by_name_conn(
     name: &str,
 ) -> Result<Option<Session>> {
     sqlx::query(
-        "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session
+        "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata, parent_session, queue_status
          FROM sessions WHERE name = ?",
     )
     .bind(name)
@@ -3007,7 +3007,7 @@ mod tests {
             ";
 
             // Initialize database with old schema
-            let pool = SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
+            let pool = SqlitePool::connect(&format!("sqlite://{}?mode=rwc", db_path.display()))
                 .await
                 .map_err(|e| Error::DatabaseError(format!("Failed to connect: {e}")))?;
 
@@ -3103,7 +3103,7 @@ mod tests {
             ";
 
             // Initialize database with old schema
-            let pool = SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
+            let pool = SqlitePool::connect(&format!("sqlite://{}?mode=rwc", db_path.display()))
                 .await
                 .map_err(|e| Error::DatabaseError(format!("Failed to connect: {e}")))?;
 

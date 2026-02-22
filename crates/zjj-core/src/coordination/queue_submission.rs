@@ -293,7 +293,7 @@ pub fn compute_dedupe_key(change_id: &str, workspace: &str) -> String {
 /// Validate workspace before submission.
 ///
 /// # Preconditions
-/// - Workspace directory must exist
+/// - Workspace name must be non-empty and safe
 ///
 /// # Postconditions
 /// - Returns true if workspace is valid
@@ -304,11 +304,10 @@ pub fn compute_dedupe_key(change_id: &str, workspace: &str) -> String {
 /// Returns `QueueSubmissionError` if:
 /// - Workspace name is empty
 /// - Workspace name contains invalid characters (path traversal)
-/// - Workspace directory does not exist
-/// - Workspace directory is not a valid JJ workspace
+/// - Workspace name contains invalid path traversal characters
 pub fn validate_workspace(
     workspace: &str,
-    workspace_base_path: &Path,
+    _workspace_base_path: &Path,
 ) -> std::result::Result<bool, QueueSubmissionError> {
     if workspace.is_empty() {
         return Err(QueueSubmissionError::InvalidWorkspaceName {
@@ -321,39 +320,6 @@ pub fn validate_workspace(
         return Err(QueueSubmissionError::InvalidWorkspaceName {
             workspace: workspace.to_string(),
             reason: "workspace name contains invalid characters".to_string(),
-        });
-    }
-
-    let workspace_path = workspace_base_path.join(workspace);
-
-    if !workspace_path.exists() {
-        return Err(QueueSubmissionError::InvalidWorkspaceName {
-            workspace: workspace.to_string(),
-            reason: format!(
-                "workspace directory does not exist: {}",
-                workspace_path.display()
-            ),
-        });
-    }
-
-    if !workspace_path.is_dir() {
-        return Err(QueueSubmissionError::InvalidWorkspaceName {
-            workspace: workspace.to_string(),
-            reason: format!(
-                "workspace path is not a directory: {}",
-                workspace_path.display()
-            ),
-        });
-    }
-
-    let jj_dir = workspace_path.join(".jj");
-    if !jj_dir.exists() {
-        return Err(QueueSubmissionError::InvalidWorkspaceName {
-            workspace: workspace.to_string(),
-            reason: format!(
-                "not a valid JJ workspace (missing .jj directory): {}",
-                workspace_path.display()
-            ),
         });
     }
 
@@ -625,8 +591,7 @@ pub async fn is_in_queue(
 /// It implements Graphite-style merge queue semantics with idempotent upsert.
 ///
 /// # Preconditions
-/// - Workspace must exist and be valid
-/// - Workspace must have a valid bookmark
+/// - Workspace name must be valid
 /// - Remote must be reachable (bookmark push verified)
 /// - Head SHA must be valid
 /// - `Dedupe_key` must be unique among active entries

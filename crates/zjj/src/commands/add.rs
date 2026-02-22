@@ -62,9 +62,14 @@ fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
 }
 
 /// Emit an action line with a result message
-fn emit_action_with_result(verb: &str, target: &str, status: ActionStatus, result: &str) -> Result<()> {
-    let action = Action::new(verb.to_string(), target.to_string(), status)
-        .with_result(result.to_string());
+fn emit_action_with_result(
+    verb: &str,
+    target: &str,
+    status: ActionStatus,
+    result: &str,
+) -> Result<()> {
+    let action =
+        Action::new(verb.to_string(), target.to_string(), status).with_result(result.to_string());
     emit_stdout(&OutputLine::Action(action)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -113,15 +118,15 @@ fn emit_issue(
 
 /// Emit a result output line (success)
 fn emit_result_success(message: &str) -> Result<()> {
-    let result =
-        ResultOutput::success(ResultKind::Command, message.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let result = ResultOutput::success(ResultKind::Command, message.to_string())
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// Emit a result output line (failure)
 fn emit_result_failure(message: &str) -> Result<()> {
-    let result =
-        ResultOutput::failure(ResultKind::Command, message.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let result = ResultOutput::failure(ResultKind::Command, message.to_string())
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -155,10 +160,11 @@ fn output_human_result(name: &str, workspace_path: &str, mode: &str, created: bo
 }
 
 /// Output result in the appropriate format (JSONL or human)
+#[allow(clippy::unused_self)]
 fn output_result(
     name: &str,
     workspace_path: &str,
-    zellij_tab: &str,
+    _zellij_tab: &str,
     mode: &str,
     created: bool,
     format: OutputFormat,
@@ -173,12 +179,7 @@ fn output_result(
             ActionStatus::Skipped
         };
 
-        emit_action_with_result(
-            action_verb,
-            name,
-            action_status,
-            &format!("{mode}: {name}"),
-        )?;
+        emit_action_with_result(action_verb, name, action_status, &format!("{mode}: {name}"))?;
 
         // Emit session output if available
         if let Some(s) = session {
@@ -482,8 +483,7 @@ fn handle_new_session_dry_run(options: &AddOptions, workspace_path_str: &str) ->
         )
         .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        emit_stdout(&OutputLine::Session(session_output))
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        emit_stdout(&OutputLine::Session(session_output)).map_err(|e| anyhow::anyhow!("{e}"))?;
 
         emit_result_success(&format!(
             "[DRY RUN] Would create session '{}'",

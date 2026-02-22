@@ -10,12 +10,16 @@ pub mod error;
 pub mod serializers;
 
 // Re-export commonly used types for convenience
-pub use error::{output_json_error, output_json_parse_error, semantic_exit_code, SyncError};
+#[allow(unused_imports)] // Keep for test module in serializers.rs
+pub use error::SyncError;
+pub use error::{output_json_error, output_json_parse_error, semantic_exit_code};
+#[allow(unused_imports)] // Keep for test module in serializers.rs
+pub use serializers::SyncOutput;
 pub use serializers::{
-    AddOutput, ConfigSetOutput, ConfigValueOutput, FocusOutput, RemoveOutput, SyncOutput,
-    TemplateCreateOutput, TemplateDeleteOutput, TemplateInfo, TemplateListOutput,
-    TemplateShowOutput,
+    AddOutput, ConfigSetOutput, ConfigValueOutput, FocusOutput, TemplateCreateOutput,
+    TemplateDeleteOutput, TemplateInfo, TemplateListOutput, TemplateShowOutput,
 };
+// Note: RemoveOutput removed - remove command uses JSONL output
 
 /// Output a JSON success response to stdout
 ///

@@ -14,8 +14,8 @@ use std::io::Write;
 use anyhow::Result;
 use zjj_core::{
     output::{
-        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine,
-        ResultKind, ResultOutput,
+        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
+        ResultOutput,
     },
     OutputFormat,
 };
@@ -55,9 +55,9 @@ pub async fn run(name: &str) -> Result<()> {
 
 /// Emit an action line to stdout
 fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
-    let action = Action::new(verb.to_string(), target.to_string(), status)
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
-    emit_stdout(&OutputLine::Action(action))
+    let action = Action::new(verb.to_string(), target.to_string(), status);
+    emit_stdout(&OutputLine::Action(action))?;
+    Ok(())
 }
 
 /// Emit a result line to stdout
@@ -68,7 +68,8 @@ fn emit_result(success: bool, message: String) -> Result<()> {
         ResultOutput::failure(ResultKind::Command, message)
     }
     .map_err(|e| anyhow::anyhow!("{e}"))?;
-    emit_stdout(&OutputLine::Result(result))
+    emit_stdout(&OutputLine::Result(result))?;
+    Ok(())
 }
 
 /// Emit an issue line to stdout
@@ -90,15 +91,16 @@ fn emit_issue(
         issue = issue.with_suggestion(s.to_string());
     }
 
-    emit_stdout(&OutputLine::Issue(issue))
+    emit_stdout(&OutputLine::Issue(issue))?;
+    Ok(())
 }
 
 /// Map RemoveError to appropriate IssueKind
 const fn remove_error_to_issue_kind(error: &RemoveError) -> IssueKind {
     match error {
         RemoveError::WorkspaceInaccessible { .. } => IssueKind::ResourceNotFound,
-        RemoveError::WorkspaceRemovalFailed { .. } => IssueKind::Io,
-        RemoveError::DatabaseDeletionFailed { .. } => IssueKind::Internal,
+        RemoveError::WorkspaceRemovalFailed { .. } => IssueKind::External,
+        RemoveError::DatabaseDeletionFailed { .. } => IssueKind::Configuration,
         RemoveError::ZellijTabCloseFailed { .. } => IssueKind::External,
     }
 }
@@ -130,9 +132,11 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
                     Some(name),
                     Some("Use 'zjj list' to see available sessions"),
                 )?;
-                let result =
-                    ResultOutput::failure(ResultKind::Command, format!("Session '{name}' not found"))
-                        .map_err(|e| anyhow::anyhow!("{e}"))?;
+                let result = ResultOutput::failure(
+                    ResultKind::Command,
+                    format!("Session '{name}' not found"),
+                )
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
                 emit_stdout(&OutputLine::Result(result))?;
             }
             return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
@@ -195,7 +199,10 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
                     Some("Session database record cleaned up"),
                 )?;
                 emit_action("cleanup", name, ActionStatus::Completed)?;
-                emit_result(true, format!("Session '{name}' removed (workspace was already gone)"))?;
+                emit_result(
+                    true,
+                    format!("Session '{name}' removed (workspace was already gone)"),
+                )?;
             } else {
                 writeln!(
                     std::io::stdout(),
@@ -372,8 +379,7 @@ mod tests {
             "remove".to_string(),
             "test-session".to_string(),
             ActionStatus::Completed,
-        )
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+        );
 
         let output_line = OutputLine::Action(action);
         let json_str = serde_json::to_string(&output_line)?;
@@ -406,9 +412,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_emit_result_produces_valid_jsonl() -> Result<()> {
-        let result =
-            ResultOutput::success(ResultKind::Command, "Removed session".to_string())
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
+        let result = ResultOutput::success(ResultKind::Command, "Removed session".to_string())
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
 
         let output_line = OutputLine::Result(result);
         let json_str = serde_json::to_string(&output_line)?;
@@ -483,11 +488,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove_error_to_issue_kind_mapping() {
-        let workspace_inaccessible =
-            RemoveError::WorkspaceInaccessible {
-                path: "/tmp/test".into(),
-                reason: "not found".into(),
-            };
+        let workspace_inaccessible = RemoveError::WorkspaceInaccessible {
+            path: "/tmp/test".into(),
+            reason: "not found".into(),
+        };
         assert!(matches!(
             remove_error_to_issue_kind(&workspace_inaccessible),
             IssueKind::ResourceNotFound
@@ -499,7 +503,7 @@ mod tests {
         };
         assert!(matches!(
             remove_error_to_issue_kind(&workspace_removal_failed),
-            IssueKind::Io
+            IssueKind::External
         ));
 
         let db_deletion_failed = RemoveError::DatabaseDeletionFailed {
@@ -508,7 +512,7 @@ mod tests {
         };
         assert!(matches!(
             remove_error_to_issue_kind(&db_deletion_failed),
-            IssueKind::Internal
+            IssueKind::Configuration
         ));
 
         let zellij_failed = RemoveError::ZellijTabCloseFailed {

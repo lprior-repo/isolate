@@ -244,10 +244,13 @@ fn test_conflict_analysis_serialization() {
     );
 
     let json = serde_json::to_value(&output_line).unwrap();
+    let analysis = json
+        .get("conflict_analysis")
+        .expect("OutputLine::ConflictAnalysis should serialize as wrapped object");
 
     // Verify outer structure
     validate_json_structure(
-        &json,
+        analysis,
         &[
             "type",
             "session",
@@ -259,7 +262,7 @@ fn test_conflict_analysis_serialization() {
     );
 
     // Verify conflicts array
-    let conflicts = json.get("conflicts").unwrap().as_array().unwrap();
+    let conflicts = analysis.get("conflicts").unwrap().as_array().unwrap();
     assert_eq!(conflicts.len(), 2);
 
     // Verify specific conflict types
@@ -275,7 +278,7 @@ fn test_conflict_analysis_serialization() {
 
 #[test]
 fn test_output_line_enum_discriminator() {
-    // All OutputLine variants should serialize with a type discriminator
+    // All OutputLine variants should serialize as a single-key wrapper
     use zjj_core::{types::SessionStatus, WorkspaceState};
 
     let variants = vec![
@@ -314,15 +317,43 @@ fn test_output_line_enum_discriminator() {
         OutputLine::Train(Train::new("t1".to_string(), "test".to_string()).unwrap()),
     ];
 
+    let allowed_wrappers = [
+        "summary",
+        "session",
+        "issue",
+        "plan",
+        "action",
+        "warning",
+        "result",
+        "stack",
+        "queue_summary",
+        "queue_entry",
+        "train",
+    ];
+
     for variant in variants {
         let json = serde_json::to_value(&variant).unwrap();
+        let obj = json
+            .as_object()
+            .expect("OutputLine should serialize as a JSON object");
 
-        // All variants should have some form of type discrimination
-        // either "type" or "type_field" depending on the variant structure
-        assert!(
-            json.get("type").is_some() || json.get("type_field").is_some(),
-            "OutputLine variant missing type discriminator: {}",
+        assert_eq!(
+            obj.len(),
+            1,
+            "OutputLine should have exactly one wrapper key: {}",
             json
+        );
+
+        let wrapper = obj
+            .keys()
+            .next()
+            .expect("OutputLine object should have one key");
+
+        assert!(
+            allowed_wrappers.contains(&wrapper.as_str()),
+            "OutputLine used unexpected wrapper key '{}': {}",
+            wrapper,
+            json,
         );
     }
 }

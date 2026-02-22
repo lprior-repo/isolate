@@ -10,9 +10,11 @@
 //! - No human-readable formatting - AI consumers only
 //! - Streaming-friendly: emit one line at a time
 
+mod test_utils;
 mod types;
 mod writer;
 
+pub use test_utils::{OutputEmitter, StdoutEmitter, VecEmitter};
 pub use types::{
     Action, ActionStatus, Assessment, ConflictAnalysis, ConflictDetail, ConflictType, Context,
     ErrorSeverity, Issue, IssueKind, IssueSeverity, OutputLine, OutputLineError, Plan, PlanStep,

@@ -76,7 +76,8 @@ fn emit_action(verb: &str, target: &str, status: ActionStatus, result: Option<&s
 }
 
 fn emit_summary(type_field: SummaryType, message: &str, details: Option<&str>) -> Result<()> {
-    let summary = Summary::new(type_field, message.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let summary =
+        Summary::new(type_field, message.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let summary = match details {
         Some(d) => summary.with_details(d.to_string()),
         None => summary,
@@ -415,7 +416,11 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
             Some(&format!("Synced session '{name}' with main")),
         )?;
         // Emit Result for command completion
-        emit_result(true, ResultKind::Command, &format!("Synced session '{name}' with main"))?;
+        emit_result(
+            true,
+            ResultKind::Command,
+            &format!("Synced session '{name}' with main"),
+        )?;
     } else if !options.dry_run {
         println!("Synced session '{name}' with main");
         println!();
@@ -507,10 +512,21 @@ async fn sync_all_jsonl(
                         IssueKind::External,
                         IssueSeverity::Error,
                     )
-                    .with_session(session.name.clone())
-                    .with_suggestion("Try 'jj resolve' to fix conflicts, then retry sync".to_string());
-                    if let Err(emit_err) = emit_stdout(&OutputLine::Issue(issue)) {
-                        eprintln!("Warning: Failed to emit issue: {emit_err}");
+                    .map(|line| {
+                        line.with_session(session.name.clone()).with_suggestion(
+                            "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
+                        )
+                    });
+
+                    match issue {
+                        Ok(issue_line) => {
+                            if let Err(emit_err) = emit_stdout(&OutputLine::Issue(issue_line)) {
+                                eprintln!("Warning: Failed to emit issue: {emit_err}");
+                            }
+                        }
+                        Err(issue_err) => {
+                            eprintln!("Warning: Failed to build issue output: {issue_err}");
+                        }
                     }
                     failed_acc.push((session.name, e));
                 }
@@ -526,7 +542,9 @@ async fn sync_all_jsonl(
     emit_summary(
         SummaryType::Count,
         &format!("Synced {synced_count} session(s), {failed_count} failed"),
-        Some(&format!("synced_count: {synced_count}, failed_count: {failed_count}")),
+        Some(&format!(
+            "synced_count: {synced_count}, failed_count: {failed_count}"
+        )),
     )?;
 
     // Emit final Result
@@ -921,154 +939,246 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_json_single_output_on_success() -> anyhow::Result<()> {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(async {
-            use zjj_core::json::SchemaEnvelope;
+    fn test_sync_jsonl_action_output_on_success() -> anyhow::Result<()> {
+        use zjj_core::output::{Action, ActionStatus, OutputLine};
 
-            use crate::json::SyncOutput;
+        let action = Action::new(
+            "rebase".to_string(),
+            "test-session".to_string(),
+            ActionStatus::Completed,
+        )
+        .with_result("Synced session 'test-session' with main".to_string());
 
-            let output = SyncOutput {
-                name: Some("test-session".to_string()),
-                synced_count: 1,
-                failed_count: 0,
-                errors: Vec::new(),
-            };
+        let output_line = OutputLine::Action(action);
+        let json_str = serde_json::to_string(&output_line)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-            let envelope = SchemaEnvelope::new("sync-response", "single", output);
-            let json_str = serde_json::to_string(&envelope)?;
-            let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        assert!(
+            parsed.get("action").is_some(),
+            "JSON output should have 'action' key"
+        );
+        let action_obj = parsed
+            .get("action")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("action value must be an object"))?;
+        assert_eq!(
+            action_obj.get("verb").and_then(|v| v.as_str()),
+            Some("rebase"),
+            "verb should be 'rebase'"
+        );
+        assert_eq!(
+            action_obj.get("target").and_then(|v| v.as_str()),
+            Some("test-session"),
+            "target should be 'test-session'"
+        );
+        assert_eq!(
+            action_obj.get("status").and_then(|v| v.as_str()),
+            Some("completed"),
+            "status should be 'completed'"
+        );
+        assert!(
+            action_obj.get("result").is_some(),
+            "action should have result"
+        );
 
-            assert!(
-                parsed.get("$schema").is_some(),
-                "JSON output should have $schema field"
-            );
-            assert!(
-                parsed
-                    .get("$schema")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.contains("sync-response"))
-                    .unwrap_or(false),
-                "Should have sync-response in $schema"
-            );
-            assert_eq!(
-                parsed.get("schema_type").and_then(|v| v.as_str()),
-                Some("single"),
-                "schema_type should be 'single'"
-            );
-            assert!(
-                parsed.get("success").is_some(),
-                "JSON output should have success field"
-            );
-            assert_eq!(
-                parsed.get("success").and_then(serde_json::Value::as_bool),
-                Some(true),
-                "success should be true on success"
-            );
-            assert_eq!(
-                parsed
-                    .get("synced_count")
-                    .and_then(serde_json::Value::as_u64),
-                Some(1),
-                "synced_count should be 1"
-            );
-
-            Ok::<_, anyhow::Error>(())
-        })
+        Ok(())
     }
 
     #[test]
-    fn test_sync_json_single_output_on_failure() -> anyhow::Result<()> {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(async {
-            use zjj_core::json::{ErrorDetail, SchemaEnvelope};
+    fn test_sync_jsonl_result_output_on_success() -> anyhow::Result<()> {
+        use zjj_core::output::{OutputLine, ResultKind, ResultOutput};
 
-            use crate::json::{SyncError, SyncOutput};
+        let result = ResultOutput::success(
+            ResultKind::Command,
+            "Synced session 'test-session' with main".to_string(),
+        )?;
 
-            let output = SyncOutput {
-                name: None,
-                synced_count: 0,
-                failed_count: 1,
-                errors: vec![SyncError {
-                    name: "failed-session".to_string(),
-                    error: ErrorDetail {
-                        code: "SYNC_FAILED".to_string(),
-                        message: "Failed to sync".to_string(),
-                        exit_code: 3,
-                        details: None,
-                        suggestion: Some("Try again".to_string()),
-                    },
-                }],
-            };
+        let output_line = OutputLine::Result(result);
+        let json_str = serde_json::to_string(&output_line)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-            let envelope = SchemaEnvelope::new("sync-response", "single", output).as_error();
-            let json_str = serde_json::to_string(&envelope)?;
-            let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        assert!(
+            parsed.get("result").is_some(),
+            "JSON output should have 'result' key"
+        );
+        let result_obj = parsed
+            .get("result")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
+        assert_eq!(
+            result_obj.get("success").and_then(|v| v.as_bool()),
+            Some(true),
+            "success should be true on success"
+        );
+        assert_eq!(
+            result_obj.get("kind").and_then(|v| v.as_str()),
+            Some("command"),
+            "kind should be 'command'"
+        );
 
-            assert!(
-                parsed
-                    .get("$schema")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.contains("sync-response"))
-                    .unwrap_or(false),
-                "Should have sync-response in $schema"
-            );
-            assert!(
-                parsed.get("success").is_some(),
-                "JSON output should have success field"
-            );
-            assert_eq!(
-                parsed.get("success").and_then(serde_json::Value::as_bool),
-                Some(false),
-                "success should be false on failure"
-            );
-            assert_eq!(
-                parsed
-                    .get("failed_count")
-                    .and_then(serde_json::Value::as_u64),
-                Some(1),
-                "failed_count should be 1"
-            );
-
-            Ok::<_, anyhow::Error>(())
-        })
+        Ok(())
     }
 
     #[test]
-    fn test_sync_json_parseable_by_jq() -> anyhow::Result<()> {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(async {
-            use zjj_core::json::SchemaEnvelope;
+    fn test_sync_jsonl_result_output_on_failure() -> anyhow::Result<()> {
+        use zjj_core::output::{OutputLine, ResultKind, ResultOutput};
 
-            use crate::json::SyncOutput;
+        let result = ResultOutput::failure(
+            ResultKind::Command,
+            "Synced 3 session(s), 2 failed".to_string(),
+        )?;
 
-            let output = SyncOutput {
-                name: None,
-                synced_count: 5,
-                failed_count: 0,
-                errors: Vec::new(),
-            };
+        let output_line = OutputLine::Result(result);
+        let json_str = serde_json::to_string(&output_line)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-            let envelope = SchemaEnvelope::new("sync-response", "single", output);
-            let json_str = serde_json::to_string(&envelope)?;
+        assert!(
+            parsed.get("result").is_some(),
+            "JSON output should have 'result' key"
+        );
+        let result_obj = parsed
+            .get("result")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
+        assert_eq!(
+            result_obj.get("success").and_then(|v| v.as_bool()),
+            Some(false),
+            "success should be false on failure"
+        );
 
-            let parsed: serde_json::Value = serde_json::from_str(&json_str)
-                .map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?;
+        Ok(())
+    }
 
-            assert!(
-                parsed.get("$schema").is_some(),
-                "JSON should have $schema field"
-            );
-            assert_eq!(
-                parsed
-                    .get("synced_count")
-                    .and_then(serde_json::Value::as_u64),
-                Some(5),
-                "Should access .synced_count (flattened from data)"
-            );
+    #[test]
+    fn test_sync_jsonl_summary_output() -> anyhow::Result<()> {
+        use zjj_core::output::{OutputLine, Summary, SummaryType};
 
-            Ok::<_, anyhow::Error>(())
-        })
+        let summary = Summary::new(
+            SummaryType::Count,
+            "Synced 5 session(s), 0 failed".to_string(),
+        )?
+        .with_details("synced_count: 5, failed_count: 0".to_string());
+
+        let output_line = OutputLine::Summary(summary);
+        let json_str = serde_json::to_string(&output_line)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(
+            parsed.get("summary").is_some(),
+            "JSON output should have 'summary' key"
+        );
+        let summary_obj = parsed
+            .get("summary")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("summary value must be an object"))?;
+        assert_eq!(
+            summary_obj.get("type").and_then(|v| v.as_str()),
+            Some("count"),
+            "type should be 'count'"
+        );
+        assert!(
+            summary_obj.get("message").is_some(),
+            "summary should have message"
+        );
+        assert!(
+            summary_obj.get("details").is_some(),
+            "summary should have details"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_jsonl_issue_output() -> anyhow::Result<()> {
+        use zjj_core::output::{Issue, IssueKind, IssueSeverity, OutputLine};
+
+        let issue = Issue::new(
+            "SYNC-FAILED-test-session".to_string(),
+            "Failed to sync session 'test-session'".to_string(),
+            IssueKind::External,
+            IssueSeverity::Error,
+        )?
+        .with_session("test-session".to_string())
+        .with_suggestion("Try 'jj resolve' to fix conflicts, then retry sync".to_string());
+
+        let output_line = OutputLine::Issue(issue);
+        let json_str = serde_json::to_string(&output_line)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(
+            parsed.get("issue").is_some(),
+            "JSON output should have 'issue' key"
+        );
+        let issue_obj = parsed
+            .get("issue")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("issue value must be an object"))?;
+        assert_eq!(
+            issue_obj.get("id").and_then(|v| v.as_str()),
+            Some("SYNC-FAILED-test-session"),
+            "id should be correct"
+        );
+        assert_eq!(
+            issue_obj.get("kind").and_then(|v| v.as_str()),
+            Some("external"),
+            "kind should be 'external'"
+        );
+        assert_eq!(
+            issue_obj.get("severity").and_then(|v| v.as_str()),
+            Some("error"),
+            "severity should be 'error'"
+        );
+        assert_eq!(
+            issue_obj.get("session").and_then(|v| v.as_str()),
+            Some("test-session"),
+            "session should be set"
+        );
+        assert!(
+            issue_obj.get("suggestion").is_some(),
+            "issue should have suggestion"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_jsonl_parseable_by_jq() -> anyhow::Result<()> {
+        use zjj_core::output::{Action, ActionStatus, OutputLine, ResultKind, ResultOutput};
+
+        // Simulate a sync output: Action + Result
+        let action = Action::new(
+            "rebase".to_string(),
+            "test-session".to_string(),
+            ActionStatus::Completed,
+        )
+        .with_result("Synced session 'test-session' with main".to_string());
+
+        let action_line = OutputLine::Action(action);
+        let action_json = serde_json::to_string(&action_line)?;
+
+        let result = ResultOutput::success(
+            ResultKind::Command,
+            "Synced session 'test-session' with main".to_string(),
+        )?;
+        let result_line = OutputLine::Result(result);
+        let result_json = serde_json::to_string(&result_line)?;
+
+        // Both should be valid JSON parseable by jq
+        let action_parsed: serde_json::Value =
+            serde_json::from_str(&action_json).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let result_parsed: serde_json::Value =
+            serde_json::from_str(&result_json).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+        assert!(
+            action_parsed.get("action").is_some(),
+            "Action JSON should have 'action' key"
+        );
+        assert!(
+            result_parsed.get("result").is_some(),
+            "Result JSON should have 'result' key"
+        );
+
+        Ok(())
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

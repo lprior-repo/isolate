@@ -300,7 +300,10 @@ fn test_remove_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Test that sync command JSON output uses envelope
+/// Test that sync command JSON output uses JSONL format
+///
+/// The sync command outputs streaming JSONL (one JSON object per line) for AI-first control plane.
+/// Each line is either an Action, Summary, Issue, or Result.
 #[test]
 fn test_sync_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -317,23 +320,50 @@ fn test_sync_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     }
     assert!(result.success, "sync should succeed");
 
-    let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
-    validate_envelope(&parsed, "sync-response")?;
+    // Parse each line of JSONL output
+    let lines: Vec<&str> = result.stdout.trim().lines().collect();
+    assert!(!lines.is_empty(), "sync should produce at least one JSONL line");
 
-    // Check for expected fields
-    let response = payload(&parsed);
-    assert!(
-        response.get("name").is_some(),
-        "sync response should have name field"
-    );
-    assert!(
-        response.get("synced_count").is_some(),
-        "sync response should have synced_count field"
-    );
-    assert!(
-        response.get("failed_count").is_some(),
-        "sync response should have failed_count field"
-    );
+    // Each line should be valid JSON
+    let mut has_action = false;
+    let mut has_result = false;
+
+    for line in lines {
+        let parsed: serde_json::Value = serde_json::from_str(line)?;
+
+        // Each line should have exactly one of: action, result, summary, issue
+        let is_action = parsed.get("action").is_some();
+        let is_result = parsed.get("result").is_some();
+        let is_summary = parsed.get("summary").is_some();
+        let is_issue = parsed.get("issue").is_some();
+
+        // One and only one output type per line
+        let type_count = [is_action, is_result, is_summary, is_issue]
+            .iter()
+            .filter(|&&x| x)
+            .count();
+        assert_eq!(type_count, 1, "Each JSONL line should have exactly one output type");
+
+        if is_action {
+            has_action = true;
+            let action = parsed.get("action").ok_or("action missing")?;
+            assert!(action.get("verb").is_some(), "action should have verb field");
+            assert!(action.get("target").is_some(), "action should have target field");
+            assert!(action.get("status").is_some(), "action should have status field");
+        }
+
+        if is_result {
+            has_result = true;
+            let result_obj = parsed.get("result").ok_or("result missing")?;
+            assert!(result_obj.get("success").is_some(), "result should have success field");
+            assert!(result_obj.get("kind").is_some(), "result should have kind field");
+            assert!(result_obj.get("message").is_some(), "result should have message field");
+        }
+    }
+
+    // Successful sync should have at least an action and a result
+    assert!(has_action, "sync output should include at least one action line");
+    assert!(has_result, "sync output should include a result line");
 
     Ok(())
 }

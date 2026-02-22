@@ -339,10 +339,13 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
         assert!(parsed.is_object(), "OutputLine should serialize to JSON");
 
+        // OutputLine wraps the variant as key: {"session": {...}}
         assert!(
-            parsed.get("type").is_some(),
-            "OutputLine must have 'type' field"
+            parsed.get("session").is_some(),
+            "OutputLine::Session must have 'session' key"
         );
+        let session_obj = parsed.get("session").and_then(|v| v.as_object());
+        assert!(session_obj.is_some(), "session value must be an object");
 
         Ok(())
     }
@@ -363,15 +366,26 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
         assert!(parsed.is_object());
 
-        assert!(parsed.get("type").is_some(), "Issue must have 'type' field");
-        assert!(parsed.get("id").is_some(), "Issue must have 'id' field");
+        // OutputLine wraps the variant as key: {"issue": {...}}
         assert!(
-            parsed.get("title").is_some(),
+            parsed.get("issue").is_some(),
+            "OutputLine::Issue must have 'issue' key"
+        );
+        let issue_obj = parsed
+            .get("issue")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("issue value must be an object"))?;
+        assert!(issue_obj.get("id").is_some(), "Issue must have 'id' field");
+        assert!(
+            issue_obj.get("title").is_some(),
             "Issue must have 'title' field"
         );
-        assert!(parsed.get("kind").is_some(), "Issue must have 'kind' field");
         assert!(
-            parsed.get("severity").is_some(),
+            issue_obj.get("kind").is_some(),
+            "Issue must have 'kind' field"
+        );
+        assert!(
+            issue_obj.get("severity").is_some(),
             "Issue must have 'severity' field"
         );
 
@@ -388,21 +402,26 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
         assert!(parsed.is_object());
 
+        // OutputLine wraps the variant as key: {"result": {...}}
         assert!(
-            parsed.get("type").is_some(),
-            "Result must have 'type' field"
+            parsed.get("result").is_some(),
+            "OutputLine::Result must have 'result' key"
         );
+        let result_obj = parsed
+            .get("result")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
         assert!(
-            parsed.get("success").is_some(),
+            result_obj.get("success").is_some(),
             "Result must have 'success' field"
         );
         assert!(
-            parsed.get("message").is_some(),
+            result_obj.get("message").is_some(),
             "Result must have 'message' field"
         );
 
         assert_eq!(
-            parsed.get("success").and_then(|v| v.as_bool()),
+            result_obj.get("success").and_then(|v| v.as_bool()),
             Some(true),
             "Success result should have success=true"
         );
@@ -425,20 +444,25 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
         assert!(parsed.is_object());
 
+        // OutputLine wraps the variant as key: {"action": {...}}
         assert!(
-            parsed.get("type").is_some(),
-            "Action must have 'type' field"
+            parsed.get("action").is_some(),
+            "OutputLine::Action must have 'action' key"
         );
+        let action_obj = parsed
+            .get("action")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("action value must be an object"))?;
         assert!(
-            parsed.get("verb").is_some(),
+            action_obj.get("verb").is_some(),
             "Action must have 'verb' field"
         );
         assert!(
-            parsed.get("target").is_some(),
+            action_obj.get("target").is_some(),
             "Action must have 'target' field"
         );
         assert!(
-            parsed.get("status").is_some(),
+            action_obj.get("status").is_some(),
             "Action must have 'status' field"
         );
 
@@ -483,13 +507,20 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.is_object());
-        assert_eq!(parsed.get("type").and_then(|v| v.as_str()), Some("issue"));
+        assert!(
+            parsed.get("issue").is_some(),
+            "OutputLine::Issue must have 'issue' key"
+        );
+        let issue_obj = parsed
+            .get("issue")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("issue value must be an object"))?;
         assert_eq!(
-            parsed.get("id").and_then(|v| v.as_str()),
+            issue_obj.get("id").and_then(|v| v.as_str()),
             Some("FOCUS-TEST")
         );
         assert_eq!(
-            parsed.get("severity").and_then(|v| v.as_str()),
+            issue_obj.get("severity").and_then(|v| v.as_str()),
             Some("warning")
         );
 

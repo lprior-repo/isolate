@@ -13,10 +13,9 @@
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use zjj_core::{
-    output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType},
-    OutputFormat, WorkspaceStateFilter,
-};
+use serde_json::json;
+use zjj_core::output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType};
+use zjj_core::{OutputFormat, WorkspaceStateFilter};
 
 use crate::{
     beads::{BeadRepository, BeadStatus},
@@ -55,7 +54,7 @@ impl std::fmt::Display for BeadCounts {
 pub async fn run(
     all: bool,
     _verbose: bool, // Kept for API compatibility, but not used in JSONL-only mode
-    _format: OutputFormat, // Kept for API compatibility, not used in JSONL-only mode
+    format: OutputFormat,
     bead: Option<&str>,
     agent: Option<&str>,
     state: Option<&str>,
@@ -104,7 +103,52 @@ pub async fn run(
     let beads_count = get_beads_count().await.unwrap_or_default();
     let session_count = sessions.len();
 
-    // Emit each session as a Session output line
+    let sessions_json = sessions
+        .iter()
+        .map(|session| {
+            json!({
+                "name": session.name,
+                "status": session.status.to_string(),
+                "state": session.state.to_string(),
+                "workspace_path": session.workspace_path,
+                "zellij_tab": session.zellij_tab,
+                "branch": session.branch,
+                "created_at": session.created_at,
+                "updated_at": session.updated_at,
+                "last_synced": session.last_synced,
+                "metadata": session.metadata,
+                "parent_session": session.parent_session,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if format.is_json() {
+        let data = json!({
+            "sessions": sessions_json,
+            "count": session_count,
+            "beads": {
+                "open": beads_count.open,
+                "in_progress": beads_count.in_progress,
+                "blocked": beads_count.blocked,
+            },
+        });
+
+        let output = json!({
+            "$schema": "zjj://list-response/v1",
+            "_schema_version": "1.0",
+            "schema_type": "single",
+            "success": true,
+            "schema": "list-response",
+            "type": "single",
+            "data": data,
+            "sessions": data["sessions"],
+            "count": data["count"],
+        });
+
+        println!("{}", serde_json::to_string(&output)?);
+        return Ok(());
+    }
+
     for session in &sessions {
         let workspace_path: PathBuf = session.workspace_path.clone().into();
 
@@ -125,7 +169,6 @@ pub async fn run(
         emit_stdout(&OutputLine::Session(output_session))?;
     }
 
-    // Emit Summary line last (always)
     let summary_text = format!(
         "Listed {} session(s), beads: {}/{}/{}",
         session_count, beads_count.open, beads_count.in_progress, beads_count.blocked
