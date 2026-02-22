@@ -183,3 +183,73 @@ pub fn calculate_stack_depth(
 ### Files to Create/Modify
 1. `crates/zjj-core/src/coordination/stack.rs` - New module with function
 2. `crates/zjj-core/src/coordination/mod.rs` - Export new module
+
+---
+
+## bd-mmtr: Add find_stack_root function
+
+### Bead Requirements
+- Pure function that finds the root of a stack
+- Traverses up the parent chain to find workspace with no parent
+- Returns error for cycles (no infinite loop)
+- If workspace has no parent, returns itself (it's the root)
+- Function is pure, uses Result<T, E>
+
+### Existing Patterns to Follow
+
+1. **calculate_stack_depth function (stack_depth.rs:47-89):**
+   - Same traversal pattern but counts depth
+   - Uses HashSet to track visited for cycle detection
+   - Returns appropriate StackError variants
+   - Pure function signature: `fn(workspace: &str, entries: &[QueueEntry]) -> Result<T, StackError>`
+
+2. **StackError enum has relevant variants:**
+   - `CycleDetected` - for cycle detection
+   - `ParentNotFound` - for missing parents
+
+3. **QueueEntry has parent_workspace field:**
+   ```rust
+   pub parent_workspace: Option<String>,
+   ```
+
+### Implementation Plan
+
+1. **Add function to stack_depth.rs module (or create new stack.rs):**
+   - Function name: `find_stack_root`
+   - Same parameters as calculate_stack_depth
+
+2. **Function signature:**
+   ```rust
+   /// Find the root workspace of a stack.
+   ///
+   /// # Arguments
+   /// * `workspace` - The workspace to find root for
+   /// * `entries` - Slice of queue entries to search for parents
+   ///
+   /// # Returns
+   /// * `Ok(String)` - The name of the root workspace
+   /// * `Err(StackError::CycleDetected)` - If a cycle is found
+   /// * `Err(StackError::ParentNotFound)` - If parent doesn't exist
+   pub fn find_stack_root(
+       workspace: &str,
+       entries: &[QueueEntry],
+   ) -> Result<String, StackError>
+   ```
+
+3. **Algorithm:**
+   - Start at given workspace
+   - If no parent, return workspace name (it's the root)
+   - Track visited workspaces to detect cycles
+   - Traverse parent chain until finding workspace with no parent
+   - Return that workspace's name
+
+### Files to Modify
+1. `crates/zjj-core/src/coordination/stack_depth.rs` - Add function
+
+### Test Cases Needed
+1. Root workspace (no parent) returns itself
+2. One-level child returns its parent (the root)
+3. Multi-level chain returns the actual root
+4. Self-referencing workspace returns cycle error
+5. Cycle in chain returns cycle error
+6. Missing parent returns parent not found error

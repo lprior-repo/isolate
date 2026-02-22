@@ -7,7 +7,7 @@
 
 use std::ops::Deref;
 
-use super::queue_status::{QueueEventType, QueueStatus, WorkspaceQueueState};
+use super::queue_status::{QueueEventType, QueueStatus, StackMergeState, WorkspaceQueueState};
 use crate::Error;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -132,6 +132,8 @@ pub struct QueueEntry {
     pub dependents: Dependents,
     #[sqlx(default)]
     pub stack_root: Option<String>,
+    #[sqlx(default, try_from = "String")]
+    pub stack_merge_state: StackMergeState,
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

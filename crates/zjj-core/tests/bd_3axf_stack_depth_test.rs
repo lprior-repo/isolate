@@ -171,6 +171,7 @@ fn create_test_queue_entry_with_stack_depth(stack_depth: i32) -> QueueEntry {
         stack_depth,
         dependents: Dependents::new(),
         stack_root: None,
+        stack_merge_state: zjj_core::coordination::queue_status::StackMergeState::Independent,
     }
 }
 
@@ -205,5 +206,6 @@ fn create_default_test_queue_entry() -> QueueEntry {
         stack_depth: 0,
         dependents: Dependents::new(),
         stack_root: None,
+        stack_merge_state: zjj_core::coordination::queue_status::StackMergeState::Independent,
     }
 }

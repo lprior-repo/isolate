@@ -1046,6 +1046,7 @@ mod tests {
                 stack_depth: 0,
                 dependents: Dependents::new(),
                 stack_root: None,
+                stack_merge_state: super::super::queue_status::StackMergeState::Independent,
             },
             QueueEntry {
                 id: 2,
@@ -1072,6 +1073,7 @@ mod tests {
                 stack_depth: 0,
                 dependents: Dependents::new(),
                 stack_root: None,
+                stack_merge_state: super::super::queue_status::StackMergeState::Independent,
             },
         ];
 
@@ -1109,6 +1111,7 @@ mod tests {
                 stack_depth: 0,
                 dependents: Dependents::new(),
                 stack_root: None,
+                stack_merge_state: super::super::queue_status::StackMergeState::Independent,
             },
             QueueEntry {
                 id: 2,
@@ -1135,6 +1138,7 @@ mod tests {
                 stack_depth: 0,
                 dependents: Dependents::new(),
                 stack_root: None,
+                stack_merge_state: super::super::queue_status::StackMergeState::Independent,
             },
         ];
 
@@ -1172,6 +1176,7 @@ mod tests {
                 stack_depth: 0,
                 dependents: Dependents::new(),
                 stack_root: None,
+                stack_merge_state: super::super::queue_status::StackMergeState::Independent,
             },
             QueueEntry {
                 id: 2,
@@ -1198,6 +1203,7 @@ mod tests {
                 stack_depth: 0,
                 dependents: Dependents::new(),
                 stack_root: None,
+                stack_merge_state: super::super::queue_status::StackMergeState::Independent,
             },
         ];
 

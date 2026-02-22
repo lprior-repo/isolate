@@ -7,6 +7,189 @@ use std::collections::HashSet;
 
 use super::{queue_entities::QueueEntry, stack_error::StackError};
 
+/// Validate that setting a parent won't create a cycle in the stack.
+///
+/// This function checks if assigning `parent` as the parent of `workspace`
+/// would create a cycle in the dependency chain.
+///
+/// # Arguments
+///
+/// * `workspace` - The name of the workspace that would receive a new parent
+/// * `parent` - The name of the workspace that would become the parent
+/// * `entries` - A slice of queue entries representing the current state
+///
+/// # Returns
+///
+/// * `Ok(())` - Setting this parent would NOT create a cycle
+/// * `Err(StackError::CycleDetected)` - Setting this parent WOULD create a cycle
+///
+/// # Errors
+///
+/// Returns `StackError::CycleDetected` if:
+/// - `workspace` equals `parent` (self-reference)
+/// - `parent` is a descendant of `workspace` (would create indirect cycle)
+///
+/// # Example
+///
+/// ```ignore
+/// use zjj_core::coordination::stack_depth::validate_no_cycle;
+///
+/// let entries = vec![
+///     create_entry("root", None),
+///     create_entry("child", Some("root")),
+/// ];
+///
+/// // Valid: new-workspace can set parent to child
+/// assert!(validate_no_cycle("new-workspace", "child", &entries).is_ok());
+///
+/// // Invalid: root cannot set parent to child (would create cycle)
+/// assert!(validate_no_cycle("root", "child", &entries).is_err());
+/// ```
+pub fn validate_no_cycle(
+    workspace: &str,
+    parent: &str,
+    entries: &[QueueEntry],
+) -> Result<(), StackError> {
+    if workspace == parent {
+        return Err(StackError::CycleDetected {
+            workspace: workspace.to_string(),
+            cycle_path: vec![workspace.to_string()],
+        });
+    }
+
+    if is_ancestor_of(workspace, parent, entries) {
+        return Err(StackError::CycleDetected {
+            workspace: workspace.to_string(),
+            cycle_path: build_cycle_path_from_parent(parent, entries),
+        });
+    }
+
+    Ok(())
+}
+
+/// Check if `workspace` is an ancestor of `potential_descendant`.
+///
+/// An ancestor is any workspace reachable by following parent relationships
+/// upward from `potential_descendant`.
+fn is_ancestor_of(workspace: &str, potential_descendant: &str, entries: &[QueueEntry]) -> bool {
+    let mut current = potential_descendant;
+    let mut visited = HashSet::<&str>::new();
+
+    while !visited.contains(current) {
+        visited.insert(current);
+
+        let Some(entry) = entries.iter().find(|e| e.workspace == current) else {
+            return false;
+        };
+
+        match &entry.parent_workspace {
+            None => return false,
+            Some(p) if p == workspace => return true,
+            Some(p) => current = p.as_str(),
+        }
+    }
+
+    false
+}
+
+/// Build the cycle path starting from a parent workspace.
+fn build_cycle_path_from_parent(start: &str, entries: &[QueueEntry]) -> Vec<String> {
+    let mut path = vec![start.to_string()];
+    let mut current = start;
+    let mut visited = HashSet::<&str>::new();
+
+    while !visited.contains(current) {
+        visited.insert(current);
+
+        if let Some(entry) = entries.iter().find(|e| e.workspace == current) {
+            if let Some(parent) = &entry.parent_workspace {
+                path.push(parent.clone());
+                current = parent.as_str();
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    path
+}
+
+/// Find the root workspace of a stack.
+///
+/// The root is the workspace in the chain that has no parent.
+/// If the given workspace has no parent, it is itself the root.
+///
+/// # Arguments
+///
+/// * `workspace` - The name of the workspace to find the root for
+/// * `entries` - A slice of queue entries to search for parent relationships
+///
+/// # Returns
+///
+/// * `Ok(String)` - The name of the root workspace
+/// * `Err(StackError::CycleDetected)` - If a cycle is detected in the parent chain
+/// * `Err(StackError::ParentNotFound)` - If a parent workspace doesn't exist in entries
+///
+/// # Errors
+///
+/// Returns `StackError::CycleDetected` if the workspace references itself
+/// or there's a cycle in the parent chain.
+///
+/// Returns `StackError::ParentNotFound` if a workspace in the chain
+/// references a parent that doesn't exist in the provided entries slice.
+///
+/// # Example
+///
+/// ```ignore
+/// use zjj_core::coordination::stack_depth::find_stack_root;
+///
+/// let entries = vec![
+///     create_entry("root", None),
+///     create_entry("child", Some("root")),
+/// ];
+///
+/// assert_eq!(find_stack_root("root", &entries), Ok("root".to_string()));
+/// assert_eq!(find_stack_root("child", &entries), Ok("root".to_string()));
+/// ```
+pub fn find_stack_root(workspace: &str, entries: &[QueueEntry]) -> Result<String, StackError> {
+    let mut current = workspace;
+    let mut visited = HashSet::<&str>::new();
+
+    loop {
+        if visited.contains(current) {
+            return Err(StackError::CycleDetected {
+                workspace: workspace.to_string(),
+                cycle_path: build_cycle_path(current, entries),
+            });
+        }
+        visited.insert(current);
+
+        let entry = entries.iter().find(|e| e.workspace == current);
+
+        match entry {
+            None => {
+                return Err(StackError::ParentNotFound {
+                    parent_workspace: current.to_string(),
+                });
+            }
+            Some(e) => match &e.parent_workspace {
+                None => return Ok(current.to_string()),
+                Some(parent) => {
+                    if parent == current {
+                        return Err(StackError::CycleDetected {
+                            workspace: workspace.to_string(),
+                            cycle_path: build_cycle_path(current, entries),
+                        });
+                    }
+                    current = parent.as_str();
+                }
+            },
+        }
+    }
+}
+
 /// Calculate the depth of a workspace in a stack hierarchy.
 ///
 /// The depth is the number of ancestors (parent, grandparent, etc.) from

@@ -316,6 +316,10 @@ impl MergeQueue {
                 "stack_root",
                 "ALTER TABLE merge_queue ADD COLUMN stack_root TEXT",
             ),
+            (
+                "stack_merge_state",
+                "ALTER TABLE merge_queue ADD COLUMN stack_merge_state TEXT NOT NULL DEFAULT 'independent'",
+            ),
         ];
 
         for (column_name, alter_sql) in migrations {
@@ -615,7 +619,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE dedupe_key = ?1 \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue WHERE dedupe_key = ?1 \
                  ORDER BY id DESC LIMIT 1",
         )
         .bind(dedupe_key)
@@ -689,7 +693,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE id = ?1",
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue WHERE id = ?1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -701,7 +705,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE workspace = ?1",
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue WHERE workspace = ?1",
         )
         .bind(workspace)
         .fetch_optional(&self.pool)
@@ -714,13 +718,13 @@ impl MergeQueue {
             Some(_) => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE status = ?1 \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue WHERE status = ?1 \
                  ORDER BY priority ASC, added_at ASC"
             }
             None => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue \
                  ORDER BY priority ASC, added_at ASC"
             }
         };
@@ -742,7 +746,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at FROM merge_queue WHERE status = 'pending' \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue WHERE status = 'pending' \
                  ORDER BY priority ASC, added_at ASC LIMIT 1",
         )
         .fetch_optional(&self.pool)
@@ -1000,7 +1004,7 @@ impl MergeQueue {
              )
              RETURNING id, workspace, bead_id, priority, status, added_at, started_at,
                        completed_at, error_message, agent_id, dedupe_key, workspace_state,
-                       previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts",
+                       previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state",
         )
         .bind(now)
         .bind(agent_id)

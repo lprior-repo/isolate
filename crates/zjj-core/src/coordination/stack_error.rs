@@ -121,8 +121,9 @@ impl StackError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::error::Error;
+
+    use super::*;
 
     #[test]
     fn test_cycle_detected_creation() {

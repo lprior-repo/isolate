@@ -153,5 +153,6 @@ fn create_test_queue_entry_with_parent(parent_workspace: Option<String>) -> Queu
         stack_depth: 0,
         dependents: Dependents::new(),
         stack_root: None,
+        stack_merge_state: zjj_core::coordination::queue_status::StackMergeState::Independent,
     }
 }

@@ -1,6 +1,6 @@
 {
   "active": true,
-  "iteration": 3,
+  "iteration": 9,
   "minIterations": 1,
   "maxIterations": 500,
   "completionPromise": "ALL BEADS COMPLETE - GRAPHITE STACKING IMPLEMENTED",

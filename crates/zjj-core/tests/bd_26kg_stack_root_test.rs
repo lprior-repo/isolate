@@ -153,5 +153,6 @@ fn create_test_queue_entry_with_stack_root(stack_root: Option<String>) -> QueueE
         dependents: Dependents::new(),
         // THIS FIELD MUST EXIST for tests to compile
         stack_root,
+        stack_merge_state: zjj_core::coordination::queue_status::StackMergeState::Independent,
     }
 }
