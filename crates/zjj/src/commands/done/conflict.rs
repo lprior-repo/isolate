@@ -359,6 +359,10 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     /// Parse JJ diff --summary output to extract file paths
     ///
     /// Format: "M path/to/file" or "A path" or "D path" or "R old -> new"
+    ///
+    /// FIX: Only parse " -> " as a rename marker when the status is "R" (rename).
+    /// This prevents files with " -> " in their actual name (e.g., "weird -> file.txt")
+    /// from being incorrectly parsed as renames.
     fn parse_diff_summary(output: &str) -> HashSet<String> {
         output
             .lines()
@@ -370,21 +374,20 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
 
                 // Split on first whitespace to separate status from path
                 let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
-                if parts.len() >= 2 {
-                    let file_part = parts.get(1).map_or("", |s| *s);
-                    // Handle rename format: "old_path -> new_path"
-                    if file_part.contains(" -> ") {
-                        // For renames, consider the destination file
+                let status_opt = parts.first().copied();
+                let file_part_opt = parts.get(1).copied();
+
+                match (status_opt, file_part_opt) {
+                    (Some(status), Some(file_part))
+                        if status == "R" && file_part.contains(" -> ") =>
+                    {
                         file_part
                             .split(" -> ")
                             .last()
                             .map(std::string::ToString::to_string)
-                    } else {
-                        Some(file_part.to_string())
                     }
-                } else {
-                    // Fallback: use the whole line if format is unexpected
-                    Some(trimmed.to_string())
+                    (Some(_), Some(file_part)) => Some(file_part.to_string()),
+                    _ => None,
                 }
             })
             .collect()
@@ -576,6 +579,26 @@ mod tests {
             );
         // Should contain the destination (new name)
         assert!(files.contains("src/new_name.rs"));
+    }
+
+    #[test]
+    fn test_parse_diff_summary_with_arrow_filename() {
+        let output = "M a -> b.txt";
+        let files =
+            JjConflictDetector::<super::super::executor::RealJjExecutor>::parse_diff_summary(
+                output,
+            );
+        assert!(files.contains("a -> b.txt"));
+    }
+
+    #[test]
+    fn test_parse_diff_summary_with_arrow_filename_and_spaces() {
+        let output = "A path/with spaces/a -> b.txt";
+        let files =
+            JjConflictDetector::<super::super::executor::RealJjExecutor>::parse_diff_summary(
+                output,
+            );
+        assert!(files.contains("path/with spaces/a -> b.txt"));
     }
 
     #[test]

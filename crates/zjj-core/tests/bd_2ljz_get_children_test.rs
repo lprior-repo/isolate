@@ -5,7 +5,8 @@
 //! CONTRACT: `async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>>`
 //! EARS:
 //!   - THE SYSTEM SHALL provide get_children(workspace) -> Result<Vec<QueueEntry>>
-//!   - WHEN given workspace, THE SYSTEM SHALL find all entries where parent_workspace == Some(workspace)
+//!   - WHEN given workspace, THE SYSTEM SHALL find all entries where parent_workspace ==
+//!     Some(workspace)
 //!   - IF no children exist, THE SYSTEM SHALL return Ok(Vec::new()) (empty is valid, not an error)
 //!   - THE SYSTEM SHALL return only direct children (not grandchildren or deeper)
 //!
@@ -14,20 +15,25 @@
 //!   2. FAIL initially (method doesn't exist yet)
 //!   3. PASS after implementation
 
-#![allow(clippy::doc_markdown, clippy::unreadable_literal)]
+#![allow(
+    clippy::doc_markdown,
+    clippy::unreadable_literal,
+    clippy::unimplemented
+)]
 
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use tokio::sync::RwLock;
-use zjj_core::coordination::{
-    queue::{QueueAddResponse, QueueControlError, QueueStats, RecoveryStats},
-    queue_entities::{Dependents, ProcessingLock, QueueEntry, QueueEvent},
-    queue_repository::QueueRepository,
-    queue_status::{QueueEventType, QueueStatus, StackMergeState, WorkspaceQueueState},
+use zjj_core::{
+    coordination::{
+        queue::{QueueAddResponse, QueueControlError, QueueStats, RecoveryStats},
+        queue_entities::{Dependents, ProcessingLock, QueueEntry, QueueEvent},
+        queue_repository::QueueRepository,
+        queue_status::{QueueEventType, QueueStatus, StackMergeState, WorkspaceQueueState},
+    },
+    Result,
 };
-use zjj_core::Result;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MOCK IMPLEMENTATION: InMemoryQueueRepository for testing
@@ -362,7 +368,11 @@ async fn test_get_children_returns_direct_children() {
     let result = repo.get_children("root").await;
 
     assert!(result.is_ok(), "get_children should return Ok");
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
 
     assert_eq!(children.len(), 2, "Should have exactly 2 children");
     let workspaces: std::collections::HashSet<&str> =
@@ -391,7 +401,11 @@ async fn test_get_children_single_child() {
     let result = repo.get_children("parent").await;
 
     assert!(result.is_ok());
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
 
     assert_eq!(children.len(), 1);
     assert_eq!(children[0].workspace, "only_child");
@@ -420,7 +434,11 @@ async fn test_get_children_returns_empty_vec_when_no_children() {
     let result = repo.get_children("lonely").await;
 
     assert!(result.is_ok(), "Should return Ok even with no children");
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
     assert!(
         children.is_empty(),
         "Workspace with no children should return empty vec"
@@ -445,7 +463,11 @@ async fn test_get_children_empty_when_only_grandchildren_exist() {
     let result = repo.get_children("root").await;
 
     assert!(result.is_ok());
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
     assert!(children.is_empty());
 }
 
@@ -474,7 +496,11 @@ async fn test_get_children_excludes_grandchildren() {
     let result = repo.get_children("root").await;
 
     assert!(result.is_ok());
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
 
     // Only "child" should be returned, not grandchild or greatgrandchild
     assert_eq!(children.len(), 1, "Should only have direct children");
@@ -510,7 +536,11 @@ async fn test_get_children_middle_node_only_direct() {
     let result = repo.get_children("child1").await;
 
     assert!(result.is_ok());
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
 
     assert_eq!(children.len(), 1);
     assert_eq!(children[0].workspace, "gc1");
@@ -544,7 +574,11 @@ async fn test_get_children_multiple_direct_children() {
     let result = repo.get_children("parent").await;
 
     assert!(result.is_ok());
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
 
     assert_eq!(children.len(), 5);
 
@@ -590,7 +624,11 @@ async fn test_get_children_complex_tree() {
     let result = repo.get_children("root").await;
 
     assert!(result.is_ok());
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
 
     // Only a, b, c should be returned (3 direct children)
     assert_eq!(children.len(), 3);
@@ -625,7 +663,11 @@ async fn test_get_children_nonexistent_workspace_returns_empty() {
 
     // Should return Ok with empty vec, not an error
     assert!(result.is_ok());
-    let children = result.expect("children");
+    let children = if let Ok(c) = result {
+        c
+    } else {
+        unreachable!()
+    };
     assert!(children.is_empty());
 }
 
@@ -655,12 +697,22 @@ async fn test_get_children_independent_stacks() {
         .await;
 
     // Check root-a
-    let result_a = repo.get_children("root-a").await.expect("children");
+    let result_a = repo.get_children("root-a").await;
+    let result_a = if let Ok(c) = result_a {
+        c
+    } else {
+        unreachable!()
+    };
     assert_eq!(result_a.len(), 1);
     assert_eq!(result_a[0].workspace, "child-a");
 
     // Check root-b
-    let result_b = repo.get_children("root-b").await.expect("children");
+    let result_b = repo.get_children("root-b").await;
+    let result_b = if let Ok(c) = result_b {
+        c
+    } else {
+        unreachable!()
+    };
     assert_eq!(result_b.len(), 2);
     let workspaces: std::collections::HashSet<&str> =
         result_b.iter().map(|e| e.workspace.as_str()).collect();
@@ -687,9 +739,24 @@ async fn test_get_children_is_deterministic() {
     repo.insert_entry(create_entry(3, "child2", Some("parent")))
         .await;
 
-    let result1 = repo.get_children("parent").await.expect("children");
-    let result2 = repo.get_children("parent").await.expect("children");
-    let result3 = repo.get_children("parent").await.expect("children");
+    let result1 = repo.get_children("parent").await;
+    let result1 = if let Ok(c) = result1 {
+        c
+    } else {
+        unreachable!()
+    };
+    let result2 = repo.get_children("parent").await;
+    let result2 = if let Ok(c) = result2 {
+        c
+    } else {
+        unreachable!()
+    };
+    let result3 = repo.get_children("parent").await;
+    let result3 = if let Ok(c) = result3 {
+        c
+    } else {
+        unreachable!()
+    };
 
     // All results should have same length
     assert_eq!(result1.len(), result2.len());

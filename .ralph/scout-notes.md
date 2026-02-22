@@ -253,3 +253,80 @@ pub fn calculate_stack_depth(
 4. Self-referencing workspace returns cycle error
 5. Cycle in chain returns cycle error
 6. Missing parent returns parent not found error
+
+---
+
+## bd-2ljz: Add get_children method
+
+### Bead Requirements
+- Repository method to find direct children of a workspace
+- Query entries where `parent_workspace == Some(workspace)`
+- Returns `Result<Vec<QueueEntry>>`
+- Empty Vec is valid if no children (not an error)
+- Only returns direct children, not grandchildren
+
+### Existing Patterns to Follow
+
+1. **list() method pattern (queue.rs:716-743):**
+```rust
+pub async fn list(&self, filter_status: Option<QueueStatus>) -> Result<Vec<QueueEntry>> {
+    let sql = match filter_status {
+        Some(_) => "SELECT ... FROM merge_queue WHERE status = ?1 ORDER BY ..."
+        None => "SELECT ... FROM merge_queue ORDER BY ..."
+    };
+    // Build query, bind params, fetch_all
+}
+```
+
+2. **SQL SELECT column list (includes all stack fields):**
+```sql
+SELECT id, workspace, bead_id, priority, status, added_at, started_at,
+       completed_at, error_message, agent_id, dedupe_key, workspace_state,
+       previous_state, state_changed_at, head_sha, tested_against_sha, 
+       attempt_count, max_attempts, rebase_count, last_rebase_at, 
+       parent_workspace, stack_depth, dependents, stack_root, stack_merge_state
+FROM merge_queue WHERE ...
+```
+
+3. **QueueRepository trait pattern:**
+```rust
+// In queue_repository.rs
+async fn list(&self, filter_status: Option<QueueStatus>) -> Result<Vec<QueueEntry>>;
+
+// In queue.rs impl QueueRepository for MergeQueue
+async fn list(&self, filter_status: Option<QueueStatus>) -> Result<Vec<QueueEntry>> {
+    self.list(filter_status).await
+}
+```
+
+### Implementation Plan
+
+1. **Add to QueueRepository trait (queue_repository.rs):**
+```rust
+/// Get direct children of a workspace (entries where parent_workspace matches).
+async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>>;
+```
+
+2. **Add to MergeQueue impl (queue.rs):**
+```rust
+pub async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>> {
+    sqlx::query_as::<_, QueueEntry>(
+        "SELECT id, workspace, ... FROM merge_queue WHERE parent_workspace = ?1"
+    )
+    .bind(workspace)
+    .fetch_all(&self.pool)
+    .await
+    .map_err(|e| Error::DatabaseError(format!("Failed to get children: {e}")))
+}
+```
+
+3. **Add to QueueRepository for MergeQueue impl:**
+```rust
+async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>> {
+    self.get_children(workspace).await
+}
+```
+
+### Files to Modify
+1. `crates/zjj-core/src/coordination/queue_repository.rs` - Add trait method
+2. `crates/zjj-core/src/coordination/queue.rs` - Add impl + delegation
