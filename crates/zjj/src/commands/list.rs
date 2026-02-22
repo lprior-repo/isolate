@@ -24,10 +24,6 @@ use crate::{
     session::{Session, SessionStatus},
 };
 
-fn json_envelope_mode() -> bool {
-    std::env::args().any(|arg| arg == "--json" || arg == "-j")
-}
-
 /// Convert local `SessionStatus` to core `SessionStatus`
 const fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus {
     match status {
@@ -58,7 +54,7 @@ impl std::fmt::Display for BeadCounts {
 pub async fn run(
     all: bool,
     _verbose: bool, // Kept for API compatibility, but not used in JSONL-only mode
-    _format: OutputFormat,
+    format: OutputFormat,
     bead: Option<&str>,
     agent: Option<&str>,
     state: Option<&str>,
@@ -126,7 +122,7 @@ pub async fn run(
         })
         .collect::<Vec<_>>();
 
-    if json_envelope_mode() {
+    if format.is_json() {
         let data = json!({
             "sessions": sessions_json,
             "count": session_count,
