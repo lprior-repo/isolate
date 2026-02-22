@@ -23,7 +23,7 @@ pub use analysis::{
     find_blockers, find_potential_duplicates, find_ready, find_stale, get_dependency_graph,
     get_issue, get_issues_by_id, group_by_status, group_by_type, summarize, to_ids, to_titles,
 };
-pub use db::query_beads;
+pub use db::{delete_bead, ensure_schema, insert_bead, query_beads, update_bead};
 pub use query::{apply_query, filter_issues, paginate, sort_issues};
 pub use types::{
     BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus, IssueType,

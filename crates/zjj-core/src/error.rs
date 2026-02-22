@@ -487,15 +487,23 @@ impl From<crate::beads::BeadsError> for Error {
     fn from(err: crate::beads::BeadsError) -> Self {
         match err {
             crate::beads::BeadsError::DatabaseError(msg)
-            | crate::beads::BeadsError::QueryFailed(msg) => Self::DatabaseError(msg),
+            | crate::beads::BeadsError::QueryFailed(msg)
+            | crate::beads::BeadsError::InsertFailed(msg) => Self::DatabaseError(msg),
             crate::beads::BeadsError::NotFound(msg) => Self::NotFound(msg),
-            crate::beads::BeadsError::InvalidFilter(msg) => Self::ValidationError {
+            crate::beads::BeadsError::InvalidFilter(msg)
+            | crate::beads::BeadsError::ValidationFailed(msg) => Self::ValidationError {
                 message: msg,
                 field: None,
                 value: None,
                 constraints: Vec::new(),
             },
             crate::beads::BeadsError::PathError(msg) => Self::IoError(msg),
+            crate::beads::BeadsError::DuplicateId(msg) => Self::ValidationError {
+                message: format!("Bead with ID '{msg}' already exists"),
+                field: Some("id".to_string()),
+                value: Some(msg),
+                constraints: vec!["unique".to_string()],
+            },
         }
     }
 }

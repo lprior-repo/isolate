@@ -275,11 +275,28 @@ impl BeadRepository {
         // Enable WAL mode for better crash recovery
         enable_wal_mode(&pool).await?;
 
-        sqlx::query("UPDATE issues SET status = ?1, updated_at = datetime('now') WHERE id = ?2")
-            .bind(status.to_string())
-            .bind(id)
-            .execute(&pool)
-            .await?;
+        // Atomically set closed_at when closing, or NULL when reopening
+        // This satisfies the CHECK constraint: status='closed' => closed_at IS NOT NULL
+        match status {
+            BeadStatus::Closed => {
+                sqlx::query(
+                    "UPDATE issues SET status = ?1, updated_at = datetime('now'), closed_at = datetime('now') WHERE id = ?2"
+                )
+                .bind(status.to_string())
+                .bind(id)
+                .execute(&pool)
+                .await?;
+            }
+            _ => {
+                sqlx::query(
+                    "UPDATE issues SET status = ?1, updated_at = datetime('now'), closed_at = NULL WHERE id = ?2"
+                )
+                .bind(status.to_string())
+                .bind(id)
+                .execute(&pool)
+                .await?;
+            }
+        }
 
         Ok(())
     }
@@ -288,12 +305,24 @@ impl BeadRepository {
         let path = self.issues_jsonl_path();
         let content = fs::read_to_string(&path).await?;
 
+        let now = chrono::Utc::now().to_rfc3339();
+
         let (new_content, updated) = content.lines().filter(|l| !l.trim().is_empty()).try_fold(
             (String::new(), false),
             |(mut acc, mut updated), line| {
                 let mut json: serde_json::Value = serde_json::from_str(line)?;
                 if json.get("id").and_then(|v| v.as_str()) == Some(id) {
                     json["status"] = serde_json::json!(status.to_string());
+                    json["updated_at"] = serde_json::json!(now.clone());
+                    // Atomically set/unset closed_at to match status
+                    match status {
+                        BeadStatus::Closed => {
+                            json["closed_at"] = serde_json::json!(now.clone());
+                        }
+                        _ => {
+                            json["closed_at"] = serde_json::Value::Null;
+                        }
+                    }
                     updated = true;
                 }
                 acc.push_str(&json.to_string());

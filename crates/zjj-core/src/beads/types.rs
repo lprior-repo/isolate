@@ -24,6 +24,15 @@ pub enum BeadsError {
 
     #[error("Path error: {0}")]
     PathError(String),
+
+    #[error("Insert failed: {0}")]
+    InsertFailed(String),
+
+    #[error("Validation failed: {0}")]
+    ValidationFailed(String),
+
+    #[error("Duplicate ID: {0}")]
+    DuplicateId(String),
 }
 
 /// Status of an issue in the beads tracker.
