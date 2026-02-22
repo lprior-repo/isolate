@@ -32,7 +32,7 @@
 //! - This differs from default behavior which fails with exit code 2 (not found)
 
 mod common;
-use common::{parse_json_output, payload, TestHarness};
+use common::TestHarness;
 use serde_json::Value as JsonValue;
 
 // ============================================================================
@@ -104,16 +104,23 @@ fn test_remove_idempotent_removes_session_when_exists() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let json: JsonValue =
-        parse_json_output(&list_result.stdout).expect("List should be valid JSON");
-    let data = payload(&json);
-    let sessions = data["sessions"].as_array().or_else(|| data.as_array());
-    let sessions = sessions.expect("Should have sessions");
+    // Parse JSONL output - each line is a separate JSON object
+    let lines: Vec<JsonValue> = list_result
+        .stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| serde_json::from_str(l))
+        .collect::<Result<Vec<_>, _>>()
+        .expect("List should be valid JSONL");
 
-    assert!(
-        !sessions.iter().any(|s| s["name"] == "old-session"),
-        "Session should be removed"
-    );
+    // Check that no session line has the removed session name
+    let has_old_session = lines.iter().any(|line| {
+        line.get("session")
+            .and_then(|s| s.get("name"))
+            .and_then(|n| n.as_str())
+            .is_some_and(|name| name == "old-session")
+    });
+    assert!(!has_old_session, "Session should be removed");
 }
 
 #[test]
