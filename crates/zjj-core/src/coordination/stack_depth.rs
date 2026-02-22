@@ -3,7 +3,7 @@
 //! Pure functions for calculating stack depth from parent chains.
 //! These functions have no side effects and are fully deterministic.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use super::{queue_entities::QueueEntry, stack_error::StackError};
 
@@ -297,6 +297,70 @@ fn build_cycle_path(start: &str, entries: &[QueueEntry]) -> Vec<String> {
     }
 
     path
+}
+
+/// Build a list of all dependent workspaces (descendants) of a given workspace.
+///
+/// This function performs a breadth-first search to find all workspaces that
+/// have the given workspace as an ancestor (direct or indirect children).
+///
+/// # Arguments
+///
+/// * `workspace` - The name of the workspace to find dependents for
+/// * `entries` - A slice of queue entries to search for parent relationships
+///
+/// # Returns
+///
+/// A `Vec<String>` containing all descendant workspace names in breadth-first order.
+/// Returns an empty `Vec` if:
+/// - The workspace has no children
+/// - The workspace doesn't exist in the entries slice
+/// - The entries slice is empty
+///
+/// # Example
+///
+/// ```ignore
+/// use zjj_core::coordination::stack_depth::build_dependent_list;
+///
+/// let entries = vec![
+///     create_entry("root", None),
+///     create_entry("child1", Some("root")),
+///     create_entry("child2", Some("root")),
+///     create_entry("grandchild", Some("child1")),
+/// ];
+///
+/// let dependents = build_dependent_list("root", &entries);
+/// // Returns ["child1", "child2", "grandchild"] in BFS order
+/// assert!(dependents.contains(&"child1".to_string()));
+/// assert!(dependents.contains(&"child2".to_string()));
+/// assert!(dependents.contains(&"grandchild".to_string()));
+/// ```
+#[must_use]
+pub fn build_dependent_list(workspace: &str, entries: &[QueueEntry]) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut queue = VecDeque::new();
+    let mut visited = HashSet::new();
+
+    queue.push_back(workspace.to_string());
+    visited.insert(workspace.to_string());
+
+    while let Some(current) = queue.pop_front() {
+        let children: Vec<_> = entries
+            .iter()
+            .filter(|e| e.parent_workspace.as_ref().is_some_and(|p| p == &current))
+            .map(|e| e.workspace.clone())
+            .collect();
+
+        for child in children {
+            if !visited.contains(&child) {
+                visited.insert(child.clone());
+                result.push(child.clone());
+                queue.push_back(child);
+            }
+        }
+    }
+
+    result
 }
 
 #[cfg(test)]

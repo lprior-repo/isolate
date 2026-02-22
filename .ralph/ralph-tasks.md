@@ -12,7 +12,7 @@ Add your tasks below using: `ralph --add-task "description"`
 - [x] bd-1idz: Add calculate_stack_depth function
 - [x] bd-mmtr: Add find_stack_root function
 - [x] bd-35xk: Add validate_no_cycle function
-- [ ] bd-i6lp: Add build_dependent_list function
+- [x] bd-i6lp: Add build_dependent_list function
 - [ ] bd-2ljz: Add get_children method
 - [ ] bd-38iz: Add get_stack_root method
 - [ ] bd-32u3: Add find_blocked method
