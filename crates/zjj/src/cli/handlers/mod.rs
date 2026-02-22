@@ -23,6 +23,7 @@ use zjj_core::{json::schemas, SchemaEnvelope};
 
 use crate::{cli::build_cli, command_context, hooks, json};
 
+pub mod ai;
 pub mod backup;
 pub mod batch;
 pub mod bookmark;
@@ -209,9 +210,9 @@ pub async fn run_cli() -> Result<()> {
             Some(("whereami", sub_m)) => handle_whereami(sub_m).await,
             Some(("whoami", sub_m)) => handle_whoami(sub_m),
             Some(("work", sub_m)) => handle_work(sub_m).await,
-            Some(("abort", sub_m)) => handle_abort(sub_m).await,
-            Some(("ai", sub_m)) => handle_ai(sub_m).await,
-            Some(("help", sub_m)) => handle_help(sub_m),
+                        Some(("abort", sub_m)) => handle_abort(sub_m).await,
+                        Some(("ai", sub_m)) => handle_ai(sub_m).await,
+                        Some(("help", sub_m)) => handle_help(sub_m),
             Some(("can-i", sub_m)) => handle_can_i(sub_m).await,
             Some(("contract", sub_m)) => handle_contract(sub_m),
             Some(("examples", sub_m)) => handle_examples(sub_m),

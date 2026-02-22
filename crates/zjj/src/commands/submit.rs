@@ -78,6 +78,8 @@ pub struct SubmitOptions {
     pub auto_commit: bool,
     /// Custom commit message
     pub message: Option<String>,
+    /// Parent workspace for stacked PRs
+    pub parent: Option<String>,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -769,12 +771,14 @@ mod tests {
             dry_run: false,
             auto_commit: false,
             message: None,
+            parent: None,
         };
 
         assert!(options.format.is_json());
         assert!(!options.dry_run);
         assert!(!options.auto_commit);
         assert!(options.message.is_none());
+        assert!(options.parent.is_none());
     }
 
     #[test]
@@ -1058,6 +1062,7 @@ mod tests {
             dry_run: false,
             auto_commit: true,
             message: Some("custom message".to_string()),
+            parent: None,
         };
 
         assert!(options_with_commit.auto_commit);
@@ -1071,6 +1076,7 @@ mod tests {
             dry_run: false,
             auto_commit: false,
             message: None,
+            parent: None,
         };
 
         assert!(!options_without_commit.auto_commit);

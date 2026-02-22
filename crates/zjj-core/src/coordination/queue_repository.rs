@@ -238,6 +238,43 @@ pub trait QueueRepository: Send + Sync {
     /// Returns an empty Vec if no children exist (not an error).
     async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>>;
 
+    /// Get the root workspace of a stack.
+    ///
+    /// Returns the entry that is the root of the stack containing the given workspace.
+    async fn get_stack_root(&self, workspace: &str) -> Result<Option<QueueEntry>>;
+
+    /// Update the dependents list for a workspace.
+    ///
+    /// The dependents column stores a JSON array of workspace names that
+    /// have this workspace as an ancestor in the stack.
+    async fn update_dependents(&self, workspace: &str, dependents: &[String]) -> Result<()>;
+
+    /// Transition the stack merge state for a workspace.
+    async fn transition_stack_state(
+        &self,
+        workspace: &str,
+        new_state: super::queue_status::StackMergeState,
+    ) -> Result<()>;
+
+    /// Find all entries that are blocked in the stack.
+    ///
+    /// Returns entries where `stack_merge_state = 'blocked'`.
+    async fn find_blocked(&self) -> Result<Vec<QueueEntry>>;
+
+    /// Cascade unblock all dependent children when a parent workspace merges.
+    ///
+    /// When a parent workspace completes its merge, this method transitions
+    /// all blocked children (entries where `parent_workspace = merged_workspace`
+    /// and `stack_merge_state = 'blocked'`) to `Ready` state.
+    ///
+    /// # Arguments
+    /// * `merged_workspace` - The name of the workspace that just completed merge
+    ///
+    /// # Returns
+    /// - `Ok(usize)` - The count of entries that were unblocked
+    /// - `Err` - If a database error occurs
+    async fn cascade_unblock(&self, merged_workspace: &str) -> Result<usize>;
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // AUTOMATIC SELF-HEALING (bd-2i5)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

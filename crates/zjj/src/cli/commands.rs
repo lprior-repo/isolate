@@ -4,6 +4,21 @@ use clap::{Arg, ArgGroup, Command as ClapCommand};
 
 use crate::cli::json_docs;
 
+pub fn cmd_ai() -> ClapCommand {
+    ClapCommand::new("ai")
+        .about("AI-first commands for streamlined workflows")
+        .subcommand_required(true)
+        .subcommand(
+            ClapCommand::new("work")
+                .about("Start work on a task in an isolated environment")
+                .arg(
+                    Arg::new("task_id")
+                        .required(false)
+                        .help("The identifier for the task"),
+                ),
+        )
+}
+
 pub fn after_help_text(examples: &[&str], json_output: Option<&'static str>) -> String {
     let mut text = String::from("EXAMPLES:\n");
     for example in examples {
@@ -832,6 +847,13 @@ pub fn cmd_submit() -> ClapCommand {
                 .short('m')
                 .value_name("MESSAGE")
                 .help("Custom commit message"),
+        )
+        .arg(
+            Arg::new("parent")
+                .long("parent")
+                .short('p')
+                .value_name("WORKSPACE")
+                .help("Parent workspace for stacked PRs"),
         )
 }
 
@@ -2189,113 +2211,6 @@ pub fn cmd_work() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show workflow patterns and best practices"),
         )
-}
-
-pub fn cmd_ai() -> ClapCommand {
-    ClapCommand::new("ai")
-        .about("AI-first entry point - start here for AI agents")
-        .long_about(
-            "ZJJ AI Agent Interface
-
-
-            This is the 'start here' command for AI agents.
-
-            Provides status, workflows, and guidance for AI-driven work.",
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .global(true)
-                .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .global(true)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .global(true)
-                .help("AI: Show execution hints and common patterns"),
-        )
-        .subcommand(
-            ClapCommand::new("status")
-                .about("AI-optimized status with guided next action")
-                .long_about(
-                    "Shows current state and suggests the next command.
-
-
-                    Use this to orient yourself before starting work.",
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("workflow")
-                .about("Show the 7-step parallel agent workflow")
-                .long_about(
-                    "Displays the recommended workflow for AI agents:
-
-
-                    1. Orient (whereami)
-
-                    2. Register (agent register)
-
-                    3. Isolate (work <name>)
-
-                    4. Enter (cd to workspace)
-
-                    5. Implement (do work)
-
-                    6. Heartbeat (signal liveness)
-
-                    7. Complete (done)",
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("quick-start")
-                .about("Minimum commands to be productive")
-                .long_about(
-                    "Shows the essential commands for quick productivity:
-
-
-                    - whereami: Check location
-
-                    - work: Start working
-
-                    - done: Finish work",
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("next")
-                .about("Get single next action with copy-paste command")
-                .long_about(
-                    "Returns the single most important next action.
-
-
-                    Output includes:
-
-                    - action: What to do
-
-                    - command: Copy-paste ready command
-
-                    - reason: Why this is the next step
-
-                    - priority: high, medium, or low",
-                ),
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj ai status                   Show AI-optimized status",
-                "zjj ai workflow                 Display 7-step agent workflow",
-                "zjj ai quick-start              Show essential commands",
-                "zjj ai next                     Get next action with command",
-            ],
-            None,
-        ))
 }
 
 pub fn cmd_can_i() -> ClapCommand {

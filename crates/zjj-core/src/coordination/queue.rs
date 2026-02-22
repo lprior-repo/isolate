@@ -16,7 +16,7 @@ use tokio::time::sleep;
 pub use super::queue_entities::{ProcessingLock, QueueEntry, QueueEvent};
 use super::queue_repository::QueueRepository;
 // Re-export domain types from queue_status.rs for backward compatibility
-pub use super::queue_status::{QueueEventType, QueueStatus, TransitionError, WorkspaceQueueState};
+pub use super::queue_status::{QueueEventType, QueueStatus, StackMergeState, TransitionError, WorkspaceQueueState};
 use crate::{Error, Result};
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -760,6 +760,50 @@ impl MergeQueue {
         .map_err(|e| Error::DatabaseError(format!("Failed to get children: {e}")))
     }
 
+    /// Get the root workspace of a stack.
+    ///
+    /// Returns the entry that is the root of the stack containing the given workspace.
+    /// The root is the entry where `workspace == stack_root` and has no parent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the workspace is not found or if the database query fails.
+    pub async fn get_stack_root(&self, workspace: &str) -> Result<Option<QueueEntry>> {
+        // First get the entry to find its stack_root
+        let entry = sqlx::query_as::<_, QueueEntry>(
+            "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
+             completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+             previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue \
+             WHERE workspace = ?1",
+        )
+        .bind(workspace)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to get entry for stack root lookup: {e}")))?;
+
+        match entry {
+            None => Ok(None),
+            Some(e) => {
+                // If stack_root is set, fetch that entry; otherwise this is the root
+                match &e.stack_root {
+                    Some(root_name) => {
+                        sqlx::query_as::<_, QueueEntry>(
+                            "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
+                             completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                             previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue \
+                             WHERE workspace = ?1",
+                        )
+                        .bind(root_name)
+                        .fetch_optional(&self.pool)
+                        .await
+                        .map_err(|e| Error::DatabaseError(format!("Failed to get stack root: {e}")))
+                    }
+                    None => Ok(Some(e)),
+                }
+            }
+        }
+    }
+
     pub async fn next(&self) -> Result<Option<QueueEntry>> {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
@@ -770,6 +814,80 @@ impl MergeQueue {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to get next entry: {e}")))
+    }
+
+    /// Update the dependents list for a workspace.
+    ///
+    /// The dependents column stores a JSON array of workspace names that
+    /// have this workspace as an ancestor in the stack.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the workspace is not found or if the database update fails.
+    pub async fn update_dependents(&self, workspace: &str, dependents: &[String]) -> Result<()> {
+        let dependents_json = if dependents.is_empty() {
+            None
+        } else {
+            serde_json::to_string(dependents)
+                .map(Some)
+                .map_err(|e| Error::DatabaseError(format!("Failed to serialize dependents: {e}")))?
+        };
+
+        sqlx::query(
+            "UPDATE merge_queue SET dependents = ?1 WHERE workspace = ?2",
+        )
+        .bind(&dependents_json)
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to update dependents: {e}")))?;
+
+        Ok(())
+    }
+
+    /// Transition the stack merge state for a workspace.
+    ///
+    /// Updates the `stack_merge_state` column to track the stack merge progress.
+    /// Valid transitions:
+    /// - Independent → Blocked (when a parent is set)
+    /// - Blocked → Ready (when parent merges)
+    /// - Ready → Merged (after successful merge)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the workspace is not found or if the database update fails.
+    pub async fn transition_stack_state(
+        &self,
+        workspace: &str,
+        new_state: StackMergeState,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE merge_queue SET stack_merge_state = ?1 WHERE workspace = ?2",
+        )
+        .bind(new_state.as_str())
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to transition stack state: {e}")))?;
+
+        Ok(())
+    }
+
+    /// Find all entries that are blocked in the stack.
+    ///
+    /// Returns entries where `stack_merge_state = 'blocked'`.
+    /// These entries have a parent that hasn't merged yet.
+    pub async fn find_blocked(&self) -> Result<Vec<QueueEntry>> {
+        sqlx::query_as::<_, QueueEntry>(
+            "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
+             completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+             previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue \
+             WHERE stack_merge_state = 'blocked' \
+             ORDER BY stack_depth ASC, priority ASC, added_at ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to find blocked entries: {e}")))
     }
 
     pub async fn remove(&self, workspace: &str) -> Result<bool> {
@@ -2079,6 +2197,94 @@ impl MergeQueue {
         self.transition_to_failed(workspace, error_message, is_retryable)
             .await
     }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CASCADE UNBLOCK OPERATIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Unblock all dependent (child) workspaces when a parent completes merge.
+    ///
+    /// When a parent workspace merges, this method finds all entries that were
+    /// blocked on that parent and transitions them to `Ready` state so they
+    /// can proceed through the merge queue.
+    ///
+    /// # Arguments
+    /// * `merged_workspace` - The name of the workspace that just completed merge
+    ///
+    /// # Returns
+    /// - `Ok(usize)` - The count of entries that were unblocked
+    /// - `Err` - If a database error occurs during the operation
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // After parent merges, unblock children
+    /// let unblocked_count = queue.cascade_unblock("parent-workspace").await?;
+    /// println!("Unblocked {unblocked_count} dependent workspaces");
+    /// ```
+    pub async fn cascade_unblock(&self, merged_workspace: &str) -> Result<usize> {
+        let now = Self::now();
+
+        // Update all entries where:
+        // - parent_workspace = merged_workspace (direct children of the merged parent)
+        // - stack_merge_state = 'blocked' (currently blocked waiting for parent)
+        // Transition them to 'ready' state
+        let result = sqlx::query(
+            "UPDATE merge_queue \
+             SET stack_merge_state = 'ready', state_changed_at = ?1 \
+             WHERE parent_workspace = ?2 \
+             AND stack_merge_state = 'blocked'",
+        )
+        .bind(now)
+        .bind(merged_workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!(
+                "Failed to cascade unblock for parent '{merged_workspace}': {e}"
+            ))
+        })?;
+
+        let unblocked_count = result
+            .rows_affected()
+            .try_into()
+            .unwrap_or(0usize);
+
+        // Emit cascade events for each unblocked entry for audit trail
+        if unblocked_count > 0 {
+            // Fetch the unblocked entries to emit events
+            let unblocked_entries = sqlx::query_as::<_, QueueEntry>(
+                "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
+                 completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts, rebase_count, last_rebase_at, parent_workspace, stack_depth, dependents, stack_root, stack_merge_state FROM merge_queue \
+                 WHERE parent_workspace = ?1 \
+                 AND stack_merge_state = 'ready' \
+                 AND state_changed_at = ?2",
+            )
+            .bind(merged_workspace)
+            .bind(now)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to fetch unblocked entries for audit: {e}"))
+            })?;
+
+            for entry in unblocked_entries {
+                let event_details = format!(
+                    r#"{{"from": "blocked", "to": "ready", "reason": "cascade_unblock", "merged_parent": "{merged_workspace}"}}"#
+                );
+                if let Err(e) = self
+                    .append_typed_event(entry.id, QueueEventType::Transitioned, Some(&event_details))
+                    .await
+                {
+                    // Log but don't fail - the unblock succeeded, audit is secondary
+                    eprintln!("Warning: Failed to emit cascade unblock event for {}: {e}", entry.workspace);
+                }
+            }
+        }
+
+        Ok(unblocked_count)
+    }
 }
 
 #[async_trait]
@@ -2298,6 +2504,30 @@ impl QueueRepository for MergeQueue {
 
     async fn get_children(&self, workspace: &str) -> Result<Vec<QueueEntry>> {
         self.get_children(workspace).await
+    }
+
+    async fn get_stack_root(&self, workspace: &str) -> Result<Option<QueueEntry>> {
+        self.get_stack_root(workspace).await
+    }
+
+    async fn update_dependents(&self, workspace: &str, dependents: &[String]) -> Result<()> {
+        self.update_dependents(workspace, dependents).await
+    }
+
+    async fn transition_stack_state(
+        &self,
+        workspace: &str,
+        new_state: StackMergeState,
+    ) -> Result<()> {
+        self.transition_stack_state(workspace, new_state).await
+    }
+
+    async fn find_blocked(&self) -> Result<Vec<QueueEntry>> {
+        self.find_blocked().await
+    }
+
+    async fn cascade_unblock(&self, merged_workspace: &str) -> Result<usize> {
+        self.cascade_unblock(merged_workspace).await
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

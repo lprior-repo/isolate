@@ -286,6 +286,30 @@ impl QueueRepository for InMemoryQueueRepository {
             .collect();
         Ok(children)
     }
+
+    async fn get_stack_root(&self, _workspace: &str) -> Result<Option<QueueEntry>> {
+        unimplemented!("not needed for get_children tests")
+    }
+
+    async fn update_dependents(&self, _workspace: &str, _dependents: &[String]) -> Result<()> {
+        unimplemented!("not needed for get_children tests")
+    }
+
+    async fn transition_stack_state(
+        &self,
+        _workspace: &str,
+        _new_state: StackMergeState,
+    ) -> Result<()> {
+        unimplemented!("not needed for get_children tests")
+    }
+
+    async fn find_blocked(&self) -> Result<Vec<QueueEntry>> {
+        unimplemented!("not needed for get_children tests")
+    }
+
+    async fn cascade_unblock(&self, _merged_workspace: &str) -> Result<usize> {
+        unimplemented!("not needed for get_children tests")
+    }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
