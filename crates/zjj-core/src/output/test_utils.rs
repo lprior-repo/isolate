@@ -55,10 +55,7 @@ impl OutputEmitter for StdoutEmitter {
 /// # Example
 ///
 /// ```
-/// use zjj_core::output::{
-///     test_utils::{OutputEmitter, VecEmitter},
-///     OutputLine, Summary, SummaryType,
-/// };
+/// use zjj_core::output::{OutputEmitter, VecEmitter, OutputLine, Summary, SummaryType};
 ///
 /// let emitter = VecEmitter::new();
 /// let summary = Summary::new(SummaryType::Info, "test".to_string()).unwrap();
