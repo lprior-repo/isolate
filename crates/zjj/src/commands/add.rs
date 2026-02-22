@@ -12,6 +12,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use serde_json::json;
 use zjj_core::{
     config,
     output::{
@@ -51,12 +52,49 @@ const fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus
     }
 }
 
+fn json_envelope_mode() -> bool {
+    std::env::args().any(|arg| arg == "--json" || arg == "-j")
+}
+
+fn emit_add_json_envelope(
+    name: &str,
+    workspace_path: &str,
+    zellij_tab: &str,
+    status: &str,
+    created: bool,
+    success: bool,
+) -> Result<()> {
+    let data = json!({
+        "name": name,
+        "workspace_path": workspace_path,
+        "zellij_tab": zellij_tab,
+        "status": status,
+        "created": created,
+    });
+
+    let output = json!({
+        "$schema": "zjj://add-response/v1",
+        "_schema_version": "1.0",
+        "schema_type": "single",
+        "success": success,
+        "schema": "add-response",
+        "type": "single",
+        "data": data,
+    });
+
+    println!("{}", serde_json::to_string(&output)?);
+    Ok(())
+}
+
 // ============================================================================
 // JSONL OUTPUT HELPERS
 // ============================================================================
 
 /// Emit an action line to stdout
 fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
+    if json_envelope_mode() {
+        return Ok(());
+    }
     let action = Action::new(verb.to_string(), target.to_string(), status);
     emit_stdout(&OutputLine::Action(action)).map_err(|e| anyhow::anyhow!("{e}"))
 }
@@ -68,6 +106,9 @@ fn emit_action_with_result(
     status: ActionStatus,
     result: &str,
 ) -> Result<()> {
+    if json_envelope_mode() {
+        return Ok(());
+    }
     let action =
         Action::new(verb.to_string(), target.to_string(), status).with_result(result.to_string());
     emit_stdout(&OutputLine::Action(action)).map_err(|e| anyhow::anyhow!("{e}"))
@@ -75,6 +116,9 @@ fn emit_action_with_result(
 
 /// Emit a session output line
 fn emit_session_output(session: &crate::session::Session) -> Result<()> {
+    if json_envelope_mode() {
+        return Ok(());
+    }
     let workspace_path: PathBuf = session.workspace_path.clone().into();
 
     let session_output = SessionOutput::new(
@@ -103,6 +147,9 @@ fn emit_issue(
     session: Option<&str>,
     suggestion: Option<&str>,
 ) -> Result<()> {
+    if json_envelope_mode() {
+        return Ok(());
+    }
     let mut issue =
         Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
 
@@ -118,6 +165,9 @@ fn emit_issue(
 
 /// Emit a result output line (success)
 fn emit_result_success(message: &str) -> Result<()> {
+    if json_envelope_mode() {
+        return Ok(());
+    }
     let result = ResultOutput::success(ResultKind::Command, message.to_string())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
@@ -125,6 +175,9 @@ fn emit_result_success(message: &str) -> Result<()> {
 
 /// Emit a result output line (failure)
 fn emit_result_failure(message: &str) -> Result<()> {
+    if json_envelope_mode() {
+        return Ok(());
+    }
     let result = ResultOutput::failure(ResultKind::Command, message.to_string())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
@@ -170,6 +223,15 @@ fn output_result(
     format: OutputFormat,
     session: Option<&crate::session::Session>,
 ) -> Result<()> {
+    if json_envelope_mode() {
+        let status = if created {
+            "active".to_string()
+        } else {
+            format!("Session '{name}' already exists ({mode})")
+        };
+        return emit_add_json_envelope(name, workspace_path, _zellij_tab, &status, created, true);
+    }
+
     if format.is_json() {
         // Emit action for the creation/retrieval
         let action_verb = if created { "create" } else { "retrieve" };
@@ -410,15 +472,26 @@ async fn handle_existing_session(
 
     // Session already exists and idempotent mode is not enabled
     if options.format.is_json() {
-        emit_issue(
-            "ADD-001",
-            format!("Session '{}' already exists", options.name),
-            IssueKind::Validation,
-            IssueSeverity::Error,
-            Some(&options.name),
-            Some("Use --idempotent to reuse existing session, or choose a different name"),
-        )?;
-        emit_result_failure(&format!("Session '{}' already exists", options.name))?;
+        if json_envelope_mode() {
+            emit_add_json_envelope(
+                &options.name,
+                &existing.workspace_path,
+                &existing.zellij_tab,
+                &format!("Session '{}' already exists", options.name),
+                false,
+                false,
+            )?;
+        } else {
+            emit_issue(
+                "ADD-001",
+                format!("Session '{}' already exists", options.name),
+                IssueKind::Validation,
+                IssueSeverity::Error,
+                Some(&options.name),
+                Some("Use --idempotent to reuse existing session, or choose a different name"),
+            )?;
+            emit_result_failure(&format!("Session '{}' already exists", options.name))?;
+        }
     }
 
     let error = zjj_core::Error::ValidationError {
@@ -438,6 +511,17 @@ fn handle_existing_session_dry_run(
     options: &AddOptions,
     existing: &crate::session::Session,
 ) -> Result<()> {
+    if json_envelope_mode() {
+        return emit_add_json_envelope(
+            &options.name,
+            &existing.workspace_path,
+            &existing.zellij_tab,
+            "[DRY RUN] Session already exists (idempotent)",
+            false,
+            true,
+        );
+    }
+
     if options.format.is_json() {
         emit_action_with_result(
             "dry-run",
@@ -464,6 +548,17 @@ fn handle_existing_session_dry_run(
 /// Handle dry run output for a new session
 fn handle_new_session_dry_run(options: &AddOptions, workspace_path_str: &str) -> Result<()> {
     let zellij_tab = format!("zjj:{name}", name = options.name);
+
+    if json_envelope_mode() {
+        return emit_add_json_envelope(
+            &options.name,
+            workspace_path_str,
+            &zellij_tab,
+            "[DRY RUN] Would create session",
+            true,
+            true,
+        );
+    }
 
     if options.format.is_json() {
         emit_action_with_result(
