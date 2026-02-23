@@ -10,6 +10,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 |----------|---------|-----------|
 | **[00_START_HERE.md](00_START_HERE.md)** | 5-minute crash course + navigation | 5 min |
 | **[AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md)** | Complete AI agent reference (rules, workflow, completion) | 20 min |
+| **[MIGRATION.md](MIGRATION.md)** | CLI migration guide (old to new commands) | 10 min |
 
 ---
 
@@ -202,6 +203,18 @@ zjj focus <name>         # Switch to session's tab
 zjj done                 # Complete and merge work
 zjj remove <name>        # Clean up session
 zjj list                 # List all sessions
+```
+
+### ZJJ Object Commands (New)
+```bash
+zjj session add <name>   # Create session (replaces 'zjj add')
+zjj session list         # List sessions (replaces 'zjj list')
+zjj session sync [name]  # Sync workspace (replaces 'zjj sync')
+zjj session done         # Complete work (replaces 'zjj done')
+zjj task claim <id>      # Claim task (replaces 'zjj claim')
+zjj task yield <id>      # Release task (replaces 'zjj yield')
+zjj queue list           # List merge queue
+zjj doctor check         # System health check
 ```
 
 ### Codanna (Code Search)
