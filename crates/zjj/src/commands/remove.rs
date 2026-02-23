@@ -11,9 +11,10 @@ pub mod atomic;
 
 use anyhow::Result;
 use zjj_core::{
+    domain::SessionName,
     output::{
-        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
-        ResultOutput,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
+        IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput,
     },
     OutputFormat,
 };
@@ -30,7 +31,7 @@ use crate::{
 #[derive(Debug, Clone, Default)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct RemoveOptions {
-    /// Skip pre_remove hooks (non-interactive - no confirmation prompts)
+    /// Skip `pre_remove` hooks (non-interactive - no confirmation prompts)
     pub force: bool,
     /// Squash-merge to main before removal
     pub merge: bool,
@@ -54,7 +55,11 @@ pub async fn run(name: &str) -> Result<()> {
 
 /// Emit an action line to stdout
 fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
-    let action = Action::new(verb.to_string(), target.to_string(), status);
+    let action = Action::new(
+        ActionVerb::new(verb).map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+        ActionTarget::new(target).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+        status,
+    );
     emit_stdout(&OutputLine::Action(action))?;
     Ok(())
 }
@@ -62,9 +67,15 @@ fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
 /// Emit a result line to stdout
 fn emit_result(success: bool, message: String) -> Result<()> {
     let result = if success {
-        ResultOutput::success(ResultKind::Command, message)
+        ResultOutput::success(
+            ResultKind::Command,
+            Message::new(message).map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
     } else {
-        ResultOutput::failure(ResultKind::Command, message)
+        ResultOutput::failure(
+            ResultKind::Command,
+            Message::new(message).map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
     }
     .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result))?;
@@ -80,11 +91,18 @@ fn emit_issue(
     session: Option<&str>,
     suggestion: Option<&str>,
 ) -> Result<()> {
-    let mut issue =
-        Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let mut issue = Issue::new(
+        IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
+        IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
+        kind,
+        severity,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if let Some(s) = session {
-        issue = issue.with_session(s.to_string());
+        issue = issue.with_session(
+            SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?,
+        );
     }
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());
@@ -94,13 +112,13 @@ fn emit_issue(
     Ok(())
 }
 
-/// Map RemoveError to appropriate IssueKind
+/// Map `RemoveError` to appropriate `IssueKind`
 const fn remove_error_to_issue_kind(error: &RemoveError) -> IssueKind {
     match error {
         RemoveError::WorkspaceInaccessible { .. } => IssueKind::ResourceNotFound,
-        RemoveError::WorkspaceRemovalFailed { .. } => IssueKind::External,
+        RemoveError::WorkspaceRemovalFailed { .. }
+        | RemoveError::ZellijTabCloseFailed { .. } => IssueKind::External,
         RemoveError::DatabaseDeletionFailed { .. } => IssueKind::Configuration,
-        RemoveError::ZellijTabCloseFailed { .. } => IssueKind::External,
     }
 }
 
@@ -128,7 +146,8 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             )?;
             let result = ResultOutput::failure(
                 ResultKind::Command,
-                format!("Session '{name}' not found"),
+                Message::new(format!("Session '{name}' not found"))
+                    .map_err(|e| anyhow::anyhow!("{e}"))?,
             )
             .map_err(|e| anyhow::anyhow!("{e}"))?;
             emit_stdout(&OutputLine::Result(result))?;
@@ -352,8 +371,8 @@ mod tests {
     #[tokio::test]
     async fn test_emit_action_produces_valid_jsonl() -> Result<()> {
         let action = Action::new(
-            "remove".to_string(),
-            "test-session".to_string(),
+            ActionVerb::new("remove")?,
+            ActionTarget::new("test-session")?,
             ActionStatus::Completed,
         );
 
@@ -388,7 +407,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_emit_result_produces_valid_jsonl() -> Result<()> {
-        let result = ResultOutput::success(ResultKind::Command, "Removed session".to_string())
+        let result = ResultOutput::success(ResultKind::Command, Message::new("Removed session")?)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
         let output_line = OutputLine::Result(result);
@@ -405,17 +424,17 @@ mod tests {
             .and_then(|v| v.as_object())
             .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
         assert!(
-            result_obj.get("success").is_some(),
-            "Result must have 'success' field"
+            result_obj.get("outcome").is_some(),
+            "Result must have 'outcome' field"
         );
         assert!(
             result_obj.get("message").is_some(),
             "Result must have 'message' field"
         );
         assert_eq!(
-            result_obj.get("success").and_then(|v| v.as_bool()),
-            Some(true),
-            "Success result should have success=true"
+            result_obj.get("outcome").and_then(|v| v.as_str()),
+            Some("success"),
+            "Success result should have outcome=success"
         );
 
         Ok(())
@@ -424,13 +443,13 @@ mod tests {
     #[tokio::test]
     async fn test_emit_issue_produces_valid_jsonl() -> Result<()> {
         let issue = Issue::new(
-            "REMOVE-001".to_string(),
-            "Session not found".to_string(),
+            IssueId::new("REMOVE-001")?,
+            IssueTitle::new("Session not found")?,
             IssueKind::ResourceNotFound,
             IssueSeverity::Error,
         )
         .map_err(|e| anyhow::anyhow!("{e}"))?
-        .with_session("test-session".to_string());
+        .with_session(SessionName::parse("test-session")?);
 
         let output_line = OutputLine::Issue(issue);
         let json_str = serde_json::to_string(&output_line)?;

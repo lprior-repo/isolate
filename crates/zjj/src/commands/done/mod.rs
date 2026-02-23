@@ -660,7 +660,7 @@ async fn get_bead_id_for_workspace(
     use newtypes::WorkspaceName;
 
     let workspace =
-        WorkspaceName::new(workspace_name.to_string()).map_err(|e| DoneError::InvalidState {
+        WorkspaceName::parse(workspace_name).map_err(|e| DoneError::InvalidState {
             reason: e.to_string(),
         })?;
 
@@ -682,7 +682,7 @@ async fn update_bead_status(
     use newtypes::BeadId;
 
     let bead_id_newtype =
-        BeadId::new(bead_id.to_string()).map_err(|e| DoneError::BeadUpdateFailed {
+        BeadId::parse(bead_id).map_err(|e| DoneError::BeadUpdateFailed {
             reason: e.to_string(),
         })?;
 

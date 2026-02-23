@@ -508,7 +508,8 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
         .iter()
         .filter(|s| s.status == SessionStatus::Completed)
         .for_each(|session| {
-            let age = (chrono::Utc::now() - session.updated_at).num_days();
+            let duration = chrono::Utc::now() - session.updated_at;
+            let age = duration.num_days();
             if age > 1 {
                 hints.push(
                     Hint::suggestion(format!(
@@ -567,6 +568,12 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
 }
 
 /// Generate hints for a specific error
+///
+/// # Returns
+///
+/// Returns a vector of hints for the given error. The result should be used
+/// as this performs error analysis and generates contextual help.
+#[must_use]
 pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
     match error_code {
         "SESSION_ALREADY_EXISTS" => {
@@ -624,6 +631,12 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
 }
 
 /// Generate suggested next actions based on state
+///
+/// # Returns
+///
+/// Returns a vector of suggested actions. The result should be used
+/// as this performs state analysis and generates recommendations.
+#[must_use]
 pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     let mut actions = Vec::new();
 
@@ -737,6 +750,12 @@ fn extract_session_name(error_msg: &str) -> Option<&str> {
 }
 
 /// Generate hints for beads status
+///
+/// # Returns
+///
+/// Returns a vector of hints. The result should be used
+/// as this performs analysis and generates contextual help.
+#[must_use]
 pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
     let mut hints = Vec::new();
 
@@ -783,26 +802,30 @@ pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use chrono::Utc;
 
     use super::*;
-    use crate::{types::SessionName, WorkspaceState};
+    use crate::{
+        domain::{AbsolutePath, SessionId},
+        domain::session::{BranchState, ParentState},
+        output::ValidatedMetadata,
+        types::SessionName,
+        WorkspaceState,
+    };
 
     fn create_test_session(name: &str, status: SessionStatus) -> Session {
         Session {
-            id: format!("id-{name}"),
+            id: SessionId::parse(format!("id-{name}")).expect("valid id in test"),
             name: SessionName::new(name).expect("valid session name in test"),
             status,
             state: WorkspaceState::default(),
-            workspace_path: PathBuf::from("/tmp/test"),
-            branch: None,
+            workspace_path: AbsolutePath::parse("/tmp/test").expect("valid path in test"),
+            branch: BranchState::Detached,
             created_at: Utc::now(),
             updated_at: Utc::now(),
             last_synced: None,
-            metadata: serde_json::Value::Null,
-            parent_session: None,
+            metadata: ValidatedMetadata::empty(),
+            parent_session: ParentState::Root,
             queue_status: None,
         }
     }

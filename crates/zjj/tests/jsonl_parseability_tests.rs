@@ -318,16 +318,17 @@ fn test_session_output_has_required_fields() {
 #[test]
 fn test_issue_output_has_required_fields() {
     // Create an Issue manually and verify its structure
-    use zjj_core::output::{Issue, IssueKind, IssueSeverity};
+    use zjj_core::domain::SessionName;
+    use zjj_core::output::{Issue, IssueId, IssueKind, IssueSeverity, IssueTitle};
 
     let issue = Issue::new(
-        "TEST-001".to_string(),
-        "Test issue".to_string(),
+        IssueId::new("TEST-001").expect("valid id"),
+        IssueTitle::new("Test issue").expect("valid title"),
         IssueKind::Validation,
         IssueSeverity::Error,
     )
     .expect("valid issue")
-    .with_session("test-session".to_string())
+    .with_session(SessionName::parse("test-session").expect("valid session"))
     .with_suggestion("Try a different value".to_string());
 
     // Serialize and verify structure
@@ -702,11 +703,11 @@ fn test_success_command_has_success_true() {
 #[test]
 fn test_failed_command_has_success_false() {
     // Create a failed ResultOutput and verify its structure
-    use zjj_core::output::{ResultKind, ResultOutput};
+    use zjj_core::output::{Message, ResultKind, ResultOutput};
 
     let result = ResultOutput::failure(
         ResultKind::Command,
-        "Command failed due to validation error".to_string(),
+        Message::new("Command failed due to validation error").expect("valid message"),
     )
     .expect("valid result");
 
@@ -726,11 +727,11 @@ fn test_failed_command_has_success_false() {
 /// Then: Issue is properly structured within OutputLine
 #[test]
 fn test_issue_in_output_line_structure() {
-    use zjj_core::output::{Issue, IssueKind, IssueSeverity, OutputLine};
+    use zjj_core::output::{Issue, IssueId, IssueKind, IssueSeverity, IssueTitle, OutputLine};
 
     let issue = Issue::new(
-        "TEST-002".to_string(),
-        "Test issue in output line".to_string(),
+        IssueId::new("TEST-002").expect("valid id"),
+        IssueTitle::new("Test issue in output line").expect("valid title"),
         IssueKind::Validation,
         IssueSeverity::Error,
     )

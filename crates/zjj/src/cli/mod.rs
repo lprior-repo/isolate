@@ -1,8 +1,10 @@
 //! CLI utilities and helpers
 
+pub mod alias_handler;
 pub mod commands;
 pub mod handlers;
 pub mod json_docs;
+pub mod object_commands;
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;

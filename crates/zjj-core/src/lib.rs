@@ -48,9 +48,13 @@
 pub mod agents;
 pub mod beads;
 pub mod checkpoint;
+pub mod cli_contracts;
 pub mod config;
+#[cfg(test)]
+mod config_property_tests;
 pub mod contracts;
 pub mod coordination;
+pub mod domain;
 mod error;
 #[cfg(test)]
 mod error_tests;

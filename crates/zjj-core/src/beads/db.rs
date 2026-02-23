@@ -197,7 +197,9 @@ pub async fn query_beads(workspace_path: &Path) -> std::result::Result<Vec<BeadI
 /// - Title is empty
 fn validate_bead_for_insert(issue: &BeadIssue) -> std::result::Result<(), BeadsError> {
     if issue.id.is_empty() {
-        return Err(BeadsError::ValidationFailed("ID cannot be empty".to_string()));
+        return Err(BeadsError::ValidationFailed(
+            "ID cannot be empty".to_string(),
+        ));
     }
     if issue.title.is_empty() {
         return Err(BeadsError::ValidationFailed(
@@ -215,19 +217,14 @@ fn validate_bead_for_insert(issue: &BeadIssue) -> std::result::Result<(), BeadsE
 }
 
 /// Serialize optional vector as comma-separated string.
-fn serialize_optional_vec(v: &Option<Vec<String>>) -> Option<String> {
-    v.as_ref().and_then(|items| {
+fn serialize_optional_vec(v: Option<&Vec<String>>) -> Option<String> {
+    v.and_then(|items| {
         if items.is_empty() {
             None
         } else {
             Some(items.join(","))
         }
     })
-}
-
-/// Serialize optional priority as string.
-fn serialize_priority(p: Option<Priority>) -> Option<String> {
-    p.map(|priority| format!("P{}", priority.to_u32()))
 }
 
 /// Insert a bead issue into the database.
@@ -238,16 +235,22 @@ fn serialize_priority(p: Option<Priority>) -> Option<String> {
 /// - Validation fails (empty ID or title)
 /// - The insert operation fails
 /// - A bead with the same ID already exists (`DuplicateId`)
-pub async fn insert_bead(pool: &SqlitePool, issue: &BeadIssue) -> std::result::Result<(), BeadsError> {
+pub async fn insert_bead(
+    pool: &SqlitePool,
+    issue: &BeadIssue,
+) -> std::result::Result<(), BeadsError> {
     // Validate input
     validate_bead_for_insert(issue)?;
 
     // Serialize optional fields
-    let priority_str = serialize_priority(issue.priority);
-    let issue_type_str = issue.issue_type.as_ref().map(|t| t.to_string());
-    let labels_str = serialize_optional_vec(&issue.labels);
-    let depends_on_str = serialize_optional_vec(&issue.depends_on);
-    let blocked_by_str = serialize_optional_vec(&issue.blocked_by);
+    let priority_str = issue.priority.map(|priority| format!("P{}", priority.to_u32()));
+    let issue_type_str = issue
+        .issue_type
+        .as_ref()
+        .map(std::string::ToString::to_string);
+    let labels_str = serialize_optional_vec(issue.labels.as_ref());
+    let depends_on_str = serialize_optional_vec(issue.depends_on.as_ref());
+    let blocked_by_str = serialize_optional_vec(issue.blocked_by.as_ref());
     let created_at_str = issue.created_at.to_rfc3339();
     let updated_at_str = issue.updated_at.to_rfc3339();
     let closed_at_str = issue.closed_at.map(|dt| dt.to_rfc3339());
@@ -372,11 +375,14 @@ pub async fn update_bead(
     }
 
     // Serialize optional fields
-    let priority_str = serialize_priority(issue.priority);
-    let issue_type_str = issue.issue_type.as_ref().map(|t| t.to_string());
-    let labels_str = serialize_optional_vec(&issue.labels);
-    let depends_on_str = serialize_optional_vec(&issue.depends_on);
-    let blocked_by_str = serialize_optional_vec(&issue.blocked_by);
+    let priority_str = issue.priority.map(|priority| format!("P{}", priority.to_u32()));
+    let issue_type_str = issue
+        .issue_type
+        .as_ref()
+        .map(std::string::ToString::to_string);
+    let labels_str = serialize_optional_vec(issue.labels.as_ref());
+    let depends_on_str = serialize_optional_vec(issue.depends_on.as_ref());
+    let blocked_by_str = serialize_optional_vec(issue.blocked_by.as_ref());
     let updated_at_str = issue.updated_at.to_rfc3339();
     let closed_at_str = issue.closed_at.map(|dt| dt.to_rfc3339());
 
@@ -429,8 +435,10 @@ mod insert_tests {
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
-    use super::super::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority};
-    use super::{ensure_schema, insert_bead};
+    use super::{
+        super::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority},
+        ensure_schema, insert_bead,
+    };
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().ok();
@@ -683,8 +691,10 @@ mod update_tests {
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
-    use super::super::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority};
-    use super::{ensure_schema, insert_bead, update_bead};
+    use super::{
+        super::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority},
+        ensure_schema, insert_bead, update_bead,
+    };
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().ok();
@@ -887,7 +897,8 @@ mod update_tests {
     // Behavior: Updating to closed status without closed_at fails validation
     // This tests the invariant: status='closed' => closed_at IS NOT NULL
     #[tokio::test]
-    async fn given_open_bead_when_updating_to_closed_without_closed_at_then_returns_validation_error() {
+    async fn given_open_bead_when_updating_to_closed_without_closed_at_then_returns_validation_error(
+    ) {
         let (pool, _temp_dir) = create_test_pool().await;
 
         // First insert an open bead
@@ -929,8 +940,10 @@ mod delete_tests {
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
-    use super::super::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority};
-    use super::{delete_bead, ensure_schema, insert_bead};
+    use super::{
+        super::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority},
+        delete_bead, ensure_schema, insert_bead,
+    };
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().ok();

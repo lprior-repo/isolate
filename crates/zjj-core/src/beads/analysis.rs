@@ -156,6 +156,12 @@ pub fn find_potential_duplicates(
 }
 
 /// Get a specific issue by ID.
+///
+/// # Returns
+///
+/// Returns `Some(issue)` if found, `None` otherwise. The result should be checked
+/// as this is a lookup operation that may fail.
+#[must_use]
 pub fn get_issue(issues: &[BeadIssue], id: &str) -> Option<BeadIssue> {
     issues.iter().find(|i| i.id == id).cloned()
 }

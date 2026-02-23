@@ -102,6 +102,8 @@ impl std::fmt::Display for RecoveryPolicy {
 pub struct ValidatedBool(bool);
 
 impl ValidatedBool {
+    /// Get the underlying boolean value.
+    #[must_use]
     #[inline]
     pub const fn as_bool(self) -> bool {
         self.0

@@ -13,7 +13,11 @@ use anyhow::Result;
 use clap::ArgMatches;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use zjj_core::output::{emit_stdout, OutputLine, Stack as OutputStack, StackEntryStatus};
+use zjj_core::domain::SessionName;
+use zjj_core::output::{
+    domain_types::{BaseRef, BeadAttachment, BeadId, Message},
+    emit_stdout, OutputLine, Stack as OutputStack, StackEntryStatus,
+};
 
 use super::json_format::get_format;
 use crate::commands::{add, get_queue_db_path};
@@ -102,7 +106,7 @@ struct StackNode {
     workspace: String,
     status: zjj_core::coordination::QueueStatus,
     bead_id: Option<String>,
-    children: Vec<StackNode>,
+    children: Vec<Self>,
 }
 
 /// Handle the stack command with subcommands
@@ -113,8 +117,7 @@ pub async fn handle_stack(sub_m: &ArgMatches) -> Result<()> {
             "create" => handle_stack_create(subcommand_matches).await,
             "list" | "ls" => handle_stack_list(subcommand_matches).await,
             _ => Err(anyhow::anyhow!(
-                "Unknown stack subcommand: {}",
-                subcommand_name
+                "Unknown stack subcommand: {subcommand_name}"
             )),
         };
     }
@@ -260,7 +263,8 @@ pub async fn handle_stack_list(sub_m: &ArgMatches) -> Result<()> {
             // Emit empty summary
             let summary = zjj_core::output::Summary::new(
                 zjj_core::output::SummaryType::Info,
-                "No workspaces in queue".to_string(),
+                Message::new("No workspaces in queue")
+                    .map_err(|e| anyhow::anyhow!("Failed to create message: {e}"))?,
             )
             .map_err(|e| anyhow::anyhow!("Failed to create summary: {e}"))?;
             let line = OutputLine::Summary(summary);
@@ -277,7 +281,7 @@ pub async fn handle_stack_list(sub_m: &ArgMatches) -> Result<()> {
     if is_json {
         // Emit each stack tree as a JSONL Stack line
         for tree in &trees {
-            emit_stack_tree(&tree)?;
+            emit_stack_tree(tree)?;
         }
 
         // Emit context summary as the last line
@@ -294,27 +298,39 @@ pub async fn handle_stack_list(sub_m: &ArgMatches) -> Result<()> {
 ///
 /// Groups workspaces by their parent relationship and builds
 /// tree structures with roots at the top.
+///
+/// This uses functional patterns - mutation is isolated in fold which is acceptable
+/// as it's building immutable data structures from the input.
 fn build_stack_trees(entries: &[zjj_core::coordination::QueueEntry]) -> Vec<StackNode> {
-    // Build a map of workspace -> children
-    let mut children_map: HashMap<String, Vec<String>> = HashMap::new();
-    let mut entry_map: HashMap<String, &zjj_core::coordination::QueueEntry> = HashMap::new();
-    let mut roots: Vec<String> = Vec::new();
+    use itertools::Itertools;
 
-    for entry in entries {
-        entry_map.insert(entry.workspace.clone(), entry);
+    // Build entry map (workspace -> entry)
+    let entry_map: HashMap<String, &zjj_core::coordination::QueueEntry> = entries
+        .iter()
+        .map(|entry| (entry.workspace.clone(), entry))
+        .collect();
 
-        match &entry.parent_workspace {
-            Some(parent) => {
-                children_map
-                    .entry(parent.clone())
-                    .or_default()
-                    .push(entry.workspace.clone());
-            }
-            None => {
-                roots.push(entry.workspace.clone());
-            }
-        }
-    }
+    // Partition entries into those with parents and those without (roots)
+    let (with_parent, without_parent): (Vec<_>, Vec<_>) = entries
+        .iter()
+        .partition(|entry| entry.parent_workspace.is_some());
+
+    // Build children map: parent -> [child_workspaces]
+    let children_map: HashMap<String, Vec<String>> = with_parent
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .parent_workspace
+                .as_ref()
+                .map(|parent| (parent.clone(), entry.workspace.clone()))
+        })
+        .into_group_map();
+
+    // Extract root workspace names
+    let roots: Vec<String> = without_parent
+        .iter()
+        .map(|entry| entry.workspace.clone())
+        .collect();
 
     // Build tree nodes recursively for each root
     roots
@@ -360,64 +376,92 @@ fn emit_stack_tree(tree: &StackNode) -> Result<()> {
     emit_stdout(&line).map_err(|e| anyhow::anyhow!("Failed to emit stack output: {e}"))
 }
 
-/// Convert a StackNode to the output Stack type.
+/// Convert a `StackNode` to the output Stack type.
+///
+/// Uses fold instead of for loop for functional style.
 fn stack_node_to_output_stack(node: &StackNode) -> Result<OutputStack> {
-    let mut stack = OutputStack::new(node.workspace.clone(), "main".to_string())
-        .map_err(|e| anyhow::anyhow!("Failed to create stack: {e}"))?;
-
-    // Add root entry
     let root_status = queue_status_to_stack_status(node.status);
-    stack = stack
+
+    // Parse session name and create base ref
+    let session_name = SessionName::parse(node.workspace.clone())
+        .map_err(|e| anyhow::anyhow!("Failed to create session name: {e}"))?;
+    let base_ref = BaseRef::new("main");
+
+    // Convert Option<String> bead_id to BeadAttachment
+    let bead_attachment = match &node.bead_id {
+        Some(id) => BeadAttachment::Attached {
+            bead_id: BeadId::parse(id)
+                .map_err(|e| anyhow::anyhow!("Failed to create bead ID: {e}"))?,
+        },
+        None => BeadAttachment::None,
+    };
+
+    // Start with root entry
+    let stack = OutputStack::new(session_name, base_ref)
+        .map_err(|e| anyhow::anyhow!("Failed to create stack: {e}"))?
         .with_entry(
-            node.workspace.clone(),
+            SessionName::parse(node.workspace.clone())
+                .map_err(|e| anyhow::anyhow!("Failed to create session name: {e}"))?,
             PathBuf::from(&node.workspace),
             root_status,
-            node.bead_id.clone(),
+            bead_attachment,
         )
         .map_err(|e| anyhow::anyhow!("Failed to add stack entry: {e}"))?;
 
-    // Add children recursively
-    for child in &node.children {
-        stack = add_children_to_stack(stack, child, 1)?;
-    }
-
-    Ok(stack)
+    // Add children using fold
+    node.children
+        .iter()
+        .try_fold(stack, add_node_to_stack)
 }
 
-/// Recursively add children to the stack.
-fn add_children_to_stack(stack: OutputStack, node: &StackNode, _depth: u32) -> Result<OutputStack> {
+/// Add a node and all its descendants to the stack.
+///
+/// Uses `try_fold` for functional error handling.
+fn add_node_to_stack(stack: OutputStack, node: &StackNode) -> Result<OutputStack> {
     let status = queue_status_to_stack_status(node.status);
-    let mut current_stack = stack
+
+    // Convert Option<String> bead_id to BeadAttachment
+    let bead_attachment = match &node.bead_id {
+        Some(id) => BeadAttachment::Attached {
+            bead_id: BeadId::parse(id)
+                .map_err(|e| anyhow::anyhow!("Failed to create bead ID: {e}"))?,
+        },
+        None => BeadAttachment::None,
+    };
+
+    // Add this node
+    let stack = stack
         .with_entry(
-            node.workspace.clone(),
+            SessionName::parse(node.workspace.clone())
+                .map_err(|e| anyhow::anyhow!("Failed to create session name: {e}"))?,
             PathBuf::from(&node.workspace),
             status,
-            node.bead_id.clone(),
+            bead_attachment,
         )
         .map_err(|e| anyhow::anyhow!("Failed to add stack entry: {e}"))?;
 
-    for child in &node.children {
-        current_stack = add_children_to_stack(current_stack, child, _depth + 1)?;
-    }
-
-    Ok(current_stack)
+    // Recursively add children using try_fold
+    node.children
+        .iter()
+        .try_fold(stack, add_node_to_stack)
 }
 
-/// Convert QueueStatus to StackEntryStatus.
-fn queue_status_to_stack_status(status: zjj_core::coordination::QueueStatus) -> StackEntryStatus {
+/// Convert `QueueStatus` to `StackEntryStatus`.
+const fn queue_status_to_stack_status(
+    status: zjj_core::coordination::QueueStatus,
+) -> StackEntryStatus {
     use zjj_core::coordination::QueueStatus;
 
     match status {
-        QueueStatus::Pending => StackEntryStatus::Pending,
-        QueueStatus::Claimed => StackEntryStatus::Pending,
-        QueueStatus::Rebasing => StackEntryStatus::Pending,
-        QueueStatus::Testing => StackEntryStatus::Ready,
-        QueueStatus::ReadyToMerge => StackEntryStatus::Ready,
+        QueueStatus::Pending | QueueStatus::Claimed | QueueStatus::Rebasing => {
+            StackEntryStatus::Pending
+        }
+        QueueStatus::Testing | QueueStatus::ReadyToMerge => StackEntryStatus::Ready,
         QueueStatus::Merging => StackEntryStatus::Merging,
         QueueStatus::Merged => StackEntryStatus::Merged,
-        QueueStatus::FailedRetryable => StackEntryStatus::Failed,
-        QueueStatus::FailedTerminal => StackEntryStatus::Failed,
-        QueueStatus::Cancelled => StackEntryStatus::Failed,
+        QueueStatus::FailedRetryable | QueueStatus::FailedTerminal | QueueStatus::Cancelled => {
+            StackEntryStatus::Failed
+        }
     }
 }
 
@@ -426,7 +470,10 @@ fn emit_context_summary(trees: &[StackNode]) -> Result<()> {
     let total_workspaces: usize = trees.iter().map(count_nodes).sum();
     let total_stacks = trees.len();
 
-    let message = format!("Found {total_stacks} stack(s) with {total_workspaces} workspace(s)");
+    let message = Message::new(format!(
+        "Found {total_stacks} stack(s) with {total_workspaces} workspace(s)"
+    ))
+    .map_err(|e| anyhow::anyhow!("Failed to create message: {e}"))?;
 
     let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Status, message)
         .map_err(|e| anyhow::anyhow!("Failed to create summary: {e}"))?;
@@ -751,11 +798,14 @@ mod tests {
         assert!(result.is_ok());
 
         let stack = result.unwrap();
-        assert_eq!(stack.name, "root");
+        assert_eq!(stack.name, SessionName::parse("root").expect("valid"));
         assert_eq!(stack.entries.len(), 2);
-        assert_eq!(stack.entries[0].session, "root");
-        assert_eq!(stack.entries[0].bead, Some("bd-123".to_string()));
-        assert_eq!(stack.entries[1].session, "child");
+        assert_eq!(stack.entries[0].session, SessionName::parse("root").expect("valid"));
+        assert!(matches!(
+            stack.entries[0].bead,
+            BeadAttachment::Attached { .. }
+        ));
+        assert_eq!(stack.entries[1].session, SessionName::parse("child").expect("valid"));
     }
 
     #[test]

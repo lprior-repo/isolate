@@ -160,6 +160,12 @@ pub trait HasContract {
     fn validate(&self) -> Result<()>;
 
     /// Get JSON Schema representation
+    ///
+    /// # Returns
+    ///
+    /// Returns the JSON schema for this contract type. The result should be used
+    /// as this generates a complete schema definition.
+    #[must_use]
     fn json_schema() -> serde_json::Value {
         Self::contract().to_json_schema()
     }
@@ -171,6 +177,12 @@ pub trait HasContract {
 
 impl TypeContract {
     /// Convert contract to JSON Schema format
+    ///
+    /// # Returns
+    ///
+    /// Returns the JSON schema representation. The result should be used
+    /// as this is a transformation operation.
+    #[must_use]
     pub fn to_json_schema(&self) -> serde_json::Value {
         let mut schema = serde_json::json!({
             "type": "object",
@@ -213,6 +225,12 @@ impl TypeContract {
     }
 
     /// Create a builder for constructing contracts
+    ///
+    /// # Returns
+    ///
+    /// Returns a new builder instance. The result must be used to continue
+    /// the builder pattern chain.
+    #[must_use]
     pub fn builder(name: impl Into<String>) -> TypeContractBuilder {
         TypeContractBuilder {
             name: name.into(),
@@ -227,6 +245,12 @@ impl TypeContract {
 
 impl FieldContract {
     /// Convert field contract to JSON Schema property
+    ///
+    /// # Returns
+    ///
+    /// Returns the JSON schema representation. The result should be used
+    /// as this is a transformation operation.
+    #[must_use]
     pub fn to_json_schema(&self) -> serde_json::Value {
         let mut schema = serde_json::json!({
             "description": self.description,
@@ -483,31 +507,48 @@ pub struct TypeContractBuilder {
 }
 
 impl TypeContractBuilder {
+    /// Set the description for the contract.
+    #[must_use]
     pub fn description(mut self, desc: impl Into<String>) -> Self {
         self.description = desc.into();
         self
     }
 
+    /// Add a constraint to the contract.
+    #[must_use]
     pub fn constraint(mut self, constraint: Constraint) -> Self {
         self.constraints.push(constraint);
         self
     }
 
+    /// Add a contextual hint to the contract.
+    #[must_use]
     pub fn hint(mut self, hint: ContextualHint) -> Self {
         self.hints.push(hint);
         self
     }
 
+    /// Add an example to the contract.
+    #[must_use]
     pub fn example(mut self, example: impl Into<String>) -> Self {
         self.examples.push(example.into());
         self
     }
 
+    /// Add a field to the contract.
+    #[must_use]
     pub fn field(mut self, name: impl Into<String>, field: FieldContract) -> Self {
         self.fields = self.fields.update(name.into(), field);
         self
     }
 
+    /// Build the final `TypeContract`.
+    ///
+    /// # Returns
+    ///
+    /// Returns the constructed contract. The result must be used as this
+    /// consumes the builder.
+    #[must_use]
     pub fn build(self) -> TypeContract {
         TypeContract {
             name: self.name,
@@ -532,26 +573,36 @@ pub struct FieldContractBuilder {
 }
 
 impl FieldContractBuilder {
+    /// Mark the field as required.
+    #[must_use]
     pub const fn required(mut self) -> Self {
         self.required = true;
         self
     }
 
+    /// Set the field description.
+    #[must_use]
     pub fn description(mut self, desc: impl Into<String>) -> Self {
         self.description = desc.into();
         self
     }
 
+    /// Add a constraint to the field.
+    #[must_use]
     pub fn constraint(mut self, constraint: Constraint) -> Self {
         self.constraints.push(constraint);
         self
     }
 
+    /// Set the default value for the field.
+    #[must_use]
     pub fn default(mut self, default: impl Into<String>) -> Self {
         self.default = Some(default.into());
         self
     }
 
+    /// Add a dependency on another field.
+    #[must_use]
     pub fn depends_on(mut self, field: impl Into<String>) -> Self {
         self.depends_on.push(field.into());
         self
@@ -562,6 +613,13 @@ impl FieldContractBuilder {
         self
     }
 
+    /// Build the final `FieldContract`.
+    ///
+    /// # Returns
+    ///
+    /// Returns the constructed contract. The result must be used as this
+    /// consumes the builder.
+    #[must_use]
     pub fn build(self) -> FieldContract {
         FieldContract {
             name: self.name,

@@ -2,7 +2,7 @@
 
 use clap::{Arg, ArgGroup, Command as ClapCommand};
 
-use crate::cli::json_docs;
+use crate::cli::{json_docs, object_commands};
 
 pub fn cmd_ai() -> ClapCommand {
     ClapCommand::new("ai")
@@ -3623,10 +3623,16 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_recover())
         .subcommand(cmd_retry())
         .subcommand(cmd_rollback())
-        // Merge queue coordination
-        .subcommand(cmd_queue())
-        // Stack queries
-        .subcommand(cmd_stack())
         // Database backups
         .subcommand(cmd_backup())
+        // Object-based commands (new pattern: zjj <object> <action>)
+        .subcommand(object_commands::cmd_task())
+        .subcommand(object_commands::cmd_session())
+        .subcommand(object_commands::cmd_queue())
+        .subcommand(object_commands::cmd_stack())
+    // Note: The following are already defined above:
+    // - cmd_agent() via cmd_agents() with "agent" alias
+    // - cmd_status() at line 3571
+    // - cmd_config() at line 3574
+    // - cmd_doctor() at line 3579
 }

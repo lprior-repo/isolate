@@ -2,6 +2,13 @@
 //!
 //! Each output line is a self-describing JSON object with a "type" field.
 //! This enables streaming JSONL output where each line can be parsed independently.
+//!
+//! # Domain-Driven Design Refactoring
+//!
+//! This module follows Scott Wlaschin's DDD principles:
+//! - Parse at boundaries, validate once (semantic newtypes in `domain_types`)
+//! - Make illegal states unrepresentable (enums instead of `bool`/`Option`)
+//! - Railway-oriented programming with `Result<T, E>`
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -17,6 +24,14 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{types::SessionStatus, WorkspaceState};
+
+// Import domain types for semantic validation
+use super::domain_types::{
+    ActionResult, ActionTarget, ActionVerb, AgentAssignment, BaseRef, BeadAttachment, BeadId,
+    IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription,
+    PlanTitle, QueueEntryId, RecoveryCapability, RecoveryExecution, TrainId, WarningCode,
+    SessionName,
+};
 
 #[derive(Debug, Clone, Error)]
 pub enum OutputLineError {
@@ -38,6 +53,16 @@ pub enum OutputLineError {
     StackEntryOverflow,
     #[error("train step count exceeds u32::MAX")]
     TrainStepOverflow,
+    #[error("terminal status {0:?} cannot be used for new sessions")]
+    TerminalStatus(SessionStatus),
+    #[error("workspace path must be absolute")]
+    RelativePath,
+    #[error("invalid warning code: {0}")]
+    InvalidWarningCode(String),
+    #[error("invalid action verb: {0}")]
+    InvalidActionVerb(String),
+    #[error("invalid action target: {0}")]
+    InvalidActionTarget(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -83,7 +108,7 @@ impl OutputLine {
 pub struct Summary {
     #[serde(rename = "type")]
     pub type_field: SummaryType,
-    pub message: String,
+    pub message: Message,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<String>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
@@ -104,10 +129,7 @@ impl Summary {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
-    pub fn new(type_field: SummaryType, message: String) -> Result<Self, OutputLineError> {
-        if message.trim().is_empty() {
-            return Err(OutputLineError::EmptyMessage);
-        }
+    pub fn new(type_field: SummaryType, message: Message) -> Result<Self, OutputLineError> {
         Ok(Self {
             type_field,
             message,
@@ -145,6 +167,8 @@ impl SessionOutput {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptySessionName` if `name` is blank.
+    /// Returns `OutputLineError::TerminalStatus` if `status` is a terminal state (Completed/Failed).
+    /// Returns `OutputLineError::RelativePath` if `workspace_path` is not absolute.
     pub fn new(
         name: String,
         status: SessionStatus,
@@ -153,6 +177,12 @@ impl SessionOutput {
     ) -> Result<Self, OutputLineError> {
         if name.trim().is_empty() {
             return Err(OutputLineError::EmptySessionName);
+        }
+        if status.is_terminal() {
+            return Err(OutputLineError::TerminalStatus(status));
+        }
+        if !workspace_path.is_absolute() {
+            return Err(OutputLineError::RelativePath);
         }
         let now = Utc::now();
         Ok(Self {
@@ -177,14 +207,23 @@ impl SessionOutput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Issue {
-    pub id: String,
-    pub title: String,
+    pub id: IssueId,
+    pub title: IssueTitle,
     pub kind: IssueKind,
     pub severity: IssueSeverity,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session: Option<String>,
+    #[serde(skip_serializing_if = "IssueScope::is_standalone")]
+    #[serde(default = "IssueScope::standalone")]
+    pub scope: IssueScope,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub suggestion: Option<String>,
+}
+
+// Helper function for serde skip condition
+impl IssueScope {
+    #[must_use]
+    pub const fn is_standalone(&self) -> bool {
+        matches!(self, Self::Standalone)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -214,29 +253,26 @@ impl Issue {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptyTitle` if `title` is blank.
-    pub fn new(
-        id: String,
-        title: String,
+    pub const fn new(
+        id: IssueId,
+        title: IssueTitle,
         kind: IssueKind,
         severity: IssueSeverity,
     ) -> Result<Self, OutputLineError> {
-        if title.trim().is_empty() {
-            return Err(OutputLineError::EmptyTitle);
-        }
         Ok(Self {
             id,
             title,
             kind,
             severity,
-            session: None,
+            scope: IssueScope::Standalone,
             suggestion: None,
         })
     }
 
     #[must_use]
-    pub fn with_session(self, session: String) -> Self {
+    pub fn with_session(self, session: SessionName) -> Self {
         Self {
-            session: Some(session),
+            scope: IssueScope::InSession { session },
             ..self
         }
     }
@@ -252,8 +288,8 @@ impl Issue {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Plan {
-    pub title: String,
-    pub description: String,
+    pub title: PlanTitle,
+    pub description: PlanDescription,
     pub steps: Vec<PlanStep>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub created_at: DateTime<Utc>,
@@ -283,13 +319,7 @@ impl Plan {
     ///
     /// Returns `OutputLineError::EmptyTitle` if `title` is blank.
     /// Returns `OutputLineError::EmptyDescription` if `description` is blank.
-    pub fn new(title: String, description: String) -> Result<Self, OutputLineError> {
-        if title.trim().is_empty() {
-            return Err(OutputLineError::EmptyTitle);
-        }
-        if description.trim().is_empty() {
-            return Err(OutputLineError::EmptyDescription);
-        }
+    pub fn new(title: PlanTitle, description: PlanDescription) -> Result<Self, OutputLineError> {
         Ok(Self {
             title,
             description,
@@ -328,23 +358,32 @@ impl Plan {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Action {
-    pub verb: String,
-    pub target: String,
+    pub verb: ActionVerb,
+    pub target: ActionTarget,
     pub status: ActionStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<String>,
+    #[serde(skip_serializing_if = "ActionResult::is_pending")]
+    #[serde(default = "ActionResult::pending")]
+    pub result: ActionResult,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub timestamp: DateTime<Utc>,
 }
 
+// Helper for serde skip condition
+impl ActionResult {
+    #[must_use]
+    pub const fn is_pending(&self) -> bool {
+        matches!(self, Self::Pending)
+    }
+}
+
 impl Action {
     #[must_use]
-    pub fn new(verb: String, target: String, status: ActionStatus) -> Self {
+    pub fn new(verb: ActionVerb, target: ActionTarget, status: ActionStatus) -> Self {
         Self {
             verb,
             target,
             status,
-            result: None,
+            result: ActionResult::Pending,
             timestamp: Utc::now(),
         }
     }
@@ -352,7 +391,7 @@ impl Action {
     #[must_use]
     pub fn with_result(self, result: String) -> Self {
         Self {
-            result: Some(result),
+            result: ActionResult::Completed { result },
             ..self
         }
     }
@@ -360,8 +399,8 @@ impl Action {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Warning {
-    pub code: String,
-    pub message: String,
+    pub code: WarningCode,
+    pub message: Message,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<Context>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
@@ -382,10 +421,7 @@ impl Warning {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
-    pub fn new(code: String, message: String) -> Result<Self, OutputLineError> {
-        if message.trim().is_empty() {
-            return Err(OutputLineError::EmptyMessage);
-        }
+    pub fn new(code: WarningCode, message: Message) -> Result<Self, OutputLineError> {
         Ok(Self {
             code,
             message,
@@ -410,8 +446,8 @@ impl Warning {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResultOutput {
     pub kind: ResultKind,
-    pub success: bool,
-    pub message: String,
+    pub outcome: Outcome,
+    pub message: Message,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<serde_json::Value>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
@@ -433,13 +469,10 @@ impl ResultOutput {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
-    pub fn success(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
-        if message.trim().is_empty() {
-            return Err(OutputLineError::EmptyMessage);
-        }
+    pub fn success(kind: ResultKind, message: Message) -> Result<Self, OutputLineError> {
         Ok(Self {
             kind,
-            success: true,
+            outcome: Outcome::Success,
             message,
             data: None,
             timestamp: Utc::now(),
@@ -451,13 +484,10 @@ impl ResultOutput {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
-    pub fn failure(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
-        if message.trim().is_empty() {
-            return Err(OutputLineError::EmptyMessage);
-        }
+    pub fn failure(kind: ResultKind, message: Message) -> Result<Self, OutputLineError> {
         Ok(Self {
             kind,
-            success: false,
+            outcome: Outcome::Failure,
             message,
             data: None,
             timestamp: Utc::now(),
@@ -475,7 +505,7 @@ impl ResultOutput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Recovery {
-    pub issue_id: String,
+    pub issue_id: IssueId,
     pub assessment: Assessment,
     pub actions: Vec<RecoveryAction>,
 }
@@ -483,8 +513,7 @@ pub struct Recovery {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Assessment {
     pub severity: ErrorSeverity,
-    pub recoverable: bool,
-    pub recommended_action: String,
+    pub capability: RecoveryCapability,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -500,13 +529,12 @@ pub enum ErrorSeverity {
 pub struct RecoveryAction {
     pub order: u32,
     pub description: String,
-    pub command: Option<String>,
-    pub automatic: bool,
+    pub execution: RecoveryExecution,
 }
 
 impl Recovery {
     #[must_use]
-    pub const fn new(issue_id: String, assessment: Assessment) -> Self {
+    pub const fn new(issue_id: IssueId, assessment: Assessment) -> Self {
         Self {
             issue_id,
             assessment,
@@ -528,6 +556,17 @@ impl Recovery {
     ) -> Result<Self, OutputLineError> {
         let order = u32::try_from(self.actions.len())
             .map_err(|_| OutputLineError::RecoveryActionOverflow)?;
+
+        let execution = if automatic {
+            let cmd = command.unwrap_or_else(|| {
+                // Default command if none provided for automatic action
+                "echo 'No command specified'".to_string()
+            });
+            RecoveryExecution::automatic(cmd)
+        } else {
+            RecoveryExecution::manual()
+        };
+
         Ok(Self {
             actions: self
                 .actions
@@ -535,8 +574,7 @@ impl Recovery {
                 .chain(std::iter::once(RecoveryAction {
                     order,
                     description,
-                    command,
-                    automatic,
+                    execution,
                 }))
                 .collect(),
             ..self
@@ -544,10 +582,47 @@ impl Recovery {
     }
 }
 
+// Backward compatibility helpers
+impl Assessment {
+    #[must_use]
+    pub const fn from_parts(
+        severity: ErrorSeverity,
+        recoverable: bool,
+        recommended_action: String,
+    ) -> Self {
+        let capability = if recoverable {
+            RecoveryCapability::Recoverable { recommended_action }
+        } else {
+            RecoveryCapability::NotRecoverable {
+                reason: recommended_action,
+            }
+        };
+        Self {
+            severity,
+            capability,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_recoverable(&self) -> bool {
+        matches!(self.capability, RecoveryCapability::Recoverable { .. })
+    }
+
+    #[must_use]
+    pub const fn recommended_action(&self) -> Option<&str> {
+        match &self.capability {
+            RecoveryCapability::Recoverable { recommended_action } => {
+                Some(recommended_action.as_str())
+            }
+            RecoveryCapability::NotRecoverable { .. } => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Stack {
-    pub name: String,
-    pub base_ref: String,
+    pub name: SessionName,
+    pub base_ref: BaseRef,
     pub entries: Vec<StackEntry>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub updated_at: DateTime<Utc>,
@@ -556,11 +631,20 @@ pub struct Stack {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StackEntry {
     pub order: u32,
-    pub session: String,
+    pub session: SessionName,
     pub workspace: PathBuf,
     pub status: StackEntryStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bead: Option<String>,
+    #[serde(skip_serializing_if = "BeadAttachment::is_none")]
+    #[serde(default = "BeadAttachment::none")]
+    pub bead: BeadAttachment,
+}
+
+// Helper for serde skip condition
+impl BeadAttachment {
+    #[must_use]
+    pub const fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -579,10 +663,10 @@ impl Stack {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptySessionName` if the name is empty.
-    pub fn new(name: String, base_ref: String) -> Result<Self, OutputLineError> {
-        if name.trim().is_empty() {
-            return Err(OutputLineError::EmptySessionName);
-        }
+    pub fn new(
+        name: SessionName,
+        base_ref: BaseRef,
+    ) -> Result<Self, OutputLineError> {
         Ok(Self {
             name,
             base_ref,
@@ -599,10 +683,10 @@ impl Stack {
     /// entries cannot be represented as `u32`.
     pub fn with_entry(
         self,
-        session: String,
+        session: SessionName,
         workspace: PathBuf,
         status: StackEntryStatus,
-        bead: Option<String>,
+        bead: BeadAttachment,
     ) -> Result<Self, OutputLineError> {
         let order =
             u32::try_from(self.entries.len()).map_err(|_| OutputLineError::StackEntryOverflow)?;
@@ -688,18 +772,28 @@ impl Default for QueueSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct QueueEntry {
-    pub id: String,
-    pub session: String,
+    pub id: QueueEntryId,
+    pub session: SessionName,
     pub priority: u8,
     pub status: QueueEntryStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bead: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent: Option<String>,
+    #[serde(skip_serializing_if = "BeadAttachment::is_none")]
+    #[serde(default = "BeadAttachment::none")]
+    pub bead: BeadAttachment,
+    #[serde(skip_serializing_if = "AgentAssignment::is_unassigned")]
+    #[serde(default = "AgentAssignment::unassigned")]
+    pub agent: AgentAssignment,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub created_at: DateTime<Utc>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub updated_at: DateTime<Utc>,
+}
+
+// Helper for serde skip condition
+impl AgentAssignment {
+    #[must_use]
+    pub const fn is_unassigned(&self) -> bool {
+        matches!(self, Self::Unassigned)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -720,27 +814,28 @@ impl QueueEntry {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptySessionName` if the session is empty.
-    pub fn new(id: String, session: String, priority: u8) -> Result<Self, OutputLineError> {
-        if session.trim().is_empty() {
-            return Err(OutputLineError::EmptySessionName);
-        }
+    pub fn new(
+        id: QueueEntryId,
+        session: SessionName,
+        priority: u8,
+    ) -> Result<Self, OutputLineError> {
         let now = Utc::now();
         Ok(Self {
             id,
             session,
             priority,
             status: QueueEntryStatus::Pending,
-            bead: None,
-            agent: None,
+            bead: BeadAttachment::None,
+            agent: AgentAssignment::Unassigned,
             created_at: now,
             updated_at: now,
         })
     }
 
     #[must_use]
-    pub fn with_bead(self, bead: String) -> Self {
+    pub fn with_bead(self, bead: BeadId) -> Self {
         Self {
-            bead: Some(bead),
+            bead: BeadAttachment::Attached { bead_id: bead },
             ..self
         }
     }
@@ -748,7 +843,7 @@ impl QueueEntry {
     #[must_use]
     pub fn with_agent(self, agent: String) -> Self {
         Self {
-            agent: Some(agent),
+            agent: AgentAssignment::Assigned { agent_id: agent },
             ..self
         }
     }
@@ -765,8 +860,8 @@ impl QueueEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Train {
-    pub id: String,
-    pub name: String,
+    pub id: TrainId,
+    pub name: SessionName,
     pub steps: Vec<TrainStep>,
     pub status: TrainStatus,
     #[serde(with = "chrono::serde::ts_milliseconds")]
@@ -778,7 +873,7 @@ pub struct Train {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TrainStep {
     pub order: u32,
-    pub session: String,
+    pub session: SessionName,
     pub action: TrainAction,
     pub status: TrainStepStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -820,10 +915,7 @@ impl Train {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptySessionName` if the name is empty.
-    pub fn new(id: String, name: String) -> Result<Self, OutputLineError> {
-        if name.trim().is_empty() {
-            return Err(OutputLineError::EmptySessionName);
-        }
+    pub fn new(id: TrainId, name: SessionName) -> Result<Self, OutputLineError> {
         let now = Utc::now();
         Ok(Self {
             id,
@@ -843,7 +935,7 @@ impl Train {
     /// cannot be represented as `u32`.
     pub fn with_step(
         self,
-        session: String,
+        session: SessionName,
         action: TrainAction,
         status: TrainStepStatus,
     ) -> Result<Self, OutputLineError> {

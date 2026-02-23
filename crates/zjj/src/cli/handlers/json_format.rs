@@ -31,6 +31,12 @@ pub fn get_format(matches: &ArgMatches) -> OutputFormat {
     OutputFormat::from_json_flag(matches.get_flag("json"))
 }
 
+/// Alias for `get_format` for backward compatibility
+#[must_use]
+pub fn extract_json_flag(matches: &ArgMatches) -> OutputFormat {
+    get_format(matches)
+}
+
 #[cfg(test)]
 mod tests {
     use clap::{Arg, Command};

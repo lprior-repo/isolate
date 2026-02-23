@@ -15,9 +15,10 @@ use anyhow::{Context, Result};
 use serde_json::json;
 use zjj_core::{
     config,
+    domain::SessionName,
     output::{
-        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
-        ResultOutput, SessionOutput,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
+        IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput, SessionOutput,
     },
     OutputFormat,
 };
@@ -95,7 +96,11 @@ fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
     if json_envelope_mode() {
         return Ok(());
     }
-    let action = Action::new(verb.to_string(), target.to_string(), status);
+    let action = Action::new(
+        ActionVerb::new(verb).map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+        ActionTarget::new(target).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+        status,
+    );
     emit_stdout(&OutputLine::Action(action)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -109,8 +114,12 @@ fn emit_action_with_result(
     if json_envelope_mode() {
         return Ok(());
     }
-    let action =
-        Action::new(verb.to_string(), target.to_string(), status).with_result(result.to_string());
+    let action = Action::new(
+        ActionVerb::new(verb).map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+        ActionTarget::new(target).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+        status,
+    )
+    .with_result(result.to_string());
     emit_stdout(&OutputLine::Action(action)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -151,10 +160,16 @@ fn emit_issue(
         return Ok(());
     }
     let mut issue =
-        Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
+        Issue::new(
+            IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
+            IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
+            kind,
+            severity,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if let Some(s) = session {
-        issue = issue.with_session(s.to_string());
+        issue = issue.with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
     }
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());
@@ -168,8 +183,11 @@ fn emit_result_success(message: &str) -> Result<()> {
     if json_envelope_mode() {
         return Ok(());
     }
-    let result = ResultOutput::success(ResultKind::Command, message.to_string())
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let result = ResultOutput::success(
+        ResultKind::Command,
+        Message::new(message).map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -178,8 +196,11 @@ fn emit_result_failure(message: &str) -> Result<()> {
     if json_envelope_mode() {
         return Ok(());
     }
-    let result = ResultOutput::failure(ResultKind::Command, message.to_string())
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let result = ResultOutput::failure(
+        ResultKind::Command,
+        Message::new(message).map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -228,7 +249,7 @@ fn output_human_result(
 fn output_result(
     name: &str,
     workspace_path: &str,
-    _zellij_tab: &str,
+    zellij_tab: &str,
     mode: &str,
     created: bool,
     format: OutputFormat,
@@ -240,7 +261,7 @@ fn output_result(
         } else {
             format!("Session '{name}' already exists ({mode})")
         };
-        return emit_add_json_envelope(name, workspace_path, _zellij_tab, &status, created, true);
+        return emit_add_json_envelope(name, workspace_path, zellij_tab, &status, created, true);
     }
 
     if format.is_json() {
@@ -262,11 +283,7 @@ fn output_result(
             let workspace_path_buf: PathBuf = workspace_path.into();
             let session_output = SessionOutput::new(
                 name.to_string(),
-                if created {
-                    zjj_core::types::SessionStatus::Active
-                } else {
-                    zjj_core::types::SessionStatus::Active
-                },
+                zjj_core::types::SessionStatus::Active,
                 zjj_core::WorkspaceState::Created,
                 workspace_path_buf,
             )
@@ -740,8 +757,10 @@ async fn handle_zellij_interaction(
             if options.format.is_json() {
                 // Emit Issue line for JSON mode
                 let issue = Issue::new(
-                    "ADD-002".to_string(),
-                    "Zellij tab not created in non-interactive environment".to_string(),
+                    IssueId::new("ADD-002")
+                        .map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
+                    IssueTitle::new("Zellij tab not created in non-interactive environment")
+                        .map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
                     IssueKind::Configuration,
                     IssueSeverity::Hint,
                 )

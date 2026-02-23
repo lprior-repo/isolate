@@ -40,6 +40,7 @@ pub mod remove;
 pub mod rename;
 pub mod revert;
 pub mod schema;
+pub mod session_command;
 pub mod session_mgmt;
 pub mod spawn;
 #[cfg(test)]
@@ -50,6 +51,7 @@ pub mod switch;
 pub mod sync;
 #[cfg(test)]
 mod sync_behavior_tests;
+pub mod task;
 pub mod template;
 pub mod undo;
 pub mod validate;

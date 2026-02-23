@@ -13,10 +13,13 @@
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use zjj_core::output::{
-    emit_stdout, Issue, IssueKind, IssueSeverity, OutputLine, SessionOutput, Summary, SummaryType,
+use zjj_core::{
+    output::{
+        emit_stdout, Issue, IssueId, IssueKind, IssueSeverity, IssueTitle, Message, OutputLine,
+        SessionOutput, Summary, SummaryType,
+    },
+    OutputFormat, WorkspaceStateFilter,
 };
-use zjj_core::{OutputFormat, WorkspaceStateFilter};
 
 use crate::{
     beads::{BeadRepository, BeadStatus},
@@ -52,7 +55,12 @@ impl std::fmt::Display for BeadCounts {
 
 /// Emit an issue line to stdout before returning an error.
 fn emit_issue(id: &str, title: String, kind: IssueKind) -> Result<()> {
-    let issue = Issue::new(id.to_string(), title, kind, IssueSeverity::Error)?;
+    let issue = Issue::new(
+        IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
+        IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
+        kind,
+        IssueSeverity::Error,
+    )?;
     Ok(emit_stdout(&OutputLine::Issue(issue))?)
 }
 
@@ -108,33 +116,33 @@ pub async fn run(
         }
     }
     .into_iter()
-        .filter(|s| {
-            let status_matches =
-                all || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
+    .filter(|s| {
+        let status_matches =
+            all || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
 
-            let bead_matches = bead.is_none_or(|bead_id| {
-                s.metadata
-                    .as_ref()
-                    .and_then(|m| m.get("bead_id"))
-                    .and_then(|v| v.as_str())
-                    == Some(bead_id)
-            });
-
-            let agent_matches = agent.is_none_or(|agent_filter| {
-                s.metadata
-                    .as_ref()
-                    .and_then(|m| m.get("owner"))
-                    .and_then(|v| v.as_str())
-                    == Some(agent_filter)
-            });
-
-            let state_matches = state_filter
+        let bead_matches = bead.is_none_or(|bead_id| {
+            s.metadata
                 .as_ref()
-                .is_none_or(|filter| filter.matches(s.state));
+                .and_then(|m| m.get("bead_id"))
+                .and_then(|v| v.as_str())
+                == Some(bead_id)
+        });
 
-            status_matches && bead_matches && agent_matches && state_matches
-        })
-        .collect();
+        let agent_matches = agent.is_none_or(|agent_filter| {
+            s.metadata
+                .as_ref()
+                .and_then(|m| m.get("owner"))
+                .and_then(|v| v.as_str())
+                == Some(agent_filter)
+        });
+
+        let state_matches = state_filter
+            .as_ref()
+            .is_none_or(|filter| filter.matches(s.state));
+
+        status_matches && bead_matches && agent_matches && state_matches
+    })
+    .collect();
 
     let beads_count = get_beads_count().await.unwrap_or_default();
     let session_count = sessions.len();
@@ -174,7 +182,11 @@ pub async fn run(
             "Listed {} session(s), beads: {}/{}/{}",
             session_count, beads_count.open, beads_count.in_progress, beads_count.blocked
         );
-        let summary = match Summary::new(SummaryType::Count, summary_text) {
+        let summary = match Summary::new(
+            SummaryType::Count,
+            Message::new(summary_text)
+                .map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+        ) {
             Ok(s) => s,
             Err(e) => {
                 emit_issue(
@@ -222,7 +234,10 @@ pub async fn run(
         "Listed {} session(s), beads: {}/{}/{}",
         session_count, beads_count.open, beads_count.in_progress, beads_count.blocked
     );
-    let summary = match Summary::new(SummaryType::Count, summary_text) {
+    let summary = match Summary::new(
+        SummaryType::Count,
+        Message::new(summary_text).map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+    ) {
         Ok(s) => s,
         Err(e) => {
             emit_issue(
@@ -435,7 +450,7 @@ mod tests {
 
     #[test]
     fn test_output_line_summary_serializes_with_type() {
-        let summary = Summary::new(SummaryType::Count, "Listed 5 session(s)".to_string())
+        let summary = Summary::new(SummaryType::Count, Message::new("Listed 5 session(s)").expect("summary should be valid"))
             .expect("summary should be valid");
         let line = OutputLine::Summary(summary);
         let json = serde_json::to_string(&line);

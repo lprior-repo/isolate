@@ -38,6 +38,12 @@ pub struct ShutdownCoordinator {
 
 impl ShutdownCoordinator {
     /// Create a new shutdown coordinator
+    ///
+    /// # Returns
+    ///
+    /// Returns a new coordinator instance. The result must be used
+    /// to manage shutdown lifecycle.
+    #[must_use]
     pub fn new(shutdown_timeout: Duration) -> Self {
         let (shutdown_tx, _) = broadcast::channel(16);
 
@@ -52,6 +58,12 @@ impl ShutdownCoordinator {
     /// Get a receiver for shutdown signals
     ///
     /// Components should call this and listen in their async loops
+    ///
+    /// # Returns
+    ///
+    /// Returns a receiver for shutdown signals. The result must be used
+    /// to receive and act on shutdown events.
+    #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<ShutdownSignal> {
         self.shutdown_tx.subscribe()
     }
@@ -122,6 +134,12 @@ impl ShutdownCoordinator {
     }
 
     /// Check if shutdown has been requested
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if shutdown is in progress. The result should be checked
+    /// before starting new operations that should be cancelled during shutdown.
+    #[must_use]
     pub fn is_shutting_down(&self) -> bool {
         self.shutdown_tx.receiver_count() > 0
     }

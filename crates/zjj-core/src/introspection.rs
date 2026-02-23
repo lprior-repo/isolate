@@ -385,6 +385,12 @@ pub struct SuggestNameQuery {
 
 impl IntrospectOutput {
     /// Create default introspection output
+    ///
+    /// # Returns
+    ///
+    /// Returns a new introspection output instance. The result should be used
+    /// as this creates a structured introspection report.
+    #[must_use]
     pub fn new(version: &str) -> Self {
         Self {
             zjj_version: version.to_string(),
@@ -447,11 +453,23 @@ impl Default for Capabilities {
 
 impl Prerequisites {
     /// Check if all prerequisites are met
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if all prerequisites are satisfied. The result should be checked
+    /// before proceeding with operations that require these prerequisites.
+    #[must_use]
     pub const fn all_met(&self) -> bool {
         self.initialized && self.jj_installed && (!self.zellij_running || self.custom.is_empty())
     }
 
     /// Count how many prerequisites are met
+    ///
+    /// # Returns
+    ///
+    /// Returns the count of met prerequisites. The result should be used
+    /// for reporting or validation purposes.
+    #[must_use]
     pub const fn count_met(&self) -> usize {
         let mut count = 0;
         if self.initialized {
@@ -467,6 +485,12 @@ impl Prerequisites {
     }
 
     /// Total number of prerequisites
+    ///
+    /// # Returns
+    ///
+    /// Returns the total count of prerequisites. The result should be used
+    /// for reporting or validation purposes.
+    #[must_use]
     pub const fn total(&self) -> usize {
         3 + self.custom.len()
     }
@@ -474,6 +498,12 @@ impl Prerequisites {
 
 impl DoctorOutput {
     /// Calculate summary statistics from checks
+    ///
+    /// # Returns
+    ///
+    /// Returns a summary with calculated statistics. The result should be used
+    /// as this performs analysis and aggregates check results.
+    #[must_use]
     pub fn from_checks(checks: Vec<DoctorCheck>) -> Self {
         let warnings = checks
             .iter()

@@ -285,6 +285,47 @@ tasks:
       - "/Cargo.lock"
 
   # ============================================================================
+  # PERFORMANCE BENCHMARKING
+  # ============================================================================
+
+  bench:
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo bench --bench"
+    description: "Run all performance benchmarks"
+    inputs:
+      - "crates/zjj-core/benches/**/*.rs"
+      - "crates/zjj-core/src/**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: false  # Benchmarks should always run fresh
+      runInCI: true
+
+  bench-filter:
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo bench --bench --"
+    description: "Run benchmarks with filter (e.g., moon run bench-filter -- identifier_parsing)"
+    inputs:
+      - "crates/zjj-core/benches/**/*.rs"
+      - "crates/zjj-core/src/**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: false
+      runInCI: false
+      mergeArgs: "append"  # Allow appending filter arguments
+
+  bench-save-baseline:
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo bench --bench -- --save-baseline main"
+    description: "Save benchmark baseline for comparison"
+    inputs:
+      - "crates/zjj-core/benches/**/*.rs"
+      - "crates/zjj-core/src/**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: false
+      runInCI: false
+
+  # ============================================================================
   # SECURITY & QUALITY SCANNING
   # ============================================================================
 

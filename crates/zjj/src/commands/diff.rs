@@ -11,8 +11,10 @@ use std::{io, path::Path, process::Stdio};
 
 use anyhow::Result;
 use tokio::{io::AsyncWriteExt, process::Command};
-use zjj_core::output::{emit_stdout, OutputLine, ResultKind, ResultOutput, SessionOutput};
-use zjj_core::OutputFormat;
+use zjj_core::{
+    output::{emit_stdout, Message, OutputLine, ResultKind, ResultOutput, SessionOutput},
+    OutputFormat,
+};
 
 use crate::commands::{determine_main_branch, get_session_db};
 
@@ -134,7 +136,7 @@ async fn handle_diff_output(
             let session_output = SessionOutput::new(
                 sess.name.clone(),
                 to_core_status(sess.status),
-                sess.state.clone(),
+                sess.state,
                 sess.workspace_path.clone().into(),
             )
             .map_err(|e| anyhow::anyhow!("Failed to create session output: {e}"))?;
@@ -151,9 +153,13 @@ async fn handle_diff_output(
         });
 
         // Emit diff result
-        let result = ResultOutput::success(ResultKind::Command, format!("Diff for {}", name))
-            .map_err(|e| anyhow::anyhow!("Failed to create result output: {e}"))?
-            .with_data(diff_data);
+        let result = ResultOutput::success(
+            ResultKind::Command,
+            Message::new(format!("Diff for {name}"))
+                .map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create result output: {e}"))?
+        .with_data(diff_data);
 
         emit_stdout(&OutputLine::Result(result))
             .map_err(|e| anyhow::anyhow!("Failed to emit diff result: {e}"))?;
@@ -399,7 +405,7 @@ mod tests {
         assert_eq!(revset2, "abc123..@");
     }
 
-    /// Test that build_diff_args produces correct arguments for stat
+    /// Test that `build_diff_args` produces correct arguments for stat mode
     #[test]
     fn test_build_diff_args_stat() {
         let args = build_diff_args(true, "main");
@@ -410,7 +416,7 @@ mod tests {
         assert!(args.contains(&"@".to_string()));
     }
 
-    /// Test that build_diff_args produces correct arguments for full diff
+    /// Test that `build_diff_args` produces correct arguments for full diff mode
     #[test]
     fn test_build_diff_args_full() {
         let args = build_diff_args(false, "main");
@@ -421,7 +427,7 @@ mod tests {
         assert!(args.contains(&"@".to_string()));
     }
 
-    /// Test that map_jj_error handles not found correctly
+    /// Test that `map_jj_error` handles `NotFound` errors correctly
     #[test]
     fn test_map_jj_error_not_found() {
         let error = io::Error::new(io::ErrorKind::NotFound, "not found");
@@ -432,7 +438,7 @@ mod tests {
         assert!(err_string.contains("not installed") || err_string.contains("not found"));
     }
 
-    /// Test that map_jj_error handles other errors correctly
+    /// Test that `map_jj_error` handles other errors correctly
     #[test]
     fn test_map_jj_error_other() {
         let error = io::Error::new(io::ErrorKind::PermissionDenied, "permission denied");
@@ -443,7 +449,7 @@ mod tests {
         assert!(err_string.contains("Failed to execute"));
     }
 
-    /// Test that to_core_status converts correctly
+    /// Test that `to_core_status` converts status correctly
     #[test]
     fn test_to_core_status() {
         use crate::session::SessionStatus;
@@ -474,7 +480,7 @@ mod tests {
     // JSONL Output Tests for diff.rs
     // ============================================================================
 
-    /// Test that ResultOutput can be created for diff
+    /// Test that `ResultOutput` can be created for diff operations
     #[test]
     fn test_result_output_for_diff() {
         let diff_data = serde_json::json!({
@@ -483,16 +489,17 @@ mod tests {
             "content": "diff content here",
         });
 
-        let result = ResultOutput::success(ResultKind::Command, "Diff for test-session".to_string())
-            .expect("Failed to create result")
-            .with_data(diff_data);
+        let result =
+            ResultOutput::success(ResultKind::Command, Message::new("Diff for test-session").expect("valid message"))
+                .expect("Failed to create result")
+                .with_data(diff_data);
 
-        assert!(result.success);
+        assert!(matches!(result.outcome, zjj_core::output::Outcome::Success));
         assert_eq!(result.kind, ResultKind::Command);
         assert!(result.data.is_some());
     }
 
-    /// Test that ResultOutput handles stat diff type
+    /// Test that `ResultOutput` handles stat diff type correctly
     #[test]
     fn test_result_output_stat_diff() {
         let diff_data = serde_json::json!({
@@ -501,9 +508,10 @@ mod tests {
             "content": "1 file changed, 5 insertions(+), 2 deletions(-)",
         });
 
-        let result = ResultOutput::success(ResultKind::Command, "Diff for test-session".to_string())
-            .expect("Failed to create result")
-            .with_data(diff_data);
+        let result =
+            ResultOutput::success(ResultKind::Command, Message::new("Diff for test-session").expect("valid message"))
+                .expect("Failed to create result")
+                .with_data(diff_data);
 
         let data = result.data.expect("Data should be present");
         assert_eq!(data["diff_type"], "stat");

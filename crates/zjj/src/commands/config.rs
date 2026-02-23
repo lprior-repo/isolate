@@ -868,4 +868,248 @@ mod tests {
         }
         Ok(())
     }
+
+    // ===== Phase 5 - REVIEW: Adversarial Tests =====
+    // Tests that verify edge cases, security boundaries, and error handling
+
+    #[test]
+    fn adversarial_extremely_long_key() -> Result<()> {
+        let key = "a".repeat(10000);
+        let result = zjj_core::config::validate_key(&key);
+        assert!(result.is_err(), "Extremely long key should be rejected");
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_unicode_key() -> Result<()> {
+        let unicode_keys = vec!["日本語.key", "ключ.value", "🔴.emoji", "café.setting"];
+        for key in unicode_keys {
+            let result = zjj_core::config::validate_key(key);
+            assert!(result.is_err(), "Unicode key '{}' should be rejected", key);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_path_traversal_key() -> Result<()> {
+        let malicious_keys = vec![
+            "../../../etc/passwd",
+            "..\\..\\..\\windows\\system32",
+            "/etc/passwd",
+            "~/../../etc/shadow",
+        ];
+        for key in malicious_keys {
+            let result = zjj_core::config::validate_key(key);
+            assert!(
+                result.is_err(),
+                "Path traversal key '{}' should be rejected",
+                key
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_null_byte_in_key() -> Result<()> {
+        let key = "key\x00with\x00nulls";
+        let result = zjj_core::config::validate_key(key);
+        assert!(result.is_err(), "Key with null bytes should be rejected");
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_newline_in_key() -> Result<()> {
+        let keys = vec!["key\nvalue", "key\r\nvalue", "key\rvalue"];
+        for key in keys {
+            let result = zjj_core::config::validate_key(key);
+            assert!(
+                result.is_err(),
+                "Key with newline '{}' should be rejected",
+                key.escape_unicode()
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_invalid_toml_value() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Values that look like arrays but aren't valid TOML arrays are stored as strings
+        // This is intentional - the config command treats values as literals unless they
+        // are clearly parseable as TOML arrays (start with [ AND end with ])
+        let result = set_config_value(&config_path, "test.array", "[invalid").await;
+        assert!(
+            result.is_ok(),
+            "Malformed array syntax should be stored as string literal"
+        );
+
+        // Verify it was stored as a string
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(
+            content.contains("\"[invalid\"") || content.contains("'[invalid'"),
+            "Value should be stored as quoted string"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_sql_injection_attempt() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Try SQL injection patterns
+        let sql_injections = vec![
+            "'; DROP TABLE users; --",
+            "1' OR '1'='1",
+            "admin'--",
+            "1; SELECT * FROM users",
+        ];
+
+        for injection in sql_injections {
+            let result = set_config_value(&config_path, "test.value", injection).await;
+            // Should accept as string value (not SQL context)
+            assert!(
+                result.is_ok(),
+                "SQL injection pattern should be stored as string"
+            );
+        }
+
+        // Verify values are stored as strings
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("DROP TABLE") || content.contains("SELECT"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_shell_injection_attempt() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Try shell injection patterns
+        let shell_injections = vec![
+            "$(rm -rf /)",
+            "`cat /etc/passwd`",
+            "| cat /etc/shadow",
+            "; rm -rf /",
+            "&& cat /etc/passwd",
+        ];
+
+        for injection in shell_injections {
+            let result = set_config_value(&config_path, "test.value", injection).await;
+            // Should accept as string value (stored safely, not executed)
+            assert!(
+                result.is_ok(),
+                "Shell injection pattern should be stored as string"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversential_symlink_attack_prevention() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Verify config file is not a symlink
+        assert!(!config_path.is_symlink(), "Config should not be a symlink");
+
+        // Write should work normally
+        set_config_value(&config_path, "test.value", "test").await?;
+
+        // Verify still not a symlink after write
+        assert!(
+            !config_path.is_symlink(),
+            "Config should not become symlink after write"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_integer_overflow() -> Result<()> {
+        // Test parsing of overflow integer values
+        let overflow_value = format!("{}{}", i64::MAX, "0");
+        let overflow_values = vec![
+            "999999999999999999999999999999",
+            "-999999999999999999999999999999",
+            overflow_value.as_str(),
+        ];
+
+        for value in overflow_values {
+            let result = parse_value(value);
+            // Should either reject or store as string
+            // Current implementation stores as string
+            assert!(
+                result.is_ok(),
+                "Overflow integer '{}' should be handled gracefully",
+                value
+            );
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_deeply_nested_key() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Create deeply nested structure
+        let deep_key = "a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.value";
+        let result = set_config_value(&config_path, deep_key, "test").await;
+
+        // Should handle gracefully
+        assert!(result.is_ok(), "Deeply nested key should be handled");
+
+        // Verify structure created
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("[a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p]"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_empty_value() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Empty string should be accepted
+        let result = set_config_value(&config_path, "test.empty", "").await;
+        assert!(result.is_ok(), "Empty value should be accepted");
+
+        // Verify stored correctly
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("empty = \"\""));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_whitespace_only_value() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Whitespace-only should be accepted as string
+        let result = set_config_value(&config_path, "test.whitespace", "   ").await;
+        assert!(result.is_ok(), "Whitespace value should be accepted");
+
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_special_characters_in_value() -> Result<()> {
+        let special_values = vec![
+            "value\nwith\nnewlines",
+            "value\twith\ttabs",
+            "value with \"quotes\"",
+            "value with 'apostrophes'",
+            "value\\with\\backslashes",
+        ];
+
+        for value in special_values {
+            let result = parse_value(value);
+            // Should handle as string
+            assert!(result.is_ok(), "Special character value should be handled");
+        }
+
+        Ok(())
+    }
 }

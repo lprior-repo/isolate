@@ -586,6 +586,9 @@ mod tests {
             let _first = acquire_cross_process_lock(&repo_root_path).await?;
         }
 
+        // Give the OS time to release the lock and close the file
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
         let lock_path = repo_root_path
             .join(".zjj")
             .join(WORKSPACE_CREATION_LOCK_FILE);
@@ -598,7 +601,7 @@ mod tests {
             .map_err(|e| Error::IoError(e.to_string()))?;
 
         let second_lock_attempt = second_file.try_lock_exclusive();
-        assert!(second_lock_attempt.is_ok());
+        assert!(second_lock_attempt.is_ok(), "Should be able to acquire lock after first is dropped");
 
         Ok(())
     }

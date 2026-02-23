@@ -80,6 +80,12 @@ pub mod schemas {
     }
 
     /// Get all valid schema names for validation
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of all valid schema names. The result should be used
+    /// for validation or schema discovery purposes.
+    #[must_use]
     pub fn all_valid_schemas() -> Vec<&'static str> {
         vec![
             INIT_RESPONSE,
@@ -908,6 +914,13 @@ impl<T> SchemaEnvelopeArray<T> {
     /// ```ignore
     /// let envelope = SchemaEnvelopeArray::new("list-response", items);
     /// ```
+    /// Create a new schema envelope array.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new envelope instance. The result must be used as this
+    /// creates a structured response object.
+    #[must_use]
     pub fn new(schema_name: &str, data: Vec<T>) -> Self {
         Self {
             schema: format!("zjj://{schema_name}/v1"),

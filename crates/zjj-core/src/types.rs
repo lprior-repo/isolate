@@ -6,186 +6,55 @@
 //! - JSON Schema generation
 //! - Self-documenting APIs
 
-use std::{fmt, path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use serde::{de::Error as SerdeError, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
     contracts::{Constraint, ContextualHint, FieldContract, HasContract, HintType, TypeContract},
+    domain::{
+        session::{BranchState, ParentState},
+        AbsolutePath, SessionId,
+    },
+    output::ValidatedMetadata,
     Error, Result, WorkspaceState,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION NAME VALUE OBJECT
-// ═════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 
-/// A validated session name value object.
-///
-/// # Invariants
-/// - Must start with an ASCII letter (a-z, A-Z)
-/// - May contain only ASCII alphanumeric characters, dashes, or underscores
-/// - Maximum length of 64 characters
-/// - Minimum length of 1 character
-///
-/// # Example
-/// ```ignore
-/// use zjj_core::SessionName;
-/// use std::str::FromStr;
-///
-/// let name = SessionName::from_str("my-feature")?;
-/// assert_eq!(name.as_str(), "my-feature");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SessionName(String);
+// Re-export from domain module (single source of truth)
+//
+// The domain::SessionName is the canonical implementation with consistent validation
+// rules (MAX_LENGTH = 63). This re-export provides backward compatibility for code
+// using `types::SessionName` and ensures all parts of the codebase use the same type.
+pub use crate::domain::SessionName;
 
+// Backward compatibility: provide new() method that delegates to parse()
+//
+// This allows existing code using SessionName::parse() to continue working
+// while new code can use SessionName::parse() for consistency with other domain types.
+#[cfg_attr(test, allow(clippy::missing_const_for_fn))]
 impl SessionName {
-    /// Maximum allowed length for a session name.
-    pub const MAX_LENGTH: usize = 64;
-
-    /// Create a new `SessionName` from a string slice.
+    /// Create a `SessionName` (backward compatibility alias for `parse()`)
     ///
     /// # Errors
     ///
     /// Returns `Error::ValidationError` if the name violates any invariant.
+    ///
+    /// # Note
+    ///
+    /// This is a compatibility alias for `SessionName::parse()`.
+    /// New code should use `parse()` for consistency with domain types.
     pub fn new(name: impl Into<String>) -> Result<Self> {
-        let name = name.into();
-        Self::validate(&name)?;
-        Ok(Self(name))
-    }
-
-    /// Get the session name as a string slice.
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Validate a session name string.
-    fn validate(name: &str) -> Result<()> {
-        if name.is_empty() {
-            return Err(Error::ValidationError {
-                message: "Session name cannot be empty".to_string(),
-                field: Some("name".to_string()),
-                value: Some(name.to_string()),
-                constraints: vec!["non-empty".to_string()],
-            });
-        }
-
-        let first_char = name.chars().next();
-        let starts_with_letter = first_char.is_some_and(|c| c.is_ascii_alphabetic());
-
-        if !starts_with_letter {
-            return Err(Error::ValidationError {
-                message: "Session name must start with a letter".to_string(),
-                field: Some("name".to_string()),
-                value: Some(name.to_string()),
-                constraints: vec!["starts with letter (a-z, A-Z)".to_string()],
-            });
-        }
-
-        let valid_chars = name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-
-        if !valid_chars {
-            return Err(Error::ValidationError {
-                message:
-                    "Session name must contain only alphanumeric characters, dashes, or underscores"
-                        .to_string(),
-                field: Some("name".to_string()),
-                value: Some(name.to_string()),
-                constraints: vec!["alphanumeric, dash, underscore only".to_string()],
-            });
-        }
-
-        if name.len() > Self::MAX_LENGTH {
-            return Err(Error::ValidationError {
-                message: format!("Session name cannot exceed {} characters", Self::MAX_LENGTH),
-                field: Some("name".to_string()),
-                value: Some(name.to_string()),
-                constraints: vec![format!("max length {}", Self::MAX_LENGTH)],
-            });
-        }
-
-        Ok(())
-    }
-}
-
-impl fmt::Display for SessionName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl AsRef<str> for SessionName {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl FromStr for SessionName {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        Self::new(s)
-    }
-}
-
-impl Serialize for SessionName {
-    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for SessionName {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        Self::new(s).map_err(|e| D::Error::custom(format!("{e}")))
-    }
-}
-
-impl From<SessionName> for String {
-    fn from(name: SessionName) -> Self {
-        name.0
-    }
-}
-
-impl HasContract for SessionName {
-    fn contract() -> TypeContract {
-        TypeContract::builder("SessionName")
-            .description("A validated session name")
-            .field(
-                "value",
-                FieldContract::builder("value", "String")
-                    .required()
-                    .description("The session name string")
-                    .constraint(Constraint::Regex {
-                        pattern: r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$".to_string(),
-                        description:
-                            "starts with letter, alphanumeric/dash/underscore, max 64 chars"
-                                .to_string(),
-                    })
-                    .constraint(Constraint::Length {
-                        min: Some(1),
-                        max: Some(Self::MAX_LENGTH),
-                    })
-                    .example("feature-auth")
-                    .example("bugfix-123")
-                    .example("experiment_idea")
-                    .build(),
-            )
-            .hint(ContextualHint {
-                hint_type: HintType::BestPractice,
-                message: "Use descriptive session names that indicate the purpose of the work"
-                    .to_string(),
-                condition: None,
-                related_to: Some("value".to_string()),
-            })
-            .build()
-    }
-
-    fn validate(&self) -> Result<()> {
-        Self::validate(&self.0)
+        Self::parse(name).map_err(|e| Error::ValidationError {
+            message: e.to_string(),
+            field: Some("name".to_string()),
+            value: None,
+            constraints: vec![],
+        })
     }
 }
 
@@ -213,7 +82,9 @@ impl SessionStatus {
     /// Valid state transitions
     ///
     /// # Returns
-    /// `true` if transition from current state to `next` is valid
+    /// `true` if transition from current state to `next` is valid. The result
+    /// should be checked before performing state transitions.
+    #[must_use]
     pub const fn can_transition_to(self, next: Self) -> bool {
         matches!(
             (self, next),
@@ -259,6 +130,12 @@ impl SessionStatus {
     }
 
     /// Allowed operations in this state
+    ///
+    /// # Returns
+    ///
+    /// Returns a slice of allowed operations. The result should be used
+    /// for validation or authorization checks.
+    #[must_use]
     pub const fn allowed_operations(self) -> &'static [Operation] {
         match self {
             Self::Creating => &[],
@@ -274,6 +151,12 @@ impl SessionStatus {
     }
 
     /// Check if an operation is allowed in this state
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the operation is allowed. The result should be checked
+    /// before performing operations.
+    #[must_use]
     pub fn allows_operation(self, op: Operation) -> bool {
         self.allowed_operations().contains(&op)
     }
@@ -317,8 +200,8 @@ pub enum Operation {
 /// A session represents a parallel workspace
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
-    /// Unique session identifier
-    pub id: String,
+    /// Unique session identifier (validated, non-empty, ASCII)
+    pub id: SessionId,
 
     /// Human-readable session name
     ///
@@ -340,15 +223,15 @@ pub struct Session {
     /// # Contract
     /// - MUST be absolute path
     /// - MUST exist if status != Creating
-    pub workspace_path: PathBuf,
+    #[serde(serialize_with = "serialize_absolute_path")]
+    #[serde(deserialize_with = "deserialize_absolute_path")]
+    pub workspace_path: AbsolutePath,
 
-    /// Optional branch name
+    /// Branch state (explicit branch or detached)
     ///
     /// # Contract
-    /// - `Some` if session has explicit branch
-    /// - `None` if using anonymous branch
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub branch: Option<String>,
+    /// - Uses enum instead of Option<String> for clearer state
+    pub branch: BranchState,
 
     /// Creation timestamp (UTC)
     pub created_at: DateTime<Utc>,
@@ -360,19 +243,17 @@ pub struct Session {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_synced: Option<DateTime<Utc>>,
 
-    /// Arbitrary metadata (extensibility)
+    /// Validated metadata (extensibility with type safety)
     #[serde(default)]
-    pub metadata: serde_json::Value,
+    pub metadata: ValidatedMetadata,
 
-    /// Parent session name (for stacked sessions)
+    /// Parent session state (root or child)
     ///
     /// # Contract
-    /// - `Some(parent_name)` if this is a stacked session
-    /// - `None` if this is a root session
-    /// - Parent MUST exist if `Some`
+    /// - Uses enum instead of `Option<String>` for clearer state
+    /// - Parent MUST exist if `ChildOf`
     /// - MUST NOT form cycles
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_session: Option<String>,
+    pub parent_session: ParentState,
 
     /// Queue status for merge train integration (bd-2np)
     ///
@@ -383,29 +264,43 @@ pub struct Session {
     pub queue_status: Option<super::coordination::queue_status::QueueStatus>,
 }
 
+// Serde serialization helpers for AbsolutePath
+fn serialize_absolute_path<S>(
+    path: &AbsolutePath,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(path.as_str())
+}
+
+fn deserialize_absolute_path<'de, D>(
+    deserializer: D,
+) -> std::result::Result<AbsolutePath, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    AbsolutePath::parse(s).map_err(serde::de::Error::custom)
+}
+
 impl Session {
     /// Validate session invariants (pure domain validation, no I/O)
     ///
     /// # Errors
     ///
     /// Returns error if:
-    /// - Name doesn't match validation rules
-    /// - Workspace path is not absolute
     /// - Timestamps are in wrong order
+    ///
+    /// # Note
+    ///
+    /// Name, workspace path, and ID are already validated by their newtype constructors
+    /// (`SessionName::parse()`, `AbsolutePath::parse()`, `SessionId::parse()`).
     pub fn validate_pure(&self) -> Result<()> {
-        self.name.validate()?;
-
-        if !self.workspace_path.is_absolute() {
-            return Err(Error::ValidationError {
-                message: format!(
-                    "Workspace path '{}' must be absolute",
-                    self.workspace_path.display()
-                ),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            });
-        }
+        // SessionName is already validated by its parse() constructor
+        // workspace_path is already validated by AbsolutePath::parse()
+        // id is validated by SessionId::parse()
 
         if self.updated_at < self.created_at {
             return Err(Error::ValidationError {
@@ -424,12 +319,11 @@ impl Session {
     /// # Errors
     ///
     /// Returns error if:
-    /// - Name doesn't match validation rules
-    /// - Workspace path is not absolute
     /// - Timestamps are in wrong order
     ///
     /// # Note
     ///
+    /// Name, workspace path, and ID are already validated by their newtype constructors.
     /// This does NOT check if the workspace exists on the filesystem.
     /// For filesystem validation, use `crate::validation::validate_session_workspace_exists()`
     /// from the infrastructure layer.
@@ -967,37 +861,26 @@ mod tests {
 
     #[test]
     fn test_session_name_rejects_invalid() {
-        assert!(SessionName::new("invalid name").is_err());
-        assert!(SessionName::new("123-start-with-number").is_err());
-        assert!(SessionName::new("").is_err());
-        assert!(SessionName::new(&"x".repeat(65)).is_err());
+        assert!(SessionName::parse("invalid name").is_err());
+        assert!(SessionName::parse("123-start-with-number").is_err());
+        assert!(SessionName::parse("").is_err());
+        assert!(SessionName::parse(&"x".repeat(65)).is_err());
     }
 
     #[test]
     fn test_session_name_accepts_valid() {
-        assert!(SessionName::new("valid-name").is_ok());
-        assert!(SessionName::new("Feature_Auth").is_ok());
-        assert!(SessionName::new("a").is_ok());
+        assert!(SessionName::parse("valid-name").is_ok());
+        assert!(SessionName::parse("Feature_Auth").is_ok());
+        assert!(SessionName::parse("a").is_ok());
     }
 
     #[test]
     fn test_session_validate_path_not_absolute() {
-        let session = Session {
-            id: "id123".to_string(),
-            name: SessionName::new("valid-name").expect("valid name"),
-            status: SessionStatus::Creating,
-            state: WorkspaceState::Created,
-            workspace_path: PathBuf::from("relative/path"), // not absolute
-            branch: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            last_synced: None,
-            metadata: serde_json::Value::Null,
-            parent_session: None,
-            queue_status: None,
-        };
-
-        assert!(session.validate().is_err());
+        // This test is no longer relevant since AbsolutePath enforces absoluteness
+        // at construction time. The path cannot be created if it's not absolute.
+        // We'll test that AbsolutePath rejects relative paths instead.
+        let result = AbsolutePath::parse("relative/path");
+        assert!(result.is_err());
     }
 
     #[test]
@@ -1006,17 +889,17 @@ mod tests {
         let earlier = now - chrono::Duration::seconds(60);
 
         let session = Session {
-            id: "id123".to_string(),
-            name: SessionName::new("valid-name").expect("valid name"),
+            id: SessionId::parse("id123").expect("valid id"),
+            name: SessionName::parse("valid-name").expect("valid name"),
             status: SessionStatus::Creating,
             state: WorkspaceState::Created,
-            workspace_path: PathBuf::from("/tmp/test"),
-            branch: None,
+            workspace_path: AbsolutePath::parse("/tmp/test").expect("valid path"),
+            branch: BranchState::Detached,
             created_at: now,
             updated_at: earlier, // updated before created!
             last_synced: None,
-            metadata: serde_json::Value::Null,
-            parent_session: None,
+            metadata: ValidatedMetadata::empty(),
+            parent_session: ParentState::Root,
             queue_status: None,
         };
 
@@ -1202,72 +1085,55 @@ mod tests {
 
     #[test]
     fn test_session_name_display() {
-        let name = SessionName::new("test-session").expect("valid name");
+        let name = SessionName::parse("test-session").expect("valid name");
         assert_eq!(format!("{name}"), "test-session");
     }
 
     #[test]
     fn test_session_name_as_ref() {
-        let name = SessionName::new("session-name").expect("valid name");
+        let name = SessionName::parse("session-name").expect("valid name");
         let ref_str: &str = name.as_ref();
         assert_eq!(ref_str, "session-name");
     }
 
     #[test]
     fn test_session_name_into_string() {
-        let name = SessionName::new("session").expect("valid name");
+        let name = SessionName::parse("session").expect("valid name");
         let s: String = name.into();
         assert_eq!(s, "session");
     }
 
     #[test]
     fn test_session_name_max_length() {
-        let exactly_64: String = "a".repeat(64);
+        let exactly_63: String = "a".repeat(63);
         assert!(
-            SessionName::new(&exactly_64).is_ok(),
-            "64 chars should be valid"
+            SessionName::parse(&exactly_63).is_ok(),
+            "63 chars should be valid"
         );
 
-        let too_long: String = "a".repeat(65);
+        let too_long: String = "a".repeat(64);
         assert!(
-            SessionName::new(&too_long).is_err(),
-            "65 chars should be invalid"
+            SessionName::parse(&too_long).is_err(),
+            "64 chars should be invalid"
         );
     }
 
     #[test]
     fn test_session_name_special_chars() {
-        assert!(SessionName::new("name-with-dash").is_ok());
-        assert!(SessionName::new("name_with_underscore").is_ok());
-        assert!(SessionName::new("NameWithCaps123").is_ok());
-        assert!(SessionName::new("name with space").is_err());
-        assert!(SessionName::new("name@special").is_err());
-        assert!(SessionName::new("name.dots").is_err());
+        assert!(SessionName::parse("name-with-dash").is_ok());
+        assert!(SessionName::parse("name_with_underscore").is_ok());
+        assert!(SessionName::parse("NameWithCaps123").is_ok());
+        assert!(SessionName::parse("name with space").is_err());
+        assert!(SessionName::parse("name@special").is_err());
+        assert!(SessionName::parse("name.dots").is_err());
     }
 
     #[test]
     fn test_session_name_must_start_with_letter() {
-        assert!(SessionName::new("a").is_ok());
-        assert!(SessionName::new("A").is_ok());
-        assert!(SessionName::new("1start-with-number").is_err());
-        assert!(SessionName::new("_start-with-underscore").is_err());
-        assert!(SessionName::new("-start-with-dash").is_err());
-    }
-
-    #[test]
-    fn test_session_name_contract() {
-        let contract = SessionName::contract();
-        assert_eq!(contract.name, "SessionName");
-        assert!(contract.fields.contains_key("value"));
-    }
-
-    #[test]
-    fn test_session_name_json_schema() {
-        let schema = SessionName::json_schema();
-        assert_eq!(schema.get("type").and_then(|v| v.as_str()), Some("object"));
-        assert_eq!(
-            schema.get("title").and_then(|v| v.as_str()),
-            Some("SessionName")
-        );
+        assert!(SessionName::parse("a").is_ok());
+        assert!(SessionName::parse("A").is_ok());
+        assert!(SessionName::parse("1start-with-number").is_err());
+        assert!(SessionName::parse("_start-with-underscore").is_err());
+        assert!(SessionName::parse("-start-with-dash").is_err());
     }
 }

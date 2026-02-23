@@ -32,7 +32,7 @@
 mod common;
 use std::fs;
 
-use common::{parse_jsonl_output, find_result_line, TestHarness};
+use common::{find_result_line, parse_jsonl_output, TestHarness};
 use serde_json::Value as JsonValue;
 
 // ============================================================================
@@ -142,7 +142,9 @@ fn test_db_entry_exists_without_workspace() {
 
     // JSONL format: parse lines and find the result line
     let lines = parse_jsonl_output(&query_result.stdout).unwrap_or_default();
-    let json = find_result_line(&lines).cloned().unwrap_or_else(|| serde_json::json!({}));
+    let json = find_result_line(&lines)
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
 
     // Current contract: existence is DB-backed even if workspace has been removed.
     let exists = json
@@ -238,7 +240,10 @@ fn test_json_success_matches_exit_code() {
         // JSONL format: parse lines and check first line for success field
         if let Ok(lines) = parse_jsonl_output(&result.stdout) {
             if let Some(first_line) = lines.first() {
-                if let Some(success) = first_line.get("success").and_then(serde_json::Value::as_bool) {
+                if let Some(success) = first_line
+                    .get("success")
+                    .and_then(serde_json::Value::as_bool)
+                {
                     assert_eq!(
                         success,
                         result.success,
@@ -287,7 +292,9 @@ fn test_clean_command_detects_orphans() {
 
     // JSONL format: parse lines and find the result line
     let lines = parse_jsonl_output(&clean_result.stdout).unwrap_or_default();
-    let json: JsonValue = find_result_line(&lines).cloned().unwrap_or_else(|| serde_json::json!({}));
+    let json: JsonValue = find_result_line(&lines)
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
 
     // CURRENT CHAMPION: Does not report orphaned workspace
     // EXPECTED: Lists orphaned workspaces and suggests actions

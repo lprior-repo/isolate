@@ -1,5 +1,9 @@
 //! Unified bead repository for managing issues in both `SQLite` and JSONL formats
 
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
+
 use std::path::PathBuf;
 
 use anyhow::Result;

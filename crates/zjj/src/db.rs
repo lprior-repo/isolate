@@ -136,7 +136,7 @@ END;
 ";
 
 /// Database wrapper for session storage with connection pooling
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SessionDb {
     pool: SqlitePool,
 }
@@ -764,6 +764,71 @@ impl SessionDb {
     /// Returns error if database operation fails
     pub async fn delete(&self, name: &str) -> Result<bool> {
         delete_session(&self.pool, name).await
+    }
+
+    /// Rename a session
+    ///
+    /// Updates the session name and also updates any parent_session references
+    /// in other sessions that point to the old name.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Old session doesn't exist
+    /// - New name already exists
+    /// - New name is invalid
+    /// - Database operation fails
+    pub async fn rename(&self, old_name: &str, new_name: &str) -> Result<Session> {
+        // Validate new name
+        validate_session_name(new_name)?;
+
+        // Check old session exists
+        let _session = self
+            .get(old_name)
+            .await?
+            .ok_or_else(|| Error::NotFound(format!("Session '{old_name}' not found")))?;
+
+        // Check new name doesn't exist
+        if self.get(new_name).await?.is_some() {
+            return Err(Error::ValidationError {
+                message: format!("Session '{new_name}' already exists"),
+                field: Some("name".to_string()),
+                value: Some(new_name.to_string()),
+                constraints: vec!["must be unique".to_string()],
+            });
+        }
+
+        let pool = self.pool.clone();
+        let old = old_name.to_string();
+        let new = new_name.to_string();
+
+        // Update session name and cascade to parent_session references
+        run_with_sqlite_busy_retry("rename session", move || {
+            let pool = pool.clone();
+            let old = old.clone();
+            let new = new.clone();
+            async move {
+                // Update parent_session references first (to maintain referential integrity)
+                sqlx::query("UPDATE sessions SET parent_session = ? WHERE parent_session = ?")
+                    .bind(&new)
+                    .bind(&old)
+                    .execute(&pool)
+                    .await?;
+
+                // Update the session name
+                sqlx::query("UPDATE sessions SET name = ? WHERE name = ?")
+                    .bind(&new)
+                    .bind(&old)
+                    .execute(&pool)
+                    .await
+            }
+        })
+        .await?;
+
+        // Fetch and return the renamed session
+        self.get(new_name)
+            .await?
+            .ok_or_else(|| Error::DatabaseError("Session not found after rename".to_string()))
     }
 
     /// List all sessions, optionally filtered by status

@@ -8,6 +8,11 @@
 #![allow(clippy::redundant_locals)]
 #![allow(dead_code)]
 
+//! Zero panic policy for production code
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
+
 //! Pragmatic test allowances - brutal test scenarios may use unwrap/expect/panic
 #![cfg_attr(
     test,

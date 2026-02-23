@@ -36,7 +36,7 @@
 
 use proptest::prelude::*;
 use zjj_core::coordination::{
-    pure_queue::{PureEntry, PureQueue, PureQueueError},
+    pure_queue::{PureQueue, PureQueueError},
     queue_status::{QueueStatus, TransitionError},
 };
 
@@ -114,12 +114,12 @@ proptest! {
         let queue = PureQueue::new();
         let queue = queue.add("ws-test", 5, None);
         prop_assert!(queue.is_ok());
-        let queue = queue.unwrap();
+        let queue = queue.expect("queue should be created successfully");
 
         // Agent1 claims successfully
         let claim1 = queue.claim_next(&agent1);
         prop_assert!(claim1.is_ok(), "First agent should be able to claim");
-        let (queue_after_claim1, claimed_ws) = claim1.unwrap();
+        let (queue_after_claim1, claimed_ws) = claim1.expect("claim should succeed");
 
         // Verify lock is held by agent1
         prop_assert!(queue_after_claim1.is_locked());
@@ -134,7 +134,7 @@ proptest! {
         // Agent1 releases the lock by transitioning to terminal
         let queue_released = queue_after_claim1.release(&claimed_ws);
         prop_assert!(queue_released.is_ok());
-        let queue_released = queue_released.unwrap();
+        let queue_released = queue_released.expect("release should succeed");
 
         // Now agent2 can claim (if different from agent1)
         if agent1 != agent2 {
@@ -152,14 +152,14 @@ proptest! {
         let queue = PureQueue::new();
         let queue = queue.add("ws-test", 5, None);
         prop_assert!(queue.is_ok());
-        let queue = queue.unwrap();
+        let queue = queue.expect("queue should be created successfully");
 
         // First agent to claim wins
         let first_agent = &agents[0];
         let claim_result = queue.claim_next(first_agent);
         prop_assert!(claim_result.is_ok(), "First agent should claim successfully");
 
-        let (queue_after_claim, _) = claim_result.unwrap();
+        let (queue_after_claim, _) = claim_result.expect("claim result should be valid");
 
         // Count how many agents can claim now (should be 0 - only one winner)
         let successful_claims: Vec<_> = agents
@@ -197,7 +197,7 @@ proptest! {
             if queue.get(workspace).is_some() {
                 continue;
             }
-            queue = queue.add(workspace, *priority, None).unwrap();
+            queue = queue.add(workspace, *priority, None).expect("queue operation should succeed");
         }
 
         // Claim entries one by one and verify ordering
@@ -213,8 +213,8 @@ proptest! {
                         claimed_order.push((workspace.clone(), entry.priority));
                     }
                     // Release and transition to terminal to allow next claim
-                    let released = new_queue.release(&workspace).unwrap();
-                    current_queue = released.transition_status(&workspace, QueueStatus::Merged).unwrap();
+                    let released = new_queue.release(&workspace).expect("queue operation should succeed");
+                    current_queue = released.transition_status(&workspace, QueueStatus::Merged).expect("queue operation should succeed");
                 }
                 Err(PureQueueError::NoPendingEntries) => break,
                 Err(_) => break,
@@ -253,30 +253,30 @@ proptest! {
         let queue = PureQueue::new();
         let queue = queue.add(&claimed_workspace, lower_priority, None);
         prop_assert!(queue.is_ok());
-        let queue = queue.unwrap();
+        let queue = queue.expect("queue operation should succeed");
 
         // Claim the entry
         let claim_result = queue.claim_next("agent1");
         prop_assert!(claim_result.is_ok());
-        let (queue_after_claim, ws_claimed) = claim_result.unwrap();
+        let (queue_after_claim, ws_claimed) = claim_result.expect("queue operation should succeed");
         prop_assert_eq!(ws_claimed, claimed_workspace.clone());
 
         // Add a higher priority entry (different workspace)
         let higher_ws = format!("{}-higher", claimed_workspace);
         let queue_with_higher = queue_after_claim.add(&higher_ws, higher_priority, None);
         prop_assert!(queue_with_higher.is_ok());
-        let queue_with_higher = queue_with_higher.unwrap();
+        let queue_with_higher = queue_with_higher.expect("queue operation should succeed");
 
         // Verify claimed entry is still claimed
         let claimed_entry = queue_with_higher.get(&claimed_workspace);
         prop_assert!(claimed_entry.is_some());
-        let claimed_entry = claimed_entry.unwrap();
+        let claimed_entry = claimed_entry.expect("queue operation should succeed");
         prop_assert!(claimed_entry.is_claimed());
 
         // The higher priority entry should be pending, not affecting the claimed one
         let higher_entry = queue_with_higher.get(&higher_ws);
         prop_assert!(higher_entry.is_some());
-        let higher_entry = higher_entry.unwrap();
+        let higher_entry = higher_entry.expect("queue operation should succeed");
         prop_assert!(higher_entry.is_claimable());
     }
 
@@ -292,7 +292,7 @@ proptest! {
             if queue.get(workspace).is_some() {
                 continue;
             }
-            queue = queue.add(workspace, *priority, None).unwrap();
+            queue = queue.add(workspace, *priority, None).expect("queue operation should succeed");
         }
 
         // Add batch2
@@ -300,7 +300,7 @@ proptest! {
             if queue.get(workspace).is_some() {
                 continue;
             }
-            queue = queue.add(workspace, *priority, None).unwrap();
+            queue = queue.add(workspace, *priority, None).expect("queue operation should succeed");
         }
 
         // Verify queue is consistent
@@ -560,7 +560,7 @@ proptest! {
             if queue.get(workspace).is_some() {
                 continue;
             }
-            queue = queue.add(workspace, *priority, None).unwrap();
+            queue = queue.add(workspace, *priority, None).expect("queue operation should succeed");
         }
 
         // Save original state for later verification
@@ -688,7 +688,7 @@ proptest! {
         let queue = PureQueue::new();
         let queue = queue.add(&workspace1, 5, Some(&dedupe_key));
         prop_assert!(queue.is_ok());
-        let queue = queue.unwrap();
+        let queue = queue.expect("queue operation should succeed");
 
         // Try to add second entry with same dedupe key - should fail
         let result = queue.add(&workspace2, 5, Some(&dedupe_key));

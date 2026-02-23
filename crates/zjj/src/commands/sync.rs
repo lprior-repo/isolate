@@ -49,9 +49,11 @@ use fs4::fs_std::FileExt;
 use futures::StreamExt;
 use tokio::process::Command;
 use zjj_core::{
+    domain::SessionName,
     output::{
-        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
-        ResultOutput, Summary, SummaryType,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
+        IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput, Summary,
+        SummaryType,
     },
     OutputFormat,
 };
@@ -67,7 +69,11 @@ use crate::{
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn emit_action(verb: &str, target: &str, status: ActionStatus, result: Option<&str>) -> Result<()> {
-    let action = Action::new(verb.to_string(), target.to_string(), status);
+    let action = Action::new(
+        ActionVerb::new(verb).map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+        ActionTarget::new(target).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+        status,
+    );
     let action = match result {
         Some(r) => action.with_result(r.to_string()),
         None => action,
@@ -76,8 +82,11 @@ fn emit_action(verb: &str, target: &str, status: ActionStatus, result: Option<&s
 }
 
 fn emit_summary(type_field: SummaryType, message: &str, details: Option<&str>) -> Result<()> {
-    let summary =
-        Summary::new(type_field, message.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let summary = Summary::new(
+        type_field,
+        Message::new(message).map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     let summary = match details {
         Some(d) => summary.with_details(d.to_string()),
         None => summary,
@@ -93,10 +102,15 @@ fn emit_issue(
     session: Option<&str>,
     suggestion: Option<&str>,
 ) -> Result<()> {
-    let issue =
-        Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let issue = Issue::new(
+        IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
+        IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
+        kind,
+        severity,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     let issue = match session {
-        Some(s) => issue.with_session(s.to_string()),
+        Some(s) => issue.with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?),
         None => issue,
     };
     let issue = match suggestion {
@@ -107,10 +121,11 @@ fn emit_issue(
 }
 
 fn emit_result(success: bool, kind: ResultKind, message: &str) -> Result<()> {
+    let msg = Message::new(message).map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?;
     let result = if success {
-        ResultOutput::success(kind, message.to_string())
+        ResultOutput::success(kind, msg)
     } else {
-        ResultOutput::failure(kind, message.to_string())
+        ResultOutput::failure(kind, msg)
     }
     .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
@@ -493,32 +508,43 @@ async fn sync_all_jsonl(
             match res {
                 Ok(()) => {
                     // Emit Action for successful sync
-                    let action = Action::new(
-                        "rebase".to_string(),
-                        session.name.clone(),
-                        ActionStatus::Completed,
-                    )
-                    .with_result(format!("Synced '{}' with main", session.name));
-                    if let Err(e) = emit_stdout(&OutputLine::Action(action)) {
-                        eprintln!("Warning: Failed to emit action: {e}");
+                    let action_result = || -> Result<Action> {
+                        Ok(Action::new(
+                            ActionVerb::new("rebase")?,
+                            ActionTarget::new(&session.name)?,
+                            ActionStatus::Completed,
+                        )
+                        .with_result(format!("Synced '{}' with main", session.name)))
+                    }();
+                    match action_result {
+                        Ok(action) => {
+                            if let Err(e) = emit_stdout(&OutputLine::Action(action)) {
+                                eprintln!("Warning: Failed to emit action: {e}");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Warning: Failed to create action: {e}");
+                        }
                     }
                     synced_acc.push(session.name);
                 }
                 Err(e) => {
                     // Emit Issue for failed sync
-                    let issue = Issue::new(
-                        format!("SYNC-FAILED-{}", session.name),
-                        format!("Failed to sync session '{}'", session.name),
-                        IssueKind::External,
-                        IssueSeverity::Error,
-                    )
-                    .map(|line| {
-                        line.with_session(session.name.clone()).with_suggestion(
+                    let issue_result = || -> Result<Issue> {
+                        let session_name = SessionName::parse(session.name.clone())?;
+                        Ok(Issue::new(
+                            IssueId::new(format!("SYNC-FAILED-{}", session.name))?,
+                            IssueTitle::new(format!("Failed to sync session '{}'", session.name))?,
+                            IssueKind::External,
+                            IssueSeverity::Error,
+                        )?
+                        .with_session(session_name)
+                        .with_suggestion(
                             "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
-                        )
-                    });
+                        ))
+                    }();
 
-                    match issue {
+                    match issue_result {
                         Ok(issue_line) => {
                             if let Err(emit_err) = emit_stdout(&OutputLine::Issue(issue_line)) {
                                 eprintln!("Warning: Failed to emit issue: {emit_err}");
@@ -940,11 +966,11 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_action_output_on_success() -> anyhow::Result<()> {
-        use zjj_core::output::{Action, ActionStatus, OutputLine};
+        use zjj_core::output::{Action, ActionStatus, ActionVerb, ActionTarget, OutputLine};
 
         let action = Action::new(
-            "rebase".to_string(),
-            "test-session".to_string(),
+            ActionVerb::new("rebase")?,
+            ActionTarget::new("test-session")?,
             ActionStatus::Completed,
         )
         .with_result("Synced session 'test-session' with main".to_string());
@@ -986,11 +1012,11 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_result_output_on_success() -> anyhow::Result<()> {
-        use zjj_core::output::{OutputLine, ResultKind, ResultOutput};
+        use zjj_core::output::{Message, OutputLine, ResultKind, ResultOutput};
 
         let result = ResultOutput::success(
             ResultKind::Command,
-            "Synced session 'test-session' with main".to_string(),
+            Message::new("Synced session 'test-session' with main")?,
         )?;
 
         let output_line = OutputLine::Result(result);
@@ -1006,9 +1032,9 @@ mod tests {
             .and_then(|v| v.as_object())
             .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
         assert_eq!(
-            result_obj.get("success").and_then(|v| v.as_bool()),
-            Some(true),
-            "success should be true on success"
+            result_obj.get("outcome").and_then(|v| v.as_str()),
+            Some("success"),
+            "outcome should be 'success' on success"
         );
         assert_eq!(
             result_obj.get("kind").and_then(|v| v.as_str()),
@@ -1021,11 +1047,11 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_result_output_on_failure() -> anyhow::Result<()> {
-        use zjj_core::output::{OutputLine, ResultKind, ResultOutput};
+        use zjj_core::output::{Message, OutputLine, ResultKind, ResultOutput};
 
         let result = ResultOutput::failure(
             ResultKind::Command,
-            "Synced 3 session(s), 2 failed".to_string(),
+            Message::new("Synced 3 session(s), 2 failed")?,
         )?;
 
         let output_line = OutputLine::Result(result);
@@ -1041,9 +1067,9 @@ mod tests {
             .and_then(|v| v.as_object())
             .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
         assert_eq!(
-            result_obj.get("success").and_then(|v| v.as_bool()),
-            Some(false),
-            "success should be false on failure"
+            result_obj.get("outcome").and_then(|v| v.as_str()),
+            Some("failure"),
+            "outcome should be 'failure' on failure"
         );
 
         Ok(())
@@ -1051,11 +1077,11 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_summary_output() -> anyhow::Result<()> {
-        use zjj_core::output::{OutputLine, Summary, SummaryType};
+        use zjj_core::output::{Message, OutputLine, Summary, SummaryType};
 
         let summary = Summary::new(
             SummaryType::Count,
-            "Synced 5 session(s), 0 failed".to_string(),
+            Message::new("Synced 5 session(s), 0 failed")?,
         )?
         .with_details("synced_count: 5, failed_count: 0".to_string());
 
@@ -1090,15 +1116,16 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_issue_output() -> anyhow::Result<()> {
-        use zjj_core::output::{Issue, IssueKind, IssueSeverity, OutputLine};
+        use zjj_core::domain::SessionName;
+        use zjj_core::output::{Issue, IssueId, IssueKind, IssueSeverity, IssueTitle, OutputLine};
 
         let issue = Issue::new(
-            "SYNC-FAILED-test-session".to_string(),
-            "Failed to sync session 'test-session'".to_string(),
+            IssueId::new("SYNC-FAILED-test-session")?,
+            IssueTitle::new("Failed to sync session 'test-session'")?,
             IssueKind::External,
             IssueSeverity::Error,
         )?
-        .with_session("test-session".to_string())
+        .with_session(SessionName::parse("test-session")?)
         .with_suggestion("Try 'jj resolve' to fix conflicts, then retry sync".to_string());
 
         let output_line = OutputLine::Issue(issue);
@@ -1128,10 +1155,24 @@ mod tests {
             Some("error"),
             "severity should be 'error'"
         );
+        // scope is now IssueScope enum instead of session: Option<String>
+        // IssueScope::InSession serializes as {"InSession":{"session":"..."}}
+        let scope = issue_obj
+            .get("scope")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("scope should be an object"))?;
+        assert!(
+            scope.get("InSession").is_some(),
+            "scope should have 'InSession' field"
+        );
+        let in_session = scope
+            .get("InSession")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| anyhow::anyhow!("InSession should be an object"))?;
         assert_eq!(
-            issue_obj.get("session").and_then(|v| v.as_str()),
+            in_session.get("session").and_then(|v| v.as_str()),
             Some("test-session"),
-            "session should be set"
+            "session should be set within scope.InSession"
         );
         assert!(
             issue_obj.get("suggestion").is_some(),
@@ -1143,12 +1184,12 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_parseable_by_jq() -> anyhow::Result<()> {
-        use zjj_core::output::{Action, ActionStatus, OutputLine, ResultKind, ResultOutput};
+        use zjj_core::output::{Action, ActionStatus, ActionVerb, ActionTarget, Message, OutputLine, ResultKind, ResultOutput};
 
         // Simulate a sync output: Action + Result
         let action = Action::new(
-            "rebase".to_string(),
-            "test-session".to_string(),
+            ActionVerb::new("rebase")?,
+            ActionTarget::new("test-session")?,
             ActionStatus::Completed,
         )
         .with_result("Synced session 'test-session' with main".to_string());
@@ -1158,7 +1199,7 @@ mod tests {
 
         let result = ResultOutput::success(
             ResultKind::Command,
-            "Synced session 'test-session' with main".to_string(),
+            Message::new("Synced session 'test-session' with main")?,
         )?;
         let result_line = OutputLine::Result(result);
         let result_json = serde_json::to_string(&result_line)?;
@@ -1232,7 +1273,7 @@ mod tests {
 
     /// Test: Named session takes highest priority
     ///
-    /// When a session name is provided, it should ALWAYS route to NamedSession,
+    /// When a session name is provided, it should ALWAYS route to `NamedSession`,
     /// regardless of other flags.
     #[test]
     fn test_determine_sync_behavior_named_session_priority() {
@@ -1255,9 +1296,9 @@ mod tests {
         );
     }
 
-    /// Test: --all flag routes to AllSessions
+    /// Test: --all flag routes to `AllSessions`
     ///
-    /// When --all is explicitly provided without a name, it should route to AllSessions.
+    /// When --all is explicitly provided without a name, it should route to `AllSessions`.
     #[test]
     fn test_determine_sync_behavior_all_sessions() {
         use super::{determine_sync_behavior, SyncBehavior};
@@ -1270,9 +1311,9 @@ mod tests {
         );
     }
 
-    /// Test: Default (no args) routes to CurrentWorkspace
+    /// Test: Default (no args) routes to `CurrentWorkspace`
     ///
-    /// When no name and no --all flag, the safe default is CurrentWorkspace.
+    /// When no name and no --all flag, the safe default is `CurrentWorkspace`.
     #[test]
     fn test_determine_sync_behavior_default_is_current_workspace() {
         use super::{determine_sync_behavior, SyncBehavior};
@@ -1310,7 +1351,7 @@ mod tests {
         }
     }
 
-    /// Test: SyncBehavior enum is exhaustive
+    /// Test: `SyncBehavior` enum is exhaustive
     ///
     /// Ensure all variants are handled in match statements.
     #[test]

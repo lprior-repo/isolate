@@ -372,7 +372,8 @@ fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
     );
 
     // Parse JSONL output (one JSON object per line)
-    let lines = parse_jsonl_output(&result.stdout).expect("queue --process should emit valid JSONL");
+    let lines =
+        parse_jsonl_output(&result.stdout).expect("queue --process should emit valid JSONL");
     // Find the summary line which contains the message
     let summary_payload = find_summary_line(&lines)
         .and_then(|line| line.get("summary"))
@@ -386,13 +387,18 @@ fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
 
     let status_result = harness.zjj(&["queue", "--status", "stale-ready-ws", "--json"]);
     assert!(status_result.success, "queue --status should succeed");
-    let status_lines = parse_jsonl_output(&status_result.stdout).expect("status JSONL should parse");
+    let status_lines =
+        parse_jsonl_output(&status_result.stdout).expect("status JSONL should parse");
     // The queue_entry line contains the status
     let persisted_status = find_jsonl_line_by_type(&status_lines, "queue_entry")
         .and_then(|line| line.get("queue_entry"))
         .and_then(|entry| entry.get("status"))
         .and_then(|s| s.as_str());
-    assert_eq!(persisted_status, Some("in_progress"), "status should be 'in_progress' (JSONL maps rebasing to in_progress)");
+    assert_eq!(
+        persisted_status,
+        Some("in_progress"),
+        "status should be 'in_progress' (JSONL maps rebasing to in_progress)"
+    );
 
     rt.block_on(async {
         let queue = zjj_core::MergeQueue::open(&queue_db)

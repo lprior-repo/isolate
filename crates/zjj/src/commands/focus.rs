@@ -12,9 +12,10 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use zjj_core::{
+    domain::SessionName,
     output::{
-        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
-        ResultOutput, SessionOutput,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
+        IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput, SessionOutput,
     },
     OutputFormat,
 };
@@ -62,7 +63,8 @@ fn emit_session_and_result(session: &crate::session::Session) -> Result<()> {
 
     let result = ResultOutput::success(
         ResultKind::Command,
-        format!("Focused on session '{}'", session.name),
+        Message::new(format!("Focused on session '{}'", session.name))
+            .map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
     )
     .map_err(|e| anyhow::anyhow!("{e}"))?;
     emit_stdout(&OutputLine::Result(result))?;
@@ -78,11 +80,16 @@ fn emit_issue(
     session: Option<&str>,
     suggestion: Option<&str>,
 ) -> Result<()> {
-    let mut issue =
-        Issue::new(id.to_string(), title, kind, severity).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let mut issue = Issue::new(
+        IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
+        IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
+        kind,
+        severity,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if let Some(s) = session {
-        issue = issue.with_session(s.to_string());
+        issue = issue.with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
     }
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());
@@ -125,8 +132,8 @@ pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Res
 
     if options.no_zellij {
         let action = Action::new(
-            "focus".to_string(),
-            name.to_string(),
+            ActionVerb::new("focus").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+            ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
             ActionStatus::Completed,
         );
         emit_stdout(&OutputLine::Action(action))?;
@@ -140,8 +147,8 @@ pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Res
         run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
 
         let action = Action::new(
-            "switch-tab".to_string(),
-            zellij_tab,
+            ActionVerb::new("switch-tab").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+            ActionTarget::new(&zellij_tab).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
             ActionStatus::Completed,
         )
         .with_result(format!("Switched to session '{name}'"));
@@ -149,9 +156,9 @@ pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Res
         emit_session_and_result(&session)?;
     } else {
         let action = Action::new(
-            "attach".to_string(),
-            zellij_tab.clone(),
-            ActionStatus::InProgress,
+            ActionVerb::new("attach").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+            ActionTarget::new(zellij_tab.clone()).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+            ActionStatus::Completed,
         )
         .with_result(format!("Attaching to Zellij session for '{name}'"));
         emit_stdout(&OutputLine::Action(action))?;
@@ -353,8 +360,8 @@ mod tests {
     #[tokio::test]
     async fn test_issue_output_is_valid_jsonl() -> Result<()> {
         let issue = Issue::new(
-            "FOCUS-001".to_string(),
-            "Session name is required".to_string(),
+            IssueId::new("FOCUS-001")?,
+            IssueTitle::new("Session name is required")?,
             IssueKind::Validation,
             IssueSeverity::Error,
         )?
@@ -394,7 +401,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_result_output_is_valid_jsonl() -> Result<()> {
-        let result = ResultOutput::success(ResultKind::Command, "Focused on session".to_string())?;
+        let result = ResultOutput::success(
+            ResultKind::Command,
+            Message::new("Focused on session")?,
+        )?;
 
         let output_line = OutputLine::Result(result);
         let json_str = serde_json::to_string(&output_line)?;
@@ -412,8 +422,8 @@ mod tests {
             .and_then(|v| v.as_object())
             .ok_or_else(|| anyhow::anyhow!("result value must be an object"))?;
         assert!(
-            result_obj.get("success").is_some(),
-            "Result must have 'success' field"
+            result_obj.get("outcome").is_some(),
+            "Result must have 'outcome' field"
         );
         assert!(
             result_obj.get("message").is_some(),
@@ -421,9 +431,9 @@ mod tests {
         );
 
         assert_eq!(
-            result_obj.get("success").and_then(|v| v.as_bool()),
-            Some(true),
-            "Success result should have success=true"
+            result_obj.get("outcome").and_then(|v| v.as_str()),
+            Some("success"),
+            "Success result should have outcome=\"success\""
         );
 
         Ok(())
@@ -432,8 +442,8 @@ mod tests {
     #[tokio::test]
     async fn test_action_output_is_valid_jsonl() -> Result<()> {
         let action = Action::new(
-            "focus".to_string(),
-            "test-session".to_string(),
+            ActionVerb::new("focus")?,
+            ActionTarget::new("test-session")?,
             ActionStatus::Completed,
         )
         .with_result("Switched to session".to_string());
@@ -496,12 +506,12 @@ mod tests {
     #[tokio::test]
     async fn test_emit_issue_produces_valid_jsonl() -> Result<()> {
         let issue = Issue::new(
-            "FOCUS-TEST".to_string(),
-            "Test issue".to_string(),
+            IssueId::new("FOCUS-TEST")?,
+            IssueTitle::new("Test issue")?,
             IssueKind::Validation,
             IssueSeverity::Warning,
         )?
-        .with_session("test-session".to_string());
+        .with_session(SessionName::parse("test-session")?);
 
         let json_str = serde_json::to_string(&OutputLine::Issue(issue))?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;

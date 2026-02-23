@@ -488,7 +488,11 @@ mod list_command {
 
         // List with --all
         let result = harness.zjj(&["list", "--all"]);
-        assert!(result.success, "List --all should succeed: {}", result.stderr);
+        assert!(
+            result.success,
+            "List --all should succeed: {}",
+            result.stderr
+        );
 
         let lines = parse_jsonl_lines(&result.stdout);
         assert!(!lines.is_empty(), "Should have output lines");

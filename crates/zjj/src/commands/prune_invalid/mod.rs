@@ -18,8 +18,10 @@ use std::io::Write;
 
 use anyhow::Result;
 use futures::{StreamExt, TryStreamExt};
-use zjj_core::output::{emit_stdout, Action, ActionStatus, OutputLine, Summary, SummaryType};
-use zjj_core::OutputFormat;
+use zjj_core::{
+    output::{emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine, Summary, SummaryType},
+    OutputFormat,
+};
 
 use crate::commands::get_session_db;
 
@@ -105,7 +107,10 @@ pub async fn run(options: &PruneInvalidOptions) -> Result<()> {
 
 fn output_no_invalid(format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let summary = Summary::new(SummaryType::Status, "No invalid sessions found".to_string())?;
+        let summary = Summary::new(
+            SummaryType::Status,
+            Message::new("No invalid sessions found")?,
+        )?;
         emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("No invalid sessions found");
@@ -118,12 +123,19 @@ fn output_dry_run(invalid_names: &[String], format: OutputFormat) -> Result<()> 
     if format.is_json() {
         let summary = Summary::new(
             SummaryType::Info,
-            format!("Found {} invalid session(s) (dry-run)", invalid_names.len()),
+            Message::new(format!(
+                "Found {} invalid session(s) (dry-run)",
+                invalid_names.len()
+            ))?,
         )?;
         emit_stdout(&OutputLine::Summary(summary))?;
 
         for name in invalid_names {
-            let action = Action::new("discovered".to_string(), name.clone(), ActionStatus::Pending);
+            let action = Action::new(
+                ActionVerb::new("discovered").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                ActionStatus::Pending,
+            );
             emit_stdout(&OutputLine::Action(action))?;
         }
     } else {
@@ -142,11 +154,15 @@ fn output_dry_run(invalid_names: &[String], format: OutputFormat) -> Result<()> 
 
 fn output_cancelled(invalid_names: &[String], format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let summary = Summary::new(SummaryType::Status, "Prune cancelled".to_string())?;
+        let summary = Summary::new(SummaryType::Status, Message::new("Prune cancelled")?)?;
         emit_stdout(&OutputLine::Summary(summary))?;
 
         for name in invalid_names {
-            let action = Action::new("remove".to_string(), name.clone(), ActionStatus::Skipped);
+            let action = Action::new(
+                ActionVerb::new("remove").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                ActionStatus::Skipped,
+            );
             emit_stdout(&OutputLine::Action(action))?;
         }
     } else {
@@ -155,16 +171,24 @@ fn output_cancelled(invalid_names: &[String], format: OutputFormat) -> Result<()
     Ok(())
 }
 
-fn output_result(removed_count: usize, invalid_names: &[String], format: OutputFormat) -> Result<()> {
+fn output_result(
+    removed_count: usize,
+    invalid_names: &[String],
+    format: OutputFormat,
+) -> Result<()> {
     if format.is_json() {
         let summary = Summary::new(
             SummaryType::Status,
-            format!("Removed {} invalid session(s)", removed_count),
+            Message::new(format!("Removed {removed_count} invalid session(s)"))?,
         )?;
         emit_stdout(&OutputLine::Summary(summary))?;
 
         for name in invalid_names {
-            let action = Action::new("remove".to_string(), name.clone(), ActionStatus::Completed);
+            let action = Action::new(
+                ActionVerb::new("remove").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                ActionStatus::Completed,
+            );
             emit_stdout(&OutputLine::Action(action))?;
         }
     } else {

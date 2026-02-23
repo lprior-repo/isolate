@@ -109,7 +109,7 @@ fn test_remove_idempotent_removes_session_when_exists() {
         .stdout
         .lines()
         .filter(|l| !l.trim().is_empty())
-        .map(|l| serde_json::from_str(l))
+        .map(serde_json::from_str)
         .collect::<Result<Vec<_>, _>>()
         .expect("List should be valid JSONL");
 

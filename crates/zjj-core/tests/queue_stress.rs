@@ -27,7 +27,7 @@
     clippy::significant_drop_tightening,
     clippy::needless_continue,
 )]
-//! Stress test for coordination queue - Run with: cargo test --test '`queue_stress`'
+//! Stress test for coordination queue - Run with: `cargo test --test '`queue_stress`'
 
 use std::time::Duration;
 

@@ -1,0 +1,58 @@
+warning: unused imports: `GlobalFlags`, `ZjjObject`, `build_object_cli`, `cmd_agent`, `cmd_config`, `cmd_doctor`, `cmd_queue`, `cmd_session`, `cmd_stack`, `cmd_status`, and `cmd_task`
+  --> crates/zjj/src/cli/mod.rs:15:5
+   |
+15 |     build_object_cli, cmd_agent, cmd_config, cmd_doctor, cmd_queue, cmd_session, cmd_stack,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^
+16 |     cmd_status, cmd_task, GlobalFlags, ZjjObject,
+   |     ^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `holder`
+   --> crates/zjj/tests/task_properties.rs:719:46
+    |
+719 |                 ClaimResult::AlreadyLocked { holder } => {
+    |                                              ^^^^^^ help: try ignoring the field: `holder: _`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `current_state`
+   --> crates/zjj/tests/task_properties.rs:722:45
+    |
+722 |                 ClaimResult::InvalidState { current_state } => {
+    |                                             ^^^^^^^^^^^^^ help: try ignoring the field: `current_state: _`
+
+
+running 21 tests
+.... 4/21
+stub_tests::test_simulated_task_expiry_allows_reclaim --- FAILED
+... 8/21
+prop_concurrent_claims_idempotent_same_agent --- FAILED
+............
+failures:
+
+---- stub_tests::test_simulated_task_expiry_allows_reclaim stdout ----
+
+thread 'stub_tests::test_simulated_task_expiry_allows_reclaim' (2741173) panicked at crates/zjj/tests/task_properties.rs:999:17:
+RED PHASE FAILURE: Cannot claim after expiry because status is Claimed, not Pending
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- prop_concurrent_claims_idempotent_same_agent stdout ----
+proptest: FileFailurePersistence::SourceParallel set, but failed to find lib.rs or main.rs
+
+thread 'prop_concurrent_claims_idempotent_same_agent' (2741161) panicked at crates/zjj/tests/task_properties.rs:635:1:
+Test failed: Same agent should be able to re-claim (idempotent), got InvalidState { current_state: Claimed } at crates/zjj/tests/task_properties.rs:769.
+minimal failing input: task_id = "task-0a0a0a0a", agent_id = "a", current_time = 1700000000, ttl = 1
+	successes: 0
+	local rejects: 0
+	global rejects: 0
+
+
+
+failures:
+    prop_concurrent_claims_idempotent_same_agent
+    stub_tests::test_simulated_task_expiry_allows_reclaim
+
+test result: FAILED. 19 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+error: test failed, to rerun pass `-p zjj --test task_properties`

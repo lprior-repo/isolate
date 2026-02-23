@@ -118,7 +118,7 @@ impl Priority {
     }
 
     #[must_use]
-    pub const fn to_u32(&self) -> u32 {
+    pub const fn to_u32(self) -> u32 {
         match self {
             Self::P0 => 0,
             Self::P1 => 1,
@@ -161,13 +161,16 @@ pub struct BeadIssue {
 impl BeadIssue {
     #[must_use]
     pub fn is_blocked(&self) -> bool {
-        self.status == IssueStatus::Blocked
-            || self.blocked_by.as_ref().is_some_and(|v| !v.is_empty())
+        matches!(self.status, IssueStatus::Blocked)
+            || self
+                .blocked_by
+                .as_ref()
+                .is_some_and(|v| !v.is_empty())
     }
 
     #[must_use]
-    pub fn is_open(&self) -> bool {
-        self.status == IssueStatus::Open || self.status == IssueStatus::InProgress
+    pub const fn is_open(&self) -> bool {
+        matches!(self.status, IssueStatus::Open | IssueStatus::InProgress)
     }
 }
 

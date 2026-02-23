@@ -207,6 +207,12 @@ impl IntegrityIssue {
     }
 
     /// Determine the recommended repair strategy for a corruption type
+    ///
+    /// # Returns
+    ///
+    /// Returns the recommended repair strategy. The result should be used
+    /// for repair decision making.
+    #[must_use]
     pub const fn recommended_strategy_for_type(corruption_type: CorruptionType) -> RepairStrategy {
         match corruption_type {
             CorruptionType::MissingDirectory | CorruptionType::CorruptedJjDir => {

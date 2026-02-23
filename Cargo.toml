@@ -51,3 +51,10 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+# Benchmark profile - optimized for accurate measurements
+[profile.bench]
+inherits = "release"
+debug = true  # Keep debug info for profiler analysis
+strip = false  # Don't strip symbols
+

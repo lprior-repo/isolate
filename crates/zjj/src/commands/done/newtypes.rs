@@ -2,6 +2,11 @@
 //!
 //! These types provide compile-time validation and type safety.
 //! All validation happens at construction time via TryFrom/From.
+//!
+//! # Single Source of Truth
+//!
+//! This module re-exports BeadId from zjj_core::domain::identifiers to maintain
+//! consistency across the codebase.
 
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
@@ -13,6 +18,17 @@ use std::{
 };
 
 use thiserror::Error;
+
+// Re-export BeadId from domain layer (single source of truth)
+//
+// BeadId is a type alias for TaskId in the domain layer, validating bd-{hex} format.
+pub use zjj_core::domain::BeadId;
+
+// Re-export WorkspaceName from domain layer (single source of truth)
+//
+// WorkspaceName validates workspace names (non-empty, no path separators, max 255 chars).
+// The canonical implementation uses `WorkspaceName::parse()` for construction.
+pub use zjj_core::domain::WorkspaceName;
 
 /// Validation errors for `NewType` constructors
 #[expect(clippy::enum_variant_names)] // All validation errors should be "Invalid*"
@@ -84,106 +100,6 @@ impl RepoRoot {
 impl fmt::Display for RepoRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.display())
-    }
-}
-
-/// Validated workspace name
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorkspaceName(String);
-
-impl WorkspaceName {
-    /// Create a new `WorkspaceName` with validation
-    pub fn new(name: String) -> Result<Self, ValidationError> {
-        if name.is_empty() {
-            return Err(ValidationError::InvalidWorkspaceName(
-                "Workspace name cannot be empty".to_string(),
-            ));
-        }
-
-        // Security: reject path traversal attempts
-        if name.contains("..") {
-            return Err(ValidationError::InvalidWorkspaceName(
-                "Workspace name cannot contain '..'".to_string(),
-            ));
-        }
-
-        // Security: reject path separators
-        if name.contains('/') || name.contains('\\') {
-            return Err(ValidationError::InvalidWorkspaceName(
-                "Workspace name cannot contain path separators".to_string(),
-            ));
-        }
-
-        // Security: reject null bytes
-        if name.contains('\0') {
-            return Err(ValidationError::InvalidWorkspaceName(
-                "Workspace name cannot contain null bytes".to_string(),
-            ));
-        }
-
-        Ok(Self(name))
-    }
-
-    /// Get the inner String
-    #[expect(dead_code)] // For future direct access needs
-    pub fn inner(&self) -> &str {
-        &self.0
-    }
-
-    /// Get as string slice
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for WorkspaceName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// Validated bead ID
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BeadId(String);
-
-impl BeadId {
-    /// Create a new `BeadId` with validation
-    pub fn new(id: String) -> Result<Self, ValidationError> {
-        if id.is_empty() {
-            return Err(ValidationError::InvalidBeadId(
-                "Bead ID cannot be empty".to_string(),
-            ));
-        }
-
-        // Validate format (basic alphanumeric + dashes)
-        if !id
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-        {
-            return Err(ValidationError::InvalidBeadId(
-                "Bead ID must contain only alphanumeric characters, dashes, or underscores"
-                    .to_string(),
-            ));
-        }
-
-        Ok(Self(id))
-    }
-
-    /// Get the inner String
-    #[expect(dead_code)] // For future direct access needs
-    pub fn inner(&self) -> &str {
-        &self.0
-    }
-
-    /// Get as string slice
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for BeadId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 

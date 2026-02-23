@@ -6,28 +6,69 @@
 //!
 //! This module provides functionality for working with the beads issue tracker,
 //! including querying issues, filtering, sorting, and analysis.
+//!
+//! # Architecture
+//!
+//! The module is organized following Domain-Driven Design principles:
+//!
+//! - **[`domain`]**: Core domain types with validation (newtypes, enums)
+//! - **[`issue`]**: Aggregate root with business logic
+//! - **[`types`]**: Legacy types for backward compatibility
+//! - **[`db`]**: Database operations (imperative shell)
+//! - **[`query`]**: Query and filtering logic
+//! - **[`analysis`]**: Analytical operations on issue collections
+//!
+//! # Migration Path
+//!
+//! New code should use:
+//! - `Issue` from `issue` module instead of `BeadIssue`
+//! - `IssueState` from `domain` module instead of `IssueStatus` + `closed_at`
+//! - Semantic newtypes (`IssueId`, `Title`, `Description`) instead of `String`
 
 mod analysis;
 mod db;
+mod domain;
+mod issue;
 mod query;
 mod types;
 
 #[cfg(test)]
 mod db_tests;
 #[cfg(test)]
+mod invariant_tests;
+#[cfg(test)]
 mod query_tests;
+#[cfg(test)]
+mod state_transition_tests;
 
 // Re-export public API
+
+// Domain types (DDD refactored)
+pub use domain::{
+    Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, IssueType,
+    Labels, ParentId, Priority, Title,
+};
+
+// Issue aggregate root
+pub use issue::{Issue, IssueBuilder};
+
+// Legacy types (for backward compatibility)
+pub use types::{
+    BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus,
+    SortDirection,
+};
+
+// Database operations
+pub use db::{delete_bead, ensure_schema, insert_bead, query_beads, update_bead};
+
+// Query operations
+pub use query::{apply_query, filter_issues, paginate, sort_issues};
+
+// Analysis operations
 pub use analysis::{
     all_match, any_match, calculate_critical_path, count_by_status, extract_labels, find_blocked,
     find_blockers, find_potential_duplicates, find_ready, find_stale, get_dependency_graph,
     get_issue, get_issues_by_id, group_by_status, group_by_type, summarize, to_ids, to_titles,
-};
-pub use db::{delete_bead, ensure_schema, insert_bead, query_beads, update_bead};
-pub use query::{apply_query, filter_issues, paginate, sort_issues};
-pub use types::{
-    BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus, IssueType,
-    Priority, SortDirection,
 };
 
 #[cfg(test)]

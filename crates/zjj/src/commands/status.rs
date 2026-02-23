@@ -15,7 +15,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use serde::Serialize;
 use zjj_core::output::{
-    emit_stdout, Action, ActionStatus, OutputLine, SessionOutput, Summary, SummaryType,
+    emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine, SessionOutput,
+    Summary, SummaryType,
 };
 
 use crate::{commands::get_session_db, session::Session};
@@ -179,10 +180,11 @@ fn is_repo_bootstrap_error(err: &anyhow::Error) -> bool {
 
 /// Emit "no active sessions" as JSONL output
 fn emit_no_active_sessions() -> Result<()> {
-    let summary =
-        Summary::new(SummaryType::Info, "No active sessions".to_string()).map_err(|e| {
-            anyhow::anyhow!("Failed to create summary: {e}")
-        })?;
+    let summary = Summary::new(
+        SummaryType::Info,
+        Message::new("No active sessions").map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("Failed to create summary: {e}"))?;
     emit_stdout(&OutputLine::Summary(summary)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -201,10 +203,11 @@ pub async fn run_watch_mode(name: Option<&str>) -> Result<()> {
                 return Err(e);
             }
             // Emit error as Issue line
-            let error_summary =
-                Summary::new(SummaryType::Status, format!("Error: {e}")).map_err(|se| {
-                    anyhow::anyhow!("Failed to create error summary: {se}")
-                })?;
+            let error_summary = Summary::new(
+                SummaryType::Status,
+                Message::new(format!("Error: {e}")).map_err(|se| anyhow::anyhow!("Invalid message: {se}"))?,
+            )
+            .map_err(|se| anyhow::anyhow!("Failed to create error summary: {se}"))?;
             let _ = emit_stdout(&OutputLine::Summary(error_summary));
         }
 
@@ -269,13 +272,10 @@ fn emit_session_output(status_info: &SessionStatusInfo) -> Result<()> {
     )
     .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-    let session_output = status_info
-        .session
-        .branch
-        .as_ref()
-        .map_or(session_output.clone(), |branch| {
-            session_output.with_branch(branch.clone())
-        });
+    let session_output = match &status_info.session.branch {
+        Some(branch) => session_output.with_branch(branch.clone()),
+        None => session_output,
+    };
 
     emit_stdout(&OutputLine::Session(session_output)).map_err(|e| anyhow::anyhow!("{e}"))
 }
@@ -284,15 +284,22 @@ fn emit_session_output(status_info: &SessionStatusInfo) -> Result<()> {
 fn emit_status_summary(active_count: usize, total_count: usize) -> Result<()> {
     let message = format!("{active_count} active session(s) of {total_count} total");
 
-    let summary =
-        Summary::new(SummaryType::Count, message).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let summary = Summary::new(
+        SummaryType::Count,
+        Message::new(message).map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     emit_stdout(&OutputLine::Summary(summary)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// Emit an action line for status operations
 fn emit_action(verb: &str, target: &str, status: ActionStatus) -> Result<()> {
-    let action = Action::new(verb.to_string(), target.to_string(), status);
+    let action = Action::new(
+        ActionVerb::new(verb).map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+        ActionTarget::new(target).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+        status,
+    );
     emit_stdout(&OutputLine::Action(action)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -607,7 +614,11 @@ mod tests {
 
     #[test]
     fn test_emit_action_creates_valid_output() {
-        let action = Action::new("check".to_string(), "session-1".to_string(), ActionStatus::Completed);
+        let action = Action::new(
+            ActionVerb::new("check").expect("valid"),
+            ActionTarget::new("session-1").expect("valid"),
+            ActionStatus::Completed,
+        );
         let line = OutputLine::Action(action);
         let json = serde_json::to_string(&line);
         assert!(json.is_ok());

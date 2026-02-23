@@ -8,6 +8,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use serde_json::Value;
+use zjj_core::domain::SessionName;
 use zjj_core::output::*;
 
 fn validate_json_structure(json: &Value, required_fields: &[&str]) {
@@ -24,9 +25,12 @@ fn validate_json_structure(json: &Value, required_fields: &[&str]) {
 #[test]
 fn test_summary_serialization() {
     // CUE schema requires: total, active, stale, conflict, orphaned
-    let summary = Summary::new(SummaryType::Status, "Test summary".to_string())
-        .unwrap()
-        .with_details("Test details".to_string());
+    let summary = Summary::new(
+        SummaryType::Status,
+        Message::new("Test summary").expect("valid"),
+    )
+    .expect("valid")
+    .with_details("Test details".to_string());
 
     let json = serde_json::to_value(&summary).unwrap();
 
@@ -70,13 +74,13 @@ fn test_session_output_serialization() {
 fn test_issue_serialization() {
     // CUE schema requires: severity, message, session, suggested_action
     let issue = Issue::new(
-        "TEST-001".to_string(),
-        "Test issue".to_string(),
+        IssueId::new("TEST-001").expect("valid"),
+        IssueTitle::new("Test issue").expect("valid"),
         IssueKind::Validation,
         IssueSeverity::Error,
     )
-    .unwrap()
-    .with_session("test-session".to_string())
+    .expect("valid")
+    .with_session(SessionName::parse("test-session").expect("valid"))
     .with_suggestion("Fix it".to_string());
 
     let json = serde_json::to_value(&issue).unwrap();
@@ -89,13 +93,17 @@ fn test_issue_serialization() {
 #[test]
 fn test_plan_serialization() {
     // CUE schema requires: command, would_execute
-    let mut plan = Plan::new("Test plan".to_string(), "Test description".to_string()).unwrap();
+    let mut plan = Plan::new(
+        PlanTitle::new("Test plan").expect("valid"),
+        PlanDescription::new("Test description").expect("valid"),
+    )
+    .expect("valid");
     plan = plan
         .with_step("Step 1".to_string(), ActionStatus::Pending)
-        .unwrap();
+        .expect("valid");
     plan = plan
         .with_step("Step 2".to_string(), ActionStatus::Completed)
-        .unwrap();
+        .expect("valid");
 
     let json = serde_json::to_value(&plan).unwrap();
 
@@ -110,15 +118,21 @@ fn test_plan_serialization() {
 #[test]
 fn test_stack_serialization() {
     // CUE schema requires: name, parent, children, base
-    let mut stack = Stack::new("test-stack".to_string(), "main".to_string()).unwrap();
+    let mut stack = Stack::new(
+        SessionName::parse("test-stack").expect("valid"),
+        BaseRef::new("main"),
+    )
+    .expect("valid");
     stack = stack
         .with_entry(
-            "session-1".to_string(),
+            SessionName::parse("session-1").expect("valid"),
             std::path::PathBuf::from("/tmp/session-1"),
             StackEntryStatus::Ready,
-            Some("bead-001".to_string()),
+            BeadAttachment::Attached {
+                bead_id: BeadId::parse("bd-001").expect("valid"),
+            },
         )
-        .unwrap();
+        .expect("valid");
 
     let json = serde_json::to_value(&stack).unwrap();
 
@@ -160,11 +174,15 @@ fn test_queue_summary_serialization() {
 #[test]
 fn test_queue_entry_serialization() {
     // CUE schema requires: position, session, status, blocked_by
-    let entry = QueueEntry::new("queue-001".to_string(), "test-session".to_string(), 5)
-        .unwrap()
-        .with_bead("bead-001".to_string())
-        .with_agent("agent-1".to_string())
-        .with_status(QueueEntryStatus::Ready);
+    let entry = QueueEntry::new(
+        QueueEntryId::new(1).expect("valid"),
+        SessionName::parse("test-session").expect("valid"),
+        5,
+    )
+    .expect("valid")
+    .with_bead(BeadId::parse("bd-001").expect("valid"))
+    .with_agent("agent-1".to_string())
+    .with_status(QueueEntryStatus::Ready);
 
     let json = serde_json::to_value(&entry).unwrap();
 
@@ -186,14 +204,18 @@ fn test_queue_entry_serialization() {
 #[test]
 fn test_train_serialization() {
     // CUE schema requires: status, sessions
-    let mut train = Train::new("train-001".to_string(), "test-train".to_string()).unwrap();
+    let mut train = Train::new(
+        TrainId::new("train-001").expect("valid"),
+        SessionName::parse("test-train").expect("valid"),
+    )
+    .expect("valid");
     train = train
         .with_step(
-            "session-1".to_string(),
+            SessionName::parse("session-1").expect("valid"),
             TrainAction::Sync,
             TrainStepStatus::Pending,
         )
-        .unwrap();
+        .expect("valid");
 
     let json = serde_json::to_value(&train).unwrap();
 
@@ -282,7 +304,10 @@ fn test_output_line_enum_discriminator() {
     use zjj_core::{types::SessionStatus, WorkspaceState};
 
     let variants = vec![
-        OutputLine::Summary(Summary::new(SummaryType::Info, "Test".to_string()).unwrap()),
+        OutputLine::Summary(
+            Summary::new(SummaryType::Info, Message::new("Test").expect("valid"))
+                .expect("valid"),
+        ),
         OutputLine::Session(
             SessionOutput::new(
                 "test".to_string(),
@@ -294,27 +319,62 @@ fn test_output_line_enum_discriminator() {
         ),
         OutputLine::Issue(
             Issue::new(
-                "TEST".to_string(),
-                "Test".to_string(),
+                IssueId::new("TEST").expect("valid"),
+                IssueTitle::new("Test").expect("valid"),
                 IssueKind::Validation,
                 IssueSeverity::Warning,
             )
             .unwrap(),
         ),
-        OutputLine::Plan(Plan::new("Test".to_string(), "Desc".to_string()).unwrap()),
+        OutputLine::Plan(
+            Plan::new(
+                PlanTitle::new("Test").expect("valid"),
+                PlanDescription::new("Desc").expect("valid"),
+            )
+            .unwrap(),
+        ),
         OutputLine::Action(Action::new(
-            "test".to_string(),
-            "target".to_string(),
+            ActionVerb::new("test").expect("valid action verb"),
+            ActionTarget::new("target").expect("valid action target"),
             ActionStatus::Pending,
         )),
-        OutputLine::Warning(Warning::new("TEST".to_string(), "Test warning".to_string()).unwrap()),
-        OutputLine::Result(
-            ResultOutput::success(ResultKind::Command, "Test result".to_string()).unwrap(),
+        OutputLine::Warning(
+            Warning::new(
+                WarningCode::new("TEST").expect("valid warning code"),
+                Message::new("Test warning").expect("valid"),
+            )
+            .expect("valid"),
         ),
-        OutputLine::Stack(Stack::new("test".to_string(), "main".to_string()).unwrap()),
+        OutputLine::Result(
+            ResultOutput::success(
+                ResultKind::Command,
+                Message::new("Test result").expect("valid"),
+            )
+            .expect("valid"),
+        ),
+        OutputLine::Stack(
+            Stack::new(
+                SessionName::parse("test").expect("valid"),
+                BaseRef::new("main"),
+            )
+            .expect("valid"),
+        ),
         OutputLine::QueueSummary(QueueSummary::new()),
-        OutputLine::QueueEntry(QueueEntry::new("q1".to_string(), "s1".to_string(), 1).unwrap()),
-        OutputLine::Train(Train::new("t1".to_string(), "test".to_string()).unwrap()),
+        OutputLine::QueueEntry(
+            QueueEntry::new(
+                QueueEntryId::new(1).expect("valid"),
+                SessionName::parse("s1").expect("valid"),
+                1,
+            )
+            .unwrap(),
+        ),
+        OutputLine::Train(
+            Train::new(
+                TrainId::new("t1").expect("valid"),
+                SessionName::parse("test").expect("valid"),
+            )
+            .unwrap(),
+        ),
     ];
 
     let allowed_wrappers = [
@@ -362,8 +422,8 @@ fn test_output_line_enum_discriminator() {
 fn test_enum_value_serialization() {
     // Verify that enums serialize to lowercase strings as per CUE schema
     let issue = Issue::new(
-        "TEST".to_string(),
-        "Test".to_string(),
+        IssueId::new("TEST").expect("valid"),
+        IssueTitle::new("Test").expect("valid"),
         IssueKind::Validation,
         IssueSeverity::Error,
     )
@@ -381,7 +441,11 @@ fn test_enum_value_serialization() {
 #[test]
 fn test_action_status_serialization() {
     // Test ActionStatus enum serialization
-    let plan = Plan::new("Test".to_string(), "Desc".to_string()).unwrap();
+    let plan = Plan::new(
+        PlanTitle::new("Test").expect("valid"),
+        PlanDescription::new("Desc").expect("valid"),
+    )
+    .unwrap();
     let json = serde_json::to_value(&plan).unwrap();
 
     // ActionStatus uses snake_case serialization
@@ -403,14 +467,17 @@ fn test_action_status_serialization() {
 #[test]
 fn test_train_action_serialization() {
     // Test TrainAction enum serialization
-    let train = Train::new("t1".to_string(), "test".to_string())
-        .unwrap()
-        .with_step(
-            "s1".to_string(),
-            TrainAction::Sync,
-            TrainStepStatus::Pending,
-        )
-        .unwrap();
+    let train = Train::new(
+        TrainId::new("t1").expect("valid"),
+        SessionName::parse("test").expect("valid"),
+    )
+    .unwrap()
+    .with_step(
+        SessionName::parse("s1").expect("valid"),
+        TrainAction::Sync,
+        TrainStepStatus::Pending,
+    )
+    .unwrap();
 
     let json = serde_json::to_value(&train).unwrap();
     let steps = json.get("steps").unwrap().as_array().unwrap();
@@ -451,7 +518,11 @@ fn test_resolution_strategy_serialization() {
 #[test]
 fn test_timestamp_format() {
     // Verify timestamps are millisecond-precision Unix timestamps
-    let summary = Summary::new(SummaryType::Status, "Test".to_string()).unwrap();
+    let summary = Summary::new(
+        SummaryType::Status,
+        Message::new("Test").expect("valid"),
+    )
+    .unwrap();
     let json = serde_json::to_value(&summary).unwrap();
 
     // timestamp should be a number (milliseconds since epoch)
@@ -467,8 +538,8 @@ fn test_timestamp_format() {
 fn test_optional_fields_handling() {
     // Verify optional fields are correctly omitted when None
     let issue = Issue::new(
-        "TEST".to_string(),
-        "Test".to_string(),
+        IssueId::new("TEST").expect("valid"),
+        IssueTitle::new("Test").expect("valid"),
         IssueKind::Validation,
         IssueSeverity::Error,
     )
@@ -488,12 +559,15 @@ fn test_optional_fields_handling() {
 #[test]
 fn test_recovery_type_serialization() {
     // Test Recovery type (not in OutputLine enum but defined in types.rs)
+    use zjj_core::output::{ErrorSeverity, RecoveryCapability};
+
     let recovery = Recovery::new(
-        "ISSUE-001".to_string(),
+        IssueId::new("ISSUE-001").expect("valid"),
         Assessment {
             severity: ErrorSeverity::High,
-            recoverable: true,
-            recommended_action: "Fix the issue".to_string(),
+            capability: RecoveryCapability::Recoverable {
+                recommended_action: "Fix the issue".to_string(),
+            },
         },
     )
     .with_action("Step 1".to_string(), Some("cmd1".to_string()), true)
@@ -505,9 +579,21 @@ fn test_recovery_type_serialization() {
 
     // Verify assessment structure
     let assessment = json.get("assessment").unwrap();
-    validate_json_structure(
-        assessment,
-        &["severity", "recoverable", "recommended_action"],
+    validate_json_structure(assessment, &["severity", "capability"]);
+
+    // Verify capability has the right structure
+    let capability = assessment.get("capability").unwrap();
+    assert_eq!(
+        capability.get("recoverable").unwrap().as_bool().unwrap(),
+        true
+    );
+    assert_eq!(
+        capability
+            .get("recommended_action")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "Fix the issue"
     );
 
     // Verify actions structure
@@ -515,6 +601,6 @@ fn test_recovery_type_serialization() {
     assert_eq!(actions.len(), 1);
     validate_json_structure(
         &actions[0],
-        &["order", "description", "command", "automatic"],
+        &["order", "description", "execution"],
     );
 }

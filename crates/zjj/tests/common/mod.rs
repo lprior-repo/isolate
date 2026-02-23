@@ -696,7 +696,7 @@ pub fn parse_json_output(s: &str) -> Result<JsonValue, serde_json::Error> {
 pub fn parse_jsonl_output(s: &str) -> Result<Vec<JsonValue>, serde_json::Error> {
     s.lines()
         .filter(|line| !line.trim().is_empty())
-        .map(|line| serde_json::from_str(line))
+        .map(serde_json::from_str)
         .collect()
 }
 
@@ -704,7 +704,10 @@ pub fn parse_jsonl_output(s: &str) -> Result<Vec<JsonValue>, serde_json::Error> 
 ///
 /// The JSONL format uses variant names as top-level keys (e.g., `{"session": {...}}`).
 /// Returns `None` if no line matches.
-pub fn find_jsonl_line_by_type<'a>(lines: &'a [JsonValue], type_name: &str) -> Option<&'a JsonValue> {
+pub fn find_jsonl_line_by_type<'a>(
+    lines: &'a [JsonValue],
+    type_name: &str,
+) -> Option<&'a JsonValue> {
     lines.iter().find(|line| line.get(type_name).is_some())
 }
 
@@ -720,7 +723,9 @@ pub fn filter_jsonl_lines_by_type<'a>(
     lines: &'a [JsonValue],
     type_name: &'a str,
 ) -> impl Iterator<Item = &'a JsonValue> + use<'a> {
-    lines.iter().filter(move |line| line.get(type_name).is_some())
+    lines
+        .iter()
+        .filter(move |line| line.get(type_name).is_some())
 }
 
 /// Find a line with a "result" type from JSONL output.
@@ -787,8 +792,8 @@ pub fn validate_jsonl_schema_envelope(
     json_str: &str,
     command_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let lines = parse_jsonl_output(json_str)
-        .map_err(|e| format!("{command_name}: Invalid JSONL: {e}"))?;
+    let lines =
+        parse_jsonl_output(json_str).map_err(|e| format!("{command_name}: Invalid JSONL: {e}"))?;
 
     let first_line = lines
         .first()

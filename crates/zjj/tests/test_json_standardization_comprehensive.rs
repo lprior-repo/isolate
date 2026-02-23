@@ -68,7 +68,8 @@ fn validate_output_line_type(line: &serde_json::Value) -> Result<(), String> {
     let has_nested_queue_summary = line.get("queue_summary").is_some();
     let has_nested_queue_entry = line.get("queue_entry").is_some();
     let has_nested_train = line.get("train").is_some();
-    let has_nested_conflict = line.get("conflict_analysis").is_some() || line.get("conflict_detail").is_some();
+    let has_nested_conflict =
+        line.get("conflict_analysis").is_some() || line.get("conflict_detail").is_some();
 
     // Check for flat OutputLine format
     let has_flat_session = line.get("name").is_some() && line.get("status").is_some();
@@ -157,7 +158,10 @@ fn test_init_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse as JSONL lines
     let lines = parse_jsonl(result.stdout.trim())?;
-    assert!(!lines.is_empty(), "init should produce at least one JSONL line");
+    assert!(
+        !lines.is_empty(),
+        "init should produce at least one JSONL line"
+    );
 
     // Validate each line is a valid output type
     for line in &lines {
@@ -191,7 +195,10 @@ fn test_add_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse as JSONL lines
     let lines = parse_jsonl(result.stdout.trim())?;
-    assert!(!lines.is_empty(), "add should produce at least one JSONL line");
+    assert!(
+        !lines.is_empty(),
+        "add should produce at least one JSONL line"
+    );
 
     // Validate each line is a valid output type
     for line in &lines {
@@ -226,7 +233,10 @@ fn test_list_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse as JSONL lines
     let lines = parse_jsonl(result.stdout.trim())?;
-    assert!(!lines.is_empty(), "list should produce at least one JSONL line");
+    assert!(
+        !lines.is_empty(),
+        "list should produce at least one JSONL line"
+    );
 
     // Validate each line is a valid output type
     for line in &lines {
@@ -234,7 +244,10 @@ fn test_list_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // List produces session lines in nested format: {"session": {...}}
-    let session_lines: Vec<_> = lines.iter().filter(|l| l.get("session").is_some()).collect();
+    let session_lines: Vec<_> = lines
+        .iter()
+        .filter(|l| l.get("session").is_some())
+        .collect();
     assert!(
         !session_lines.is_empty(),
         "list output should include at least one session line"
@@ -372,7 +385,10 @@ fn test_sync_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse each line of JSONL output
     let lines = parse_jsonl(result.stdout.trim())?;
-    assert!(!lines.is_empty(), "sync should produce at least one JSONL line");
+    assert!(
+        !lines.is_empty(),
+        "sync should produce at least one JSONL line"
+    );
 
     // Each line should be valid JSON and have a valid output type
     for parsed in &lines {
@@ -548,7 +564,10 @@ fn test_array_envelope_for_collections() -> Result<(), Box<dyn std::error::Error
     let lines = parse_jsonl(result.stdout.trim())?;
 
     // Count session lines (nested format: {"session": {...}})
-    let session_lines: Vec<_> = lines.iter().filter(|l| l.get("session").is_some()).collect();
+    let session_lines: Vec<_> = lines
+        .iter()
+        .filter(|l| l.get("session").is_some())
+        .collect();
 
     assert!(
         session_lines.len() >= 2,

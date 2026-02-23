@@ -785,7 +785,7 @@ mod tests {
         MOON_TEST_MUTEX
             .get_or_init(|| Mutex::new(()))
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Serializes rebase tests to prevent environment variable race conditions.
@@ -799,7 +799,7 @@ mod tests {
         REBASE_TEST_MUTEX
             .get_or_init(|| Mutex::new(()))
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     #[cfg(unix)]

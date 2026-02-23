@@ -70,3 +70,4 @@ bead-rmjy-test/
 .beads/*.db-wal
 crates/*/.beads/checkpoint_backups/*.tar.gz
 tools/sonar-scanner/
+test_validation

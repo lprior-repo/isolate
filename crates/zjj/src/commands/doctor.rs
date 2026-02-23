@@ -33,8 +33,8 @@ use zjj_core::{
     config::{load_config, Config},
     introspection::{CheckStatus, DoctorCheck, FixResult, UnfixableIssue},
     output::{
-        emit_stdout, Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, Summary,
-        SummaryType,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
+        IssueSeverity, IssueTitle, Message, OutputLine, Summary, SummaryType,
     },
     workspace_integrity::{CorruptionType, IntegrityValidator, ValidationResult},
 };
@@ -74,8 +74,8 @@ fn name_to_id(name: &str) -> String {
 /// Emit a check result as an Issue output line
 fn emit_check_as_issue(check: &DoctorCheck) -> Result<()> {
     let issue = Issue::new(
-        name_to_id(&check.name),
-        check.message.clone(),
+        IssueId::new(name_to_id(&check.name))?,
+        IssueTitle::new(check.message.clone())?,
         status_to_kind(check.status),
         status_to_severity(check.status),
     )?
@@ -524,13 +524,10 @@ async fn check_jj_repo() -> DoctorCheck {
 /// and should NOT clone the repository elsewhere.
 fn check_workspace_context() -> DoctorCheck {
     let current_dir = std::env::current_dir().ok();
-    let in_workspace = current_dir
-        .as_ref()
-        .map(|p| {
-            let as_text = p.to_string_lossy();
-            as_text.contains(".zjj/workspaces") || as_text.contains("/workspaces/")
-        })
-        .unwrap_or(false);
+    let in_workspace = current_dir.as_ref().is_some_and(|p| {
+        let as_text = p.to_string_lossy();
+        as_text.contains(".zjj/workspaces") || as_text.contains("/workspaces/")
+    });
 
     // Extract workspace name from .../.zjj/workspaces/<workspace>/...
     let bead_id = current_dir.as_ref().and_then(|path| {
@@ -1234,7 +1231,7 @@ fn show_health_report(checks: &[DoctorCheck]) -> Result<()> {
     // Emit summary
     let summary = Summary::new(
         SummaryType::Count,
-        format!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)"),
+        Message::new(format!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)"))?,
     )?;
     emit_stdout(&OutputLine::Summary(summary))?;
 
@@ -1263,7 +1260,7 @@ fn show_dry_run_report(checks: &[DoctorCheck]) -> Result<()> {
     if fixable_checks.is_empty() {
         let summary = Summary::new(
             SummaryType::Info,
-            "Dry-run mode: No auto-fixable issues found".to_string(),
+            Message::new("Dry-run mode: No auto-fixable issues found")?,
         )?;
         emit_stdout(&OutputLine::Summary(summary))?;
         return Ok(());
@@ -1271,11 +1268,11 @@ fn show_dry_run_report(checks: &[DoctorCheck]) -> Result<()> {
 
     // Emit a plan for each fixable check
     for check in &fixable_checks {
-        let description = describe_fix(check)
-            .unwrap_or_else(|| "No fix description available".to_string());
+        let description =
+            describe_fix(check).unwrap_or_else(|| "No fix description available".to_string());
         let action = Action::new(
-            "would_fix".to_string(),
-            check.name.clone(),
+            ActionVerb::new("would_fix").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+            ActionTarget::new(&check.name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
             ActionStatus::Pending,
         )
         .with_result(description);
@@ -1284,10 +1281,10 @@ fn show_dry_run_report(checks: &[DoctorCheck]) -> Result<()> {
 
     let summary = Summary::new(
         SummaryType::Info,
-        format!(
+        Message::new(format!(
             "Dry-run mode: {} issue(s) would be fixed. Run without --dry-run to apply.",
             fixable_checks.len()
-        ),
+        ))?,
     )?;
     emit_stdout(&OutputLine::Summary(summary))?;
 
@@ -1394,14 +1391,18 @@ async fn run_fixes(checks: &[DoctorCheck], dry_run: bool, verbose: bool) -> Resu
                     Ok(action_description) => {
                         if verbose {
                             // Emit action completed
-                            let action = Action::new(
-                                "fix".to_string(),
-                                check.name.clone(),
-                                ActionStatus::Completed,
-                            )
-                            .with_result(action_description.clone());
-                            // Ignore emit errors in fold - they're non-critical
-                            let _ = emit_stdout(&OutputLine::Action(action));
+                            let action_result = || -> Result<Action> {
+                                Ok(Action::new(
+                                    ActionVerb::new("fix")?,
+                                    ActionTarget::new(&check.name)?,
+                                    ActionStatus::Completed,
+                                )
+                                .with_result(action_description.clone()))
+                            }();
+                            if let Ok(action) = action_result {
+                                // Ignore emit errors in fold - they're non-critical
+                                let _ = emit_stdout(&OutputLine::Action(action));
+                            }
                         }
                         fixed.push(FixResult {
                             issue: check.name.clone(),
@@ -1411,14 +1412,18 @@ async fn run_fixes(checks: &[DoctorCheck], dry_run: bool, verbose: bool) -> Resu
                     }
                     Err(reason) => {
                         if verbose {
-                            let action = Action::new(
-                                "fix".to_string(),
-                                check.name.clone(),
-                                ActionStatus::Failed,
-                            )
-                            .with_result(reason.clone());
-                            // Ignore emit errors in fold - they're non-critical
-                            let _ = emit_stdout(&OutputLine::Action(action));
+                            let action_result = || -> Result<Action> {
+                                Ok(Action::new(
+                                    ActionVerb::new("fix")?,
+                                    ActionTarget::new(&check.name)?,
+                                    ActionStatus::Failed,
+                                )
+                                .with_result(reason.clone()))
+                            }();
+                            if let Ok(action) = action_result {
+                                // Ignore emit errors in fold - they're non-critical
+                                let _ = emit_stdout(&OutputLine::Action(action));
+                            }
                         }
                         unable_to_fix.push(UnfixableIssue {
                             issue: check.name.clone(),
@@ -1435,8 +1440,8 @@ async fn run_fixes(checks: &[DoctorCheck], dry_run: bool, verbose: bool) -> Resu
     // Emit fix results as Issues
     for fix in &fixed {
         let issue = Issue::new(
-            name_to_id(&fix.issue),
-            format!("Fixed: {}", fix.action),
+            IssueId::new(name_to_id(&fix.issue))?,
+            IssueTitle::new(format!("Fixed: {}", fix.action))?,
             IssueKind::Validation,
             IssueSeverity::Hint,
         )?;
@@ -1445,8 +1450,8 @@ async fn run_fixes(checks: &[DoctorCheck], dry_run: bool, verbose: bool) -> Resu
 
     for unfixable in &unable_to_fix {
         let issue = Issue::new(
-            name_to_id(&unfixable.issue),
-            unfixable.reason.clone(),
+            IssueId::new(name_to_id(&unfixable.issue))?,
+            IssueTitle::new(unfixable.reason.clone())?,
             IssueKind::StateConflict,
             IssueSeverity::Error,
         )?
@@ -1457,20 +1462,18 @@ async fn run_fixes(checks: &[DoctorCheck], dry_run: bool, verbose: bool) -> Resu
     // Count critical (Fail status) issues that couldn't be fixed
     let critical_unfixed = checks
         .iter()
-        .filter(|c| {
-            c.status == CheckStatus::Fail && !fixed.iter().any(|f| f.issue == c.name)
-        })
+        .filter(|c| c.status == CheckStatus::Fail && !fixed.iter().any(|f| f.issue == c.name))
         .count();
 
     // Emit summary
     let summary = Summary::new(
         SummaryType::Count,
-        format!(
+        Message::new(format!(
             "Auto-fix: {} fixed, {} unable to fix, {} critical remaining",
             fixed.len(),
             unable_to_fix.len(),
             critical_unfixed
-        ),
+        ))?,
     )?;
     emit_stdout(&OutputLine::Summary(summary))?;
 
@@ -1642,7 +1645,7 @@ async fn fix_workspace_integrity(check: &DoctorCheck, dry_run: bool) -> Result<S
                 failed_workspaces.push(format!("{}: {}", ws_name, result.summary));
             }
             Err(e) => {
-                failed_workspaces.push(format!("{}: {}", ws_name, e));
+                failed_workspaces.push(format!("{ws_name}: {e}"));
             }
         }
     }

@@ -1,0 +1,10 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 6af4f7ad4abd8c3201fe69e5a3f1f9cea978d09cee8e2f922d503630fb879b9f # shrinks to from_status = Pending, to_status = Pending
+cc 318c70091cb2761daed07b39e7063b277ca4708b01f91b27ddbf5ac16722c034 # shrinks to task_id = "task-0a0aa0a0", agent_id = "a", current_time = 1700000000, ttl = 1
+cc b22df95df9da6ea59dcaf430af59ec3afd361da40a8e72128fa851e1b8b4c969 # shrinks to task_id = "task-aaa0a0a0", agents = ["a", "a"], current_time = 1700000000, ttl = 1
+cc 29de86032a0fc633b0ab49791822fbaa918bf13ac2e0217e332f9f700c160357 # shrinks to task_id = "task-0a0a0a0a", agents = ["a", "a"], current_time = 1700000000, ttl = 1

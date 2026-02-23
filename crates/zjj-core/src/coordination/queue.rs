@@ -16,7 +16,9 @@ use tokio::time::sleep;
 pub use super::queue_entities::{ProcessingLock, QueueEntry, QueueEvent};
 use super::queue_repository::QueueRepository;
 // Re-export domain types from queue_status.rs for backward compatibility
-pub use super::queue_status::{QueueEventType, QueueStatus, StackMergeState, TransitionError, WorkspaceQueueState};
+pub use super::queue_status::{
+    QueueEventType, QueueStatus, StackMergeState, TransitionError, WorkspaceQueueState,
+};
 use crate::{Error, Result};
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -168,7 +170,14 @@ impl MergeQueue {
     }
 
     /// Get a reference to the underlying database pool.
+    ///
     /// This is intended for testing purposes to allow direct SQL manipulation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a reference to the database pool. The result should be used
+    /// as this provides access to a shared resource.
+    #[must_use]
     pub const fn pool(&self) -> &SqlitePool {
         &self.pool
     }
@@ -839,14 +848,12 @@ impl MergeQueue {
                 .map_err(|e| Error::DatabaseError(format!("Failed to serialize dependents: {e}")))?
         };
 
-        sqlx::query(
-            "UPDATE merge_queue SET dependents = ?1 WHERE workspace = ?2",
-        )
-        .bind(&dependents_json)
-        .bind(workspace)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to update dependents: {e}")))?;
+        sqlx::query("UPDATE merge_queue SET dependents = ?1 WHERE workspace = ?2")
+            .bind(&dependents_json)
+            .bind(workspace)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update dependents: {e}")))?;
 
         Ok(())
     }
@@ -867,14 +874,12 @@ impl MergeQueue {
         workspace: &str,
         new_state: StackMergeState,
     ) -> Result<()> {
-        sqlx::query(
-            "UPDATE merge_queue SET stack_merge_state = ?1 WHERE workspace = ?2",
-        )
-        .bind(new_state.as_str())
-        .bind(workspace)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to transition stack state: {e}")))?;
+        sqlx::query("UPDATE merge_queue SET stack_merge_state = ?1 WHERE workspace = ?2")
+            .bind(new_state.as_str())
+            .bind(workspace)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to transition stack state: {e}")))?;
 
         Ok(())
     }
@@ -950,7 +955,7 @@ impl MergeQueue {
                     "claimed" | "rebasing" | "testing" | "ready_to_merge" | "merging" => {
                         acc.processing += cnt;
                     }
-                    "completed" => acc.completed = cnt,
+                    "completed" | "merged" => acc.completed = cnt,
                     "failed" | "failed_retryable" | "failed_terminal" | "cancelled" => {
                         acc.failed += cnt;
                     }
@@ -2251,10 +2256,7 @@ impl MergeQueue {
             ))
         })?;
 
-        let unblocked_count = result
-            .rows_affected()
-            .try_into()
-            .unwrap_or(0usize);
+        let unblocked_count = result.rows_affected().try_into().unwrap_or(0usize);
 
         // Emit cascade events for each unblocked entry for audit trail
         if unblocked_count > 0 {
@@ -2280,11 +2282,18 @@ impl MergeQueue {
                     r#"{{"from": "blocked", "to": "ready", "reason": "cascade_unblock", "merged_parent": "{merged_workspace}"}}"#
                 );
                 if let Err(e) = self
-                    .append_typed_event(entry.id, QueueEventType::Transitioned, Some(&event_details))
+                    .append_typed_event(
+                        entry.id,
+                        QueueEventType::Transitioned,
+                        Some(&event_details),
+                    )
                     .await
                 {
                     // Log but don't fail - the unblock succeeded, audit is secondary
-                    eprintln!("Warning: Failed to emit cascade unblock event for {}: {e}", entry.workspace);
+                    eprintln!(
+                        "Warning: Failed to emit cascade unblock event for {}: {e}",
+                        entry.workspace
+                    );
                 }
             }
         }

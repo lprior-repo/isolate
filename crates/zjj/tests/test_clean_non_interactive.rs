@@ -214,7 +214,7 @@ fn list_sessions(repo_path: &PathBuf) -> anyhow::Result<Vec<String>> {
     Ok(sessions)
 }
 
-/// Helper to extract workspace_path from JSONL output (e.g., from status --json)
+/// Helper to extract `workspace_path` from JSONL output (e.g., from `status --json`)
 fn extract_workspace_path(jsonl_output: &str) -> Option<String> {
     let lines: Vec<serde_json::Value> = jsonl_output
         .lines()
@@ -499,7 +499,10 @@ fn test_hp005_json_output_has_correct_schema() {
             .and_then(|s| s.as_bool())
             .unwrap_or(false)
     });
-    assert!(has_success, "At least one JSON object should indicate success");
+    assert!(
+        has_success,
+        "At least one JSON object should indicate success"
+    );
 
     // Should have required output fields (success, stale_count, removed_count)
     // in either SchemaEnvelope or JSONL format
@@ -735,7 +738,10 @@ fn test_hp009_json_output_no_stale_sessions() {
             // Or check for stale_count = 0
             || json.get("stale_count").and_then(|c| c.as_u64()) == Some(0)
     });
-    assert!(indicates_no_stale, "Output should indicate no stale sessions");
+    assert!(
+        indicates_no_stale,
+        "Output should indicate no stale sessions"
+    );
 }
 
 #[test]
@@ -777,5 +783,8 @@ fn test_hp010_force_with_dry_run_is_still_dry_run() {
         || stdout.contains("(dry-run")
         // JSON format: removed_count = 0 but stale_count > 0
         || (stdout.contains(r#""removed_count": 0"#) && stdout.contains(r#""stale_count": 2"#));
-    assert!(is_dry_run, "Output should indicate dry-run mode. Got: {stdout}");
+    assert!(
+        is_dry_run,
+        "Output should indicate dry-run mode. Got: {stdout}"
+    );
 }

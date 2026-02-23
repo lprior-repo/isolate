@@ -55,10 +55,11 @@ impl OutputEmitter for StdoutEmitter {
 /// # Example
 ///
 /// ```
-/// use zjj_core::output::{OutputEmitter, VecEmitter, OutputLine, Summary, SummaryType};
+/// use zjj_core::output::{domain_types::Message, OutputEmitter, OutputLine, Summary, SummaryType, VecEmitter};
 ///
 /// let emitter = VecEmitter::new();
-/// let summary = Summary::new(SummaryType::Info, "test".to_string()).unwrap();
+/// let message = Message::new("test").unwrap();
+/// let summary = Summary::new(SummaryType::Info, message).unwrap();
 ///
 /// emitter.emit(&OutputLine::Summary(summary)).unwrap();
 ///
@@ -119,12 +120,12 @@ impl OutputEmitter for VecEmitter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::output::{Summary, SummaryType};
+    use crate::output::{domain_types::Message, Summary, SummaryType};
 
     #[test]
     fn vec_emitter_captures_lines() -> Result<(), Box<dyn std::error::Error>> {
         let emitter = VecEmitter::new();
-        let summary = Summary::new(SummaryType::Info, "test message".to_string())?;
+        let summary = Summary::new(SummaryType::Info, Message::new("test message")?)?;
 
         assert!(emitter.is_empty());
 
@@ -148,7 +149,7 @@ mod tests {
         let emitter = VecEmitter::new();
 
         for i in 0..3 {
-            let summary = Summary::new(SummaryType::Info, format!("message {i}"))?;
+            let summary = Summary::new(SummaryType::Info, Message::new(format!("message {i}"))?)?;
             emitter.emit(&OutputLine::Summary(summary))?;
         }
 

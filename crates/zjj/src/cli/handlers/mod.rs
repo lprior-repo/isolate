@@ -21,7 +21,12 @@ use anyhow::Result;
 use serde_json::json;
 use zjj_core::{json::schemas, SchemaEnvelope};
 
-use crate::{cli::build_cli, command_context, hooks, json};
+use crate::{
+    cli::{alias_handler, build_cli},
+    command_context,
+    commands::task::handle_task,
+    hooks, json,
+};
 
 pub mod ai;
 pub mod backup;
@@ -29,10 +34,12 @@ pub mod batch;
 pub mod bookmark;
 pub mod checkpoint;
 pub mod coordination;
+pub mod domain;
 pub mod integrity;
 pub mod introspection;
 pub mod json_format;
 pub mod queue;
+pub mod session;
 pub mod stack;
 pub mod sync;
 pub mod template;
@@ -56,6 +63,7 @@ pub use self::{
         handle_introspect, handle_validate, handle_whatif, handle_whereami, handle_whoami,
     },
     queue::handle_queue,
+    session::handle_session,
     stack::handle_stack,
     sync::{handle_abort, handle_diff, handle_done, handle_submit, handle_sync},
     template::handle_template,
@@ -177,10 +185,16 @@ pub async fn run_cli() -> Result<()> {
         match matches.subcommand() {
             Some(("init", sub_m)) => handle_init(sub_m).await,
             Some(("attach", sub_m)) => handle_attach(sub_m).await,
-            Some(("add", sub_m)) => handle_add(sub_m).await,
+            Some(("add", sub_m)) => {
+                alias_handler::ALIAS_ADD.warn();
+                handle_add(sub_m).await
+            }
             Some(("agents", sub_m)) => handle_agents(sub_m).await,
             Some(("backup", sub_m)) => handle_backup(sub_m).await,
-            Some(("list", sub_m)) => handle_list(sub_m).await,
+            Some(("list", sub_m)) => {
+                alias_handler::ALIAS_LIST.warn();
+                handle_list(sub_m).await
+            }
             Some(("broadcast", sub_m)) => handle_broadcast(sub_m).await,
             Some(("bookmark", sub_m)) => handle_bookmark(sub_m).await,
             Some(("pane", sub_m)) => handle_pane(sub_m).await,
@@ -188,7 +202,10 @@ pub async fn run_cli() -> Result<()> {
             Some(("focus", sub_m)) => handle_focus(sub_m).await,
             Some(("switch", sub_m)) => handle_switch(sub_m).await,
             Some(("status", sub_m)) => handle_status(sub_m).await,
-            Some(("sync", sub_m)) => handle_sync(sub_m).await,
+            Some(("sync", sub_m)) => {
+                alias_handler::ALIAS_SYNC.warn();
+                handle_sync(sub_m).await
+            }
             Some(("diff", sub_m)) => handle_diff(sub_m).await,
             Some(("config", sub_m)) => handle_config(sub_m).await,
             Some(("clean", sub_m)) => handle_clean(sub_m).await,
@@ -201,8 +218,14 @@ pub async fn run_cli() -> Result<()> {
             Some(("queue", sub_m)) => handle_queue(sub_m).await,
             Some(("stack", sub_m)) => handle_stack(sub_m).await,
             Some(("context", sub_m)) => handle_context(sub_m).await,
-            Some(("done", sub_m)) => handle_done(sub_m).await,
-            Some(("submit", sub_m)) => handle_submit(sub_m).await,
+            Some(("done", sub_m)) => {
+                alias_handler::ALIAS_DONE.warn();
+                handle_done(sub_m).await
+            }
+            Some(("submit", sub_m)) => {
+                alias_handler::ALIAS_SUBMIT.warn();
+                handle_submit(sub_m).await
+            }
             Some(("spawn", sub_m)) => handle_spawn(sub_m).await,
             Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m).await,
             Some(("undo", sub_m)) => handle_undo(sub_m).await,
@@ -210,16 +233,22 @@ pub async fn run_cli() -> Result<()> {
             Some(("whereami", sub_m)) => handle_whereami(sub_m).await,
             Some(("whoami", sub_m)) => handle_whoami(sub_m),
             Some(("work", sub_m)) => handle_work(sub_m).await,
-                        Some(("abort", sub_m)) => handle_abort(sub_m).await,
-                        Some(("ai", sub_m)) => handle_ai(sub_m).await,
-                        Some(("help", sub_m)) => handle_help(sub_m),
+            Some(("abort", sub_m)) => handle_abort(sub_m).await,
+            Some(("ai", sub_m)) => handle_ai(sub_m).await,
+            Some(("help", sub_m)) => handle_help(sub_m),
             Some(("can-i", sub_m)) => handle_can_i(sub_m).await,
             Some(("contract", sub_m)) => handle_contract(sub_m),
             Some(("examples", sub_m)) => handle_examples(sub_m),
             Some(("validate", sub_m)) => handle_validate(sub_m),
             Some(("whatif", sub_m)) => handle_whatif(sub_m),
-            Some(("claim", sub_m)) => handle_claim(sub_m).await,
-            Some(("yield", sub_m)) => handle_yield(sub_m).await,
+            Some(("claim", sub_m)) => {
+                alias_handler::ALIAS_CLAIM.warn();
+                handle_claim(sub_m).await
+            }
+            Some(("yield", sub_m)) => {
+                alias_handler::ALIAS_YIELD.warn();
+                handle_yield(sub_m).await
+            }
             Some(("batch", sub_m)) => handle_batch(sub_m).await,
             Some(("events", sub_m)) => handle_events(sub_m).await,
             Some(("completions", sub_m)) => handle_completions(sub_m),
@@ -236,6 +265,8 @@ pub async fn run_cli() -> Result<()> {
             Some(("recover", sub_m)) => handle_recover(sub_m).await,
             Some(("retry", sub_m)) => handle_retry(sub_m).await,
             Some(("rollback", sub_m)) => handle_rollback(sub_m).await,
+            Some(("task", sub_m)) => handle_task(sub_m).await,
+            Some(("session", sub_m)) => handle_session(sub_m).await,
             _ => {
                 build_cli().print_help()?;
                 Ok(())

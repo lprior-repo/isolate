@@ -63,7 +63,7 @@ impl BeadRepository for RealBeadRepository {
         Box::pin(async move {
             match self.inner.get_bead(workspace.as_str()).await {
                 Ok(Some(bead)) => Ok(Some(
-                    BeadId::new(bead.id).map_err(|e| BeadError::DatabaseError(e.to_string()))?,
+                    BeadId::parse(&bead.id).map_err(|e| BeadError::DatabaseError(e.to_string()))?,
                 )),
                 Ok(None) => Ok(None),
                 Err(e) => Err(BeadError::DatabaseError(e.to_string())),

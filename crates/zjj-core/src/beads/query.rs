@@ -7,7 +7,7 @@ use std::cmp::Reverse;
 use itertools::Itertools;
 use tap::Pipe;
 
-use super::types::{BeadFilter, BeadIssue, BeadQuery, BeadSort, SortDirection};
+use super::types::{BeadFilter, BeadIssue, BeadQuery, BeadSort, Priority, SortDirection};
 
 /// Filter issues based on the given filter criteria.
 #[must_use]
@@ -71,7 +71,7 @@ pub fn sort_issues(
             SortDirection::Asc => issues
                 .iter()
                 .sorted_by_key(|i: &&BeadIssue| {
-                    (i.priority.map_or(5, |p| p.to_u32()), i.updated_at)
+                    (i.priority.map_or(5, Priority::to_u32), i.updated_at)
                 })
                 .cloned()
                 .collect(),
@@ -79,7 +79,7 @@ pub fn sort_issues(
                 .iter()
                 .sorted_by_key(|i: &&BeadIssue| {
                     (
-                        Reverse(i.priority.map_or(5, |p| p.to_u32())),
+                        Reverse(i.priority.map_or(5, Priority::to_u32)),
                         Reverse(i.updated_at),
                     )
                 })

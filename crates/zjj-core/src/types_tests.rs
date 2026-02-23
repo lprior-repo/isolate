@@ -66,7 +66,7 @@ fn given_special_chars_when_create_then_error() {
 // Behavior: SessionName::new rejects names exceeding max length
 #[test]
 fn given_name_too_long_when_create_then_error() {
-    let long_name = "a".repeat(65); // MAX_LENGTH is 64
+    let long_name = "a".repeat(64); // MAX_LENGTH is 63
     let result = SessionName::new(long_name);
     assert!(result.is_err());
 }
@@ -74,7 +74,7 @@ fn given_name_too_long_when_create_then_error() {
 // Behavior: SessionName::new accepts names at max length
 #[test]
 fn given_name_at_max_length_when_create_then_success() {
-    let max_name = "a".repeat(64);
+    let max_name = "a".repeat(63);
     let result = SessionName::new(max_name);
     assert!(result.is_ok());
 }
@@ -118,8 +118,8 @@ fn given_different_names_when_compare_then_not_equal() {
     assert_ne!(name1, name2);
 }
 
-// Behavior: SessionName MAX_LENGTH constant is 64
+// Behavior: SessionName MAX_LENGTH constant is 63
 #[test]
-fn given_max_length_constant_then_is_64() {
-    assert_eq!(SessionName::MAX_LENGTH, 64);
+fn given_max_length_constant_then_is_63() {
+    assert_eq!(SessionName::MAX_LENGTH, 63);
 }

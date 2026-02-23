@@ -79,6 +79,12 @@ pub struct LayoutConfig {
 
 impl LayoutConfig {
     /// Create a new layout configuration
+    ///
+    /// # Returns
+    ///
+    /// Returns a new layout configuration instance. The result must be used
+    /// to configure zellij layout behavior.
+    #[must_use]
     pub fn new(session_name: String, workspace_path: PathBuf) -> Self {
         Self {
             session_name,

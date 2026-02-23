@@ -3,6 +3,8 @@
 use anyhow::Result;
 use clap::ArgMatches;
 
+/// Handle AI commands (deprecated - redirects to work command)
+#[allow(clippy::unused_async, dead_code)]
 pub async fn handle_ai(sub_m: &ArgMatches) -> Result<()> {
     // AI work subcommand was removed - use `zjj work` instead
     match sub_m.subcommand() {

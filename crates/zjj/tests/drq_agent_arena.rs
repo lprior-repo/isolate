@@ -44,7 +44,7 @@
 //! - **Round 5**: Error semantics (retryable vs permanent failures)
 
 mod common;
-use common::{parse_jsonl_output, validate_jsonl_schema_envelope, find_result_line, TestHarness};
+use common::{find_result_line, parse_jsonl_output, validate_jsonl_schema_envelope, TestHarness};
 use serde_json::Value as JsonValue;
 
 // ============================================================================
@@ -107,7 +107,7 @@ fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Erro
 
     // JSONL format: parse lines and validate first line
     let lines = parse_jsonl_output(&result.stdout)?;
-    let json = lines.first().ok_or_else(|| "Empty JSONL output")?;
+    let json = lines.first().ok_or("Empty JSONL output")?;
 
     // All JSON outputs must have these fields
     assert!(json.get("$schema").is_some(), "Missing $schema field");
@@ -267,18 +267,9 @@ fn test_context_command_for_agents() -> Result<(), Box<dyn std::error::Error>> {
     let has_repository = lines.iter().any(|line| line.get("repository").is_some());
     let has_suggestions = lines.iter().any(|line| line.get("suggestions").is_some());
 
-    assert!(
-        has_location,
-        "Context should include location"
-    );
-    assert!(
-        has_repository,
-        "Context should include repository details"
-    );
-    assert!(
-        has_suggestions,
-        "Context should include suggestions"
-    );
+    assert!(has_location, "Context should include location");
+    assert!(has_repository, "Context should include repository details");
+    assert!(has_suggestions, "Context should include suggestions");
     Ok(())
 }
 
@@ -451,7 +442,9 @@ fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::
     // Test not found error (exit code 2)
     let result1 = harness.zjj(&["status", "nonexistent", "--json"]);
     let lines1 = parse_jsonl_output(&result1.stdout)?;
-    let json1 = lines1.first().ok_or_else(|| "Empty JSONL output for status")?;
+    let json1 = lines1
+        .first()
+        .ok_or_else(|| "Empty JSONL output for status")?;
     assert_eq!(
         json1["error"]["exit_code"], 2,
         "Not found should be exit code 2"
@@ -487,16 +480,15 @@ fn test_query_session_exists_for_missing_session() -> Result<(), Box<dyn std::er
     // JSONL format: parse lines
     let lines = parse_jsonl_output(&result.stdout)?;
     validate_jsonl_schema_envelope(&result.stdout, "query session-exists")?;
-    let result_line = find_result_line(&lines)
-        .ok_or_else(|| "No result line in session-exists output")?;
+    let result_line =
+        find_result_line(&lines).ok_or_else(|| "No result line in session-exists output")?;
     assert_eq!(
         result_line["success"], true,
         "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
     assert_eq!(
-        result_line["data"]["exists"],
-        false,
+        result_line["data"]["exists"], false,
         "Missing session should not exist"
     );
     assert!(
@@ -522,21 +514,19 @@ fn test_query_session_exists_for_existing_session() -> Result<(), Box<dyn std::e
     // JSONL format: parse lines
     let lines = parse_jsonl_output(&result.stdout)?;
     validate_jsonl_schema_envelope(&result.stdout, "query session-exists")?;
-    let result_line = find_result_line(&lines)
-        .ok_or_else(|| "No result line in session-exists output")?;
+    let result_line =
+        find_result_line(&lines).ok_or_else(|| "No result line in session-exists output")?;
     assert_eq!(
         result_line["success"], true,
         "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
     assert_eq!(
-        result_line["data"]["exists"],
-        true,
+        result_line["data"]["exists"], true,
         "Created session should exist"
     );
     assert_eq!(
-        result_line["data"]["session"]["name"],
-        "test-session",
+        result_line["data"]["session"]["name"], "test-session",
         "Session payload should include session metadata"
     );
 
@@ -558,8 +548,7 @@ fn test_query_can_run_includes_prerequisite_summary() -> Result<(), Box<dyn std:
     // JSONL format: parse lines
     let lines = parse_jsonl_output(&result.stdout)?;
     validate_jsonl_schema_envelope(&result.stdout, "query can-run")?;
-    let result_line = find_result_line(&lines)
-        .ok_or_else(|| "No result line in can-run output")?;
+    let result_line = find_result_line(&lines).ok_or_else(|| "No result line in can-run output")?;
     assert_eq!(
         result_line["success"], true,
         "can-run should return success=true envelope\nStdout: {}\nStderr: {}",
@@ -605,11 +594,10 @@ fn test_query_suggest_name_finds_next_available_name() -> Result<(), Box<dyn std
     // JSONL format: parse lines
     let lines = parse_jsonl_output(&result.stdout)?;
     validate_jsonl_schema_envelope(&result.stdout, "query suggest-name")?;
-    let result_line = find_result_line(&lines)
-        .ok_or_else(|| "No result line in suggest-name output")?;
+    let result_line =
+        find_result_line(&lines).ok_or_else(|| "No result line in suggest-name output")?;
     assert_eq!(
-        result_line["data"]["pattern"],
-        "feature-{n}",
+        result_line["data"]["pattern"], "feature-{n}",
         "Pattern should round-trip in response"
     );
     let suggested = result_line["data"]["suggested"].as_str().unwrap_or("");

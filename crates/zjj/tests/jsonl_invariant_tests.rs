@@ -683,8 +683,9 @@ mod output_types_unit_tests {
     use anyhow::Result;
     use zjj_core::{
         output::{
-            Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
-            ResultOutput, SessionOutput, Summary, SummaryType,
+            Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind, IssueSeverity,
+            IssueTitle, Message, OutputLine, ResultKind, ResultOutput, SessionOutput, Summary,
+            SummaryType,
         },
         types::SessionStatus,
         WorkspaceState,
@@ -714,7 +715,10 @@ mod output_types_unit_tests {
 
     #[test]
     fn test_result_output_serializes_with_result_key() -> Result<()> {
-        let result = ResultOutput::success(ResultKind::Command, "Test success".to_string())?;
+        let result = ResultOutput::success(
+            ResultKind::Command,
+            Message::new("Test success").expect("valid message"),
+        )?;
 
         let line = OutputLine::Result(result);
         let json = serde_json::to_string(&line)?;
@@ -736,8 +740,8 @@ mod output_types_unit_tests {
     #[test]
     fn test_issue_output_serializes_with_issue_key() -> Result<()> {
         let issue = Issue::new(
-            "TEST-001".to_string(),
-            "Test issue".to_string(),
+            IssueId::new("TEST-001").expect("valid id"),
+            IssueTitle::new("Test issue").expect("valid title"),
             IssueKind::Validation,
             IssueSeverity::Error,
         )?;
@@ -762,8 +766,8 @@ mod output_types_unit_tests {
     #[test]
     fn test_action_output_serializes_with_action_key() {
         let action = Action::new(
-            "test".to_string(),
-            "target".to_string(),
+            ActionVerb::new("test").expect("valid action verb"),
+            ActionTarget::new("target").expect("valid action target"),
             ActionStatus::Completed,
         );
 
@@ -779,7 +783,10 @@ mod output_types_unit_tests {
 
     #[test]
     fn test_summary_output_serializes_with_summary_key() -> Result<()> {
-        let summary = Summary::new(SummaryType::Count, "Test summary".to_string())?;
+        let summary = Summary::new(
+            SummaryType::Count,
+            Message::new("Test summary").expect("valid message"),
+        )?;
 
         let line = OutputLine::Summary(summary);
         let json = serde_json::to_string(&line)?;
@@ -796,7 +803,10 @@ mod output_types_unit_tests {
     /// Verify that ResultOutput::failure has success=false
     #[test]
     fn test_result_failure_has_success_false() -> Result<()> {
-        let result = ResultOutput::failure(ResultKind::Command, "Test failure".to_string())?;
+        let result = ResultOutput::failure(
+            ResultKind::Command,
+            Message::new("Test failure").expect("valid message"),
+        )?;
 
         let line = OutputLine::Result(result);
         let json = serde_json::to_string(&line)?;

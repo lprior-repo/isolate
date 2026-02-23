@@ -28,6 +28,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 itertools = "0.13"
 either = "1.13"
+rpds = "1.2"
 futures = "0.3"
 notify = "6"
 notify-debouncer-mini = "0.4"
@@ -44,6 +45,28 @@ tokio-test = "0.4"
 proptest = "1.0"
 tempfile = "3.0"
 serial_test = "3.0"
+criterion = "0.5"
+
+# Benchmark targets
+[[bench]]
+name = "identifier_parsing"
+harness = false
+
+[[bench]]
+name = "state_machine"
+harness = false
+
+[[bench]]
+name = "event_serialization"
+harness = false
+
+[[bench]]
+name = "repository_operations"
+harness = false
+
+[[bench]]
+name = "aggregate_operations"
+harness = false
 
 [lints]
 workspace = true
