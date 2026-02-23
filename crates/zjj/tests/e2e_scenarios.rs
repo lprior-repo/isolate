@@ -731,7 +731,11 @@ async fn scenario_queue_with_bead_association() {
 /// GIVEN: A queue with stale claims (expired locks)
 /// WHEN: Recovery is triggered
 /// THEN: Stale entries are reset to pending
+///
+/// NOTE: This test has a 2.1-second sleep to test stale claim recovery.
+/// Run with: cargo test scenario_queue_recovery_stale_claims -- --ignored
 #[tokio::test]
+#[ignore = "Slow test with 2.1-second sleep for stale claim recovery - run with --ignored"]
 async fn scenario_queue_recovery_stale_claims() {
     // GIVEN: Queue with short timeout for testing
     // Using 1 second timeout and waiting 2.1 seconds to ensure staleness

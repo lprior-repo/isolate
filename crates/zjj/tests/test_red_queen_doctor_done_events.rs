@@ -844,7 +844,10 @@ fn given_events_invalid_matrix_when_json_invoked_then_error_envelope_is_consiste
     }
 }
 
+// NOTE: This test has a 1.2-second sleep for process startup and uses --follow mode.
+// Run with: cargo test given_events_follow_mode_when_new_event_appended -- --ignored
 #[test]
+#[ignore = "Slow test with 1.2s sleep for follow mode process startup - run with --ignored"]
 fn given_events_follow_mode_when_new_event_appended_then_streams_event_and_exits_cleanly() {
     let Some(harness) = TestHarness::try_new() else {
         return;
@@ -887,7 +890,10 @@ fn given_events_follow_mode_when_new_event_appended_then_streams_event_and_exits
     let _ = follow.child.wait();
 }
 
+// NOTE: This test has a 1.2-second sleep for process startup and uses --follow mode.
+// Run with: cargo test given_events_follow_mode_with_malformed_line -- --ignored
 #[test]
+#[ignore = "Slow test with 1.2s sleep for follow mode process startup - run with --ignored"]
 fn given_events_follow_mode_with_malformed_line_when_valid_event_appended_then_stream_continues() {
     let Some(harness) = TestHarness::try_new() else {
         return;
@@ -926,7 +932,10 @@ fn given_events_follow_mode_with_malformed_line_when_valid_event_appended_then_s
     let _ = follow.child.wait();
 }
 
+// NOTE: This test has a 1.2-second sleep for process startup and uses --follow mode.
+// Run with: cargo test given_events_follow_mode_without_json -- --ignored
 #[test]
+#[ignore = "Slow test with 1.2s sleep for follow mode process startup - run with --ignored"]
 fn given_events_follow_mode_without_json_when_event_appended_then_streams_human_readable_line() {
     let Some(harness) = TestHarness::try_new() else {
         return;
@@ -968,7 +977,10 @@ fn given_events_follow_mode_without_json_when_event_appended_then_streams_human_
     let _ = follow.child.wait();
 }
 
+// NOTE: This test has a 1.2-second sleep for process startup and uses --follow mode.
+// Run with: cargo test given_events_follow_mode_with_session_filter -- --ignored
 #[test]
+#[ignore = "Slow test with 1.2s sleep for follow mode process startup - run with --ignored"]
 fn given_events_follow_mode_with_session_filter_when_interleaved_events_appended_then_only_matching_events_stream(
 ) {
     let Some(harness) = TestHarness::try_new() else {

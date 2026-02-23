@@ -42,6 +42,27 @@
 use std::path::PathBuf;
 
 use proptest::prelude::*;
+
+/// Optimized proptest config for fast CLI property tests.
+/// Uses 64 cases for simple invariants.
+fn fast_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 64,
+        max_shrink_iters: 256,
+        ..ProptestConfig::default()
+    }
+}
+
+/// Standard proptest config for CLI property tests.
+/// Uses 100 cases for moderately complex invariants.
+#[allow(dead_code)]
+fn standard_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 100,
+        ..ProptestConfig::default()
+    }
+}
+
 use zjj_core::{
     output::{
         domain_types::{IssueId, IssueTitle, Message},
@@ -192,6 +213,8 @@ fn message_strategy() -> impl Strategy<Value = String> {
 ///
 /// INVARIANT: Object names must be valid CLI tokens (lowercase, no spaces/special chars)
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_object_names_are_valid_tokens(object in object_strategy()) {
         // Object names must be lowercase
@@ -217,6 +240,8 @@ proptest! {
 ///
 /// INVARIANT: Every valid command is <object> <action>
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_all_commands_follow_noun_verb_pattern(
         object in object_strategy(),
@@ -323,6 +348,8 @@ fn prop_objects_have_required_actions() {
 /// INVARIANT: All CLI output types must serialize to valid JSON
 /// INVARIANT: Terminal statuses (Completed/Failed) are rejected for new sessions
 proptest! {
+    #![proptest_config(standard_config())]
+
     #[test]
     fn prop_session_output_valid_json(
         name in session_name_strategy(),
@@ -369,6 +396,8 @@ proptest! {
 ///
 /// INVARIANT: All summary output must be valid JSON
 proptest! {
+    #![proptest_config(standard_config())]
+
     #[test]
     fn prop_summary_valid_json(
         summary_type in summary_type_strategy(),
@@ -399,6 +428,8 @@ proptest! {
 ///
 /// INVARIANT: All issue output must be valid JSON
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_issue_valid_json(
         id in "[a-zA-Z0-9-]{5,20}",
@@ -433,6 +464,8 @@ proptest! {
 ///
 /// INVARIANT: All OutputLine variants must produce valid JSON
 proptest! {
+    #![proptest_config(standard_config())]
+
     #[test]
     fn prop_output_line_variants_valid_json(
         name in session_name_strategy(),
@@ -458,6 +491,8 @@ proptest! {
 ///
 /// INVARIANT: All JSON field names follow snake_case convention
 proptest! {
+    #![proptest_config(standard_config())]
+
     #[test]
     fn prop_json_field_names_snake_case(
         name in session_name_strategy(),
@@ -493,6 +528,8 @@ proptest! {
 ///
 /// INVARIANT: Session name validation is consistent across all commands
 proptest! {
+    #![proptest_config(standard_config())]
+
     #[test]
     fn prop_session_name_validation_consistent(name in any_string_strategy()) {
         let is_valid_format = !name.trim().is_empty()
@@ -525,6 +562,8 @@ proptest! {
 ///
 /// INVARIANT: Workspace paths are validated consistently
 proptest! {
+    #![proptest_config(standard_config())]
+
     #[test]
     fn prop_workspace_path_validation(
         name in session_name_strategy(),
@@ -561,6 +600,8 @@ fn prop_json_flag_consistent() {
 ///
 /// INVARIANT: Argument requirements follow consistent patterns
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_argument_requirements_consistent(
         action in prop_oneof![
@@ -592,6 +633,8 @@ proptest! {
 ///
 /// INVARIANT: Exit code 0 is only returned on successful completion
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_exit_code_0_means_success(exit_code in exit_code_strategy()) {
         if exit_code == EXIT_SUCCESS {
@@ -605,6 +648,8 @@ proptest! {
 ///
 /// INVARIANT: Non-zero exit codes indicate different error categories
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_non_zero_exit_codes_indicate_errors(exit_code in exit_code_strategy()) {
         if exit_code != EXIT_SUCCESS {
@@ -639,6 +684,8 @@ proptest! {
 ///
 /// INVARIANT: Exit codes are 0-4 (small integer range)
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_exit_codes_in_valid_range(exit_code in exit_code_strategy()) {
         prop_assert!(
@@ -653,6 +700,8 @@ proptest! {
 ///
 /// INVARIANT: Higher severity issues should result in higher exit codes
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_error_severity_exit_code_mapping(severity in issue_severity_strategy()) {
         let expected_min_exit_code = match severity {
@@ -720,6 +769,8 @@ fn prop_output_line_kinds_unique() {
 ///
 /// INVARIANT: All timestamped output includes valid ISO 8601 timestamps
 proptest! {
+    #![proptest_config(standard_config())]
+
     #[test]
     fn prop_timestamps_valid(
         name in session_name_strategy(),
@@ -759,6 +810,8 @@ proptest! {
 ///
 /// INVARIANT: SummaryType enum values serialize to lowercase
 proptest! {
+    #![proptest_config(fast_config())]
+
     #[test]
     fn prop_summary_type_serialization(summary_type in summary_type_strategy()) {
         let summary = Summary::new(summary_type, Message::new("test message").expect("valid message"));

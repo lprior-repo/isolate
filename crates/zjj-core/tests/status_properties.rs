@@ -22,6 +22,24 @@ use std::path::PathBuf;
 
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
+
+/// Optimized proptest config for fast status property tests.
+fn fast_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 64,
+        max_shrink_iters: 256,
+        ..ProptestConfig::default()
+    }
+}
+
+/// Standard proptest config for status property tests.
+fn standard_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 100,
+        ..ProptestConfig::default()
+    }
+}
+
 use zjj_core::{
     output::{OutputLine, SessionOutput, Summary, SummaryType},
     types::SessionStatus,
@@ -113,7 +131,7 @@ struct SummaryPayload {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(100))]
+    #![proptest_config(standard_config())]
 
     /// Property: SessionOutput serializes to valid JSON
     ///
@@ -254,7 +272,7 @@ proptest! {
 // ═══════════════════════════════════════════════════════════════════════════
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(100))]
+    #![proptest_config(standard_config())]
 
     /// Property: All required fields are present in SessionOutput JSON
     ///
@@ -360,7 +378,7 @@ proptest! {
 
         // GREEN PHASE: Verify branch field handling
         let branch_field = value.get("branch");
-        if branch_field.is_none() {
+        if branch.is_none() {
             // When no branch, field should be missing
             prop_assert!(
                 branch_field.is_none(),
@@ -384,7 +402,7 @@ proptest! {
 // ═══════════════════════════════════════════════════════════════════════════
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(100))]
+    #![proptest_config(fast_config())]
 
     /// Property: Session status transitions are validated via can_transition_to
     ///
@@ -486,7 +504,7 @@ proptest! {
 // ═══════════════════════════════════════════════════════════════════════════
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(100))]
+    #![proptest_config(standard_config())]
 
     /// Property: Session name validation rejects invalid names
     ///

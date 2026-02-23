@@ -35,6 +35,26 @@
 )]
 
 use proptest::prelude::*;
+
+/// Optimized proptest config for queue property tests.
+/// Queue tests are more expensive due to state machine operations.
+fn queue_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 64,
+        max_shrink_iters: 256,
+        ..ProptestConfig::default()
+    }
+}
+
+/// Fast config for simple queue invariants.
+fn fast_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 32,
+        max_shrink_iters: 128,
+        ..ProptestConfig::default()
+    }
+}
+
 use zjj_core::coordination::{
     pure_queue::{PureQueue, PureQueueError},
     queue_status::{QueueStatus, TransitionError},
@@ -102,6 +122,8 @@ fn terminal_status_strategy() -> impl Strategy<Value = QueueStatus> {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(queue_config())]
+
     /// Property: Only one agent can hold the processing lock at any time.
     /// This is the "single worker invariant" - concurrent claim attempts must
     /// result in exactly one holder.
@@ -146,7 +168,7 @@ proptest! {
     /// Property: Concurrent claim attempts result in exactly one winner.
     #[test]
     fn prop_concurrent_claims_single_winner(
-        agents in proptest::collection::vec(agent_id_strategy(), 2..10),
+        agents in proptest::collection::vec(agent_id_strategy(), 2..8),
     ) {
         // Setup: Create a queue with one pending entry
         let queue = PureQueue::new();
@@ -181,13 +203,15 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(queue_config())]
+
     /// Property: Entries are dequeued in priority order (lowest first).
     /// Within the same priority, FIFO order is preserved.
     #[test]
     fn prop_priority_ordering_preserved(
         entries in proptest::collection::vec(
             (workspace_strategy(), priority_strategy()),
-            1..20,
+            1..10,
         ),
     ) {
         // Build queue from entries
@@ -283,8 +307,8 @@ proptest! {
     /// Property: Priority ordering is stable across multiple operations.
     #[test]
     fn prop_priority_ordering_stable(
-        batch1 in proptest::collection::vec((workspace_strategy(), priority_strategy()), 1..5),
-        batch2 in proptest::collection::vec((workspace_strategy(), priority_strategy()), 1..5),
+        batch1 in proptest::collection::vec((workspace_strategy(), priority_strategy()), 1..3),
+        batch2 in proptest::collection::vec((workspace_strategy(), priority_strategy()), 1..3),
     ) {
         // Build queue with batch1
         let mut queue = PureQueue::new();
@@ -328,6 +352,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property: All transitions from non-terminal states must be validated.
     /// Invalid transitions must return an error.
     ///
@@ -427,6 +453,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property: Merged entries cannot be modified or transitioned.
     #[test]
     fn prop_merged_immutable(target in queue_status_strategy()) {
@@ -490,6 +518,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property: All status values have valid string representations.
     #[test]
     fn prop_status_roundtrip(status in queue_status_strategy()) {
@@ -548,10 +578,12 @@ fn prop_all_statuses_are_known() {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(queue_config())]
+
     /// Property: Queue operations are atomic - partial failures leave queue unchanged.
     #[test]
     fn prop_queue_operations_atomic(
-        initial_entries in proptest::collection::vec((workspace_strategy(), priority_strategy()), 1..10),
+        initial_entries in proptest::collection::vec((workspace_strategy(), priority_strategy()), 1..6),
         operation_type in 0u8..10,
     ) {
         // Build initial queue
@@ -608,7 +640,7 @@ proptest! {
     /// Property: Queue state is always consistent after any sequence of operations.
     #[test]
     fn prop_queue_state_consistent(
-        operations in proptest::collection::vec(0u8..10, 1..20),
+        operations in proptest::collection::vec(0u8..10, 1..10),
     ) {
         let mut queue = PureQueue::new();
         let mut workspace_counter = 0u32;

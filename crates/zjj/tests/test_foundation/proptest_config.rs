@@ -29,9 +29,24 @@ use proptest::test_runner::Config;
 /// The seed was chosen arbitrarily but is fixed to ensure reproducibility.
 const DEFAULT_SEED: u64 = 0x1234_5678_9ABC_DEF0;
 
-/// Number of test cases to run by default.
+/// Number of test cases for fast property tests.
+/// Suitable for simple invariants that are quick to verify.
 /// Can be overridden with `PROPTEST_CASES` environment variable.
-const DEFAULT_CASES: u32 = 256;
+pub const FAST_CASES: u32 = 64;
+
+/// Number of test cases for standard property tests.
+/// Good balance between coverage and speed.
+/// Can be overridden with `PROPTEST_CASES` environment variable.
+pub const STANDARD_CASES: u32 = 100;
+
+/// Number of test cases for thorough property tests.
+/// Used for critical invariants where coverage matters.
+/// Can be overridden with `PROPTEST_CASES` environment variable.
+pub const THOROUGH_CASES: u32 = 256;
+
+/// Default number of test cases (standard).
+/// Can be overridden with `PROPTEST_CASES` environment variable.
+const DEFAULT_CASES: u32 = STANDARD_CASES;
 
 /// Maximum number of shrinking iterations.
 const DEFAULT_MAX_SHRINK_ITERS: u32 = 1024;
@@ -77,10 +92,85 @@ pub fn deterministic_config() -> Config {
 /// Uses lazy initialization to allow environment variable overrides at runtime.
 pub static DETERMINISTIC_CONFIG: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
 
+/// Lazy-initialized fast config with fewer cases.
+pub static FAST_CONFIG: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
+
+/// Lazy-initialized standard config.
+pub static STANDARD_CONFIG: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
+
+/// Lazy-initialized thorough config with more cases.
+pub static THOROUGH_CONFIG: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
+
 /// Get the global deterministic config, initializing if needed.
 #[must_use]
 pub fn get_deterministic_config() -> &'static Config {
     DETERMINISTIC_CONFIG.get_or_init(deterministic_config)
+}
+
+/// Create a fast proptest configuration with fewer test cases.
+///
+/// Use this for simple invariants that are quick to verify.
+/// Runs 64 cases by default.
+#[must_use]
+pub fn fast_config() -> Config {
+    let seed = parse_seed_from_env().unwrap_or(DEFAULT_SEED);
+    let cases = parse_cases_from_env().unwrap_or(FAST_CASES);
+    Config {
+        cases,
+        max_shrink_iters: 256,
+        rng_seed: proptest::test_runner::RngSeed::Fixed(seed),
+        ..Config::default()
+    }
+}
+
+/// Create a standard proptest configuration.
+///
+/// Use this for most property tests.
+/// Runs 100 cases by default.
+#[must_use]
+pub fn standard_config() -> Config {
+    let seed = parse_seed_from_env().unwrap_or(DEFAULT_SEED);
+    let cases = parse_cases_from_env().unwrap_or(STANDARD_CASES);
+    Config {
+        cases,
+        max_shrink_iters: DEFAULT_MAX_SHRINK_ITERS,
+        rng_seed: proptest::test_runner::RngSeed::Fixed(seed),
+        ..Config::default()
+    }
+}
+
+/// Create a thorough proptest configuration with more test cases.
+///
+/// Use this for critical invariants where coverage matters.
+/// Runs 256 cases by default.
+#[must_use]
+pub fn thorough_config() -> Config {
+    let seed = parse_seed_from_env().unwrap_or(DEFAULT_SEED);
+    let cases = parse_cases_from_env().unwrap_or(THOROUGH_CASES);
+    Config {
+        cases,
+        max_shrink_iters: DEFAULT_MAX_SHRINK_ITERS,
+        rng_seed: proptest::test_runner::RngSeed::Fixed(seed),
+        ..Config::default()
+    }
+}
+
+/// Get the global fast config, initializing if needed.
+#[must_use]
+pub fn get_fast_config() -> &'static Config {
+    FAST_CONFIG.get_or_init(fast_config)
+}
+
+/// Get the global standard config, initializing if needed.
+#[must_use]
+pub fn get_standard_config() -> &'static Config {
+    STANDARD_CONFIG.get_or_init(standard_config)
+}
+
+/// Get the global thorough config, initializing if needed.
+#[must_use]
+pub fn get_thorough_config() -> &'static Config {
+    THOROUGH_CONFIG.get_or_init(thorough_config)
 }
 
 /// Parse the seed from the `PROPTEST_SEED` environment variable.

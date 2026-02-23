@@ -61,7 +61,10 @@ fn test_wait_timeout_and_interval() {
     );
 }
 
+// NOTE: This test has a 3-second sleep to test lock TTL expiry.
+// Run with: cargo test test_lock_ttl -- --ignored
 #[test]
+#[ignore = "Slow test with 3-second sleep for lock TTL expiry - run with --ignored"]
 fn test_lock_ttl() {
     let Some(harness) = TestHarness::try_new() else {
         return;

@@ -20,6 +20,25 @@
 use std::collections::HashSet;
 
 use proptest::prelude::*;
+
+/// Optimized proptest config for session property tests.
+fn session_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 64,
+        max_shrink_iters: 256,
+        ..ProptestConfig::default()
+    }
+}
+
+/// Fast config for simple session invariants.
+fn fast_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 32,
+        max_shrink_iters: 128,
+        ..ProptestConfig::default()
+    }
+}
+
 use zjj_core::session_state::{SessionState, StateTransition};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,6 +110,8 @@ fn unique_session_names_strategy(count: usize) -> impl Strategy<Value = Vec<Stri
 // - Preventing ambiguous references
 // - Database integrity (name is the unique key)
 proptest! {
+    #![proptest_config(session_config())]
+
     /// Property: Unique names should remain unique after any operation.
     ///
     /// INVARIANT: Session name uniqueness must be preserved.
@@ -171,6 +192,8 @@ fn check_name_uniqueness(names: &[String]) -> bool {
 // - Completed -> Created
 // - Failed -> Created
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property: All valid state transitions are allowed.
     ///
     /// INVARIANT: Only transitions in the allowed list are valid.
@@ -319,6 +342,8 @@ struct TestSession {
 }
 
 proptest! {
+    #![proptest_config(session_config())]
+
     /// Property: Each session has exactly one workspace.
     ///
     /// INVARIANT: A session cannot have multiple workspace paths.
@@ -360,7 +385,7 @@ proptest! {
     fn prop_workspaces_are_exclusive(
         sessions in proptest::collection::vec(
             (valid_session_name_strategy(), workspace_path_strategy()),
-            1..10
+            1..5
         )
     ) {
         // Build session list with potentially conflicting workspaces

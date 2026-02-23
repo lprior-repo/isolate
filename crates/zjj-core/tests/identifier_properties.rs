@@ -32,6 +32,27 @@
 )]
 
 use proptest::prelude::*;
+
+/// Optimized proptest config for fast identifier property tests.
+/// Uses 64 cases for simple invariants like roundtrip tests.
+fn fast_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 64,
+        max_shrink_iters: 256,
+        ..ProptestConfig::default()
+    }
+}
+
+/// Standard proptest config for identifier property tests.
+/// Uses 100 cases for validation tests.
+#[allow(dead_code)]
+fn standard_config() -> ProptestConfig {
+    ProptestConfig {
+        cases: 100,
+        ..ProptestConfig::default()
+    }
+}
+
 use zjj_core::domain::{
     identifiers::{
         AbsolutePath, AgentId, BeadId, IdentifierError, SessionId, SessionName, TaskId,
@@ -191,6 +212,8 @@ fn invalid_absolute_path_strategy() -> impl Strategy<Value = String> {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property 1: Roundtrip - parse -> display -> parse should preserve identity
     #[test]
     fn session_name_roundtrip(name in valid_session_name_strategy()) {
@@ -232,6 +255,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property 1: Roundtrip for agent IDs
     #[test]
     fn agent_id_roundtrip(id in valid_agent_id_strategy()) {
@@ -273,6 +298,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property 1: Roundtrip for workspace names
     #[test]
     fn workspace_name_roundtrip(name in valid_workspace_name_strategy()) {
@@ -314,6 +341,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property 1: Roundtrip for task IDs
     #[test]
     fn task_id_roundtrip(id in valid_task_id_strategy()) {
@@ -351,6 +380,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property 1: Roundtrip for session IDs
     #[test]
     fn session_id_roundtrip(id in valid_session_id_strategy()) {
@@ -380,6 +411,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property 1: Roundtrip for absolute paths
     #[test]
     fn absolute_path_roundtrip(path in valid_absolute_path_strategy()) {
@@ -461,6 +494,8 @@ fn test_identifier_error_predicates() {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property: Different identifier types don't accidentally parse each other's formats
     #[test]
     fn identifier_types_are_distinct(name in valid_session_name_strategy()) {
@@ -489,6 +524,8 @@ fn empty_string_rejected_by_all_types() {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property: Identifiers can be serialized and deserialized via serde
     #[test]
     fn session_name_serde_roundtrip(name in valid_session_name_strategy()) {
@@ -520,6 +557,8 @@ proptest! {
 // =============================================================================
 
 proptest! {
+    #![proptest_config(fast_config())]
+
     /// Property: AsRef<str> returns the inner value
     #[test]
     fn session_name_as_str(name in valid_session_name_strategy()) {

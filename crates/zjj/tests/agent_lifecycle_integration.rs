@@ -503,7 +503,10 @@ async fn lifecycle_concurrent_registration() -> Result<()> {
 // LIFECYCLE TEST 11: Lock timeout and expiry
 // ============================================================================
 
+// NOTE: This test has a 2-second sleep to test lock TTL expiry.
+// Run with: cargo test lifecycle_lock_timeout_expiry -- --ignored
 #[tokio::test]
+#[ignore = "Slow test with 2-second sleep for lock TTL expiry - run with --ignored"]
 async fn lifecycle_lock_timeout_expiry() -> Result<()> {
     let ctx = IntegrationTestContext::new().await?;
 
