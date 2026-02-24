@@ -37,7 +37,7 @@ use zjj_core::workspace_integrity::{
     BackupManager, IntegrityValidator, RepairExecutor, ValidationResult,
 };
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn test_repair_nonexistent_workspace_returns_error() -> Result<(), Box<dyn Error>> {
     // Given: A temporary root directory
     let root = TempDir::new()?;
@@ -97,7 +97,7 @@ async fn test_repair_nonexistent_workspace_returns_error() -> Result<(), Box<dyn
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn test_repair_nonexistent_workspace_with_backup_manager() -> Result<(), Box<dyn Error>> {
     // Given: A temporary root with backup manager
     let root = TempDir::new()?;
@@ -141,7 +141,7 @@ async fn test_repair_nonexistent_workspace_with_backup_manager() -> Result<(), B
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn test_forget_and_recreate_nonexistent_workspace() -> Result<(), Box<dyn Error>> {
     // This is a more direct test of the specific function that might panic
     // Given: A validation result for a non-existent workspace
