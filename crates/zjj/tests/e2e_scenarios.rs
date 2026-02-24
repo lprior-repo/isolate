@@ -732,15 +732,11 @@ async fn scenario_queue_with_bead_association() {
 /// WHEN: Recovery is triggered
 /// THEN: Stale entries are reset to pending
 ///
-/// NOTE: This test has a 2.1-second sleep to test stale claim recovery.
-/// Run with: cargo test scenario_queue_recovery_stale_claims -- --ignored
+/// Uses condition-based polling instead of fixed sleep for faster execution.
 #[tokio::test]
-#[ignore = "Slow test with 2.1-second sleep for stale claim recovery - run with --ignored"]
 async fn scenario_queue_recovery_stale_claims() {
     // GIVEN: Queue with short timeout for testing
-    // Using 1 second timeout and waiting 2.1 seconds to ensure staleness
-    // Note: timestamps use second granularity, so we need to wait long enough
-    // for the timestamp to advance past the timeout threshold
+    // Using 1 second timeout - timestamps use second granularity
     let queue = MergeQueue::open_in_memory_with_timeout(1) // 1 second timeout
         .await
         .expect("Failed to create queue");
@@ -757,9 +753,27 @@ async fn scenario_queue_recovery_stale_claims() {
         .expect("Entry should exist");
     assert_eq!(claimed_entry.status, QueueStatus::Claimed);
 
-    // Wait for claim to become stale (longer than timeout)
-    // Need 2+ seconds due to second-granularity timestamps
-    tokio::time::sleep(Duration::from_millis(2100)).await;
+    // Poll until entry becomes stale (condition-based polling)
+    // This is faster than fixed sleep and more robust
+    let start = std::time::Instant::now();
+    let recovery_stats = loop {
+        let stats = queue
+            .get_recovery_stats()
+            .await
+            .expect("Failed to get recovery stats");
+        if stats.entries_reclaimed > 0 {
+            break stats;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(5),
+            "Timed out waiting for entry to become stale"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+    assert!(
+        recovery_stats.entries_reclaimed >= 1,
+        "Should detect stale entry"
+    );
 
     // WHEN: Detect and recover stale entries
     let recovery = queue

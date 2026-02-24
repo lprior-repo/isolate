@@ -73,16 +73,21 @@ fn queue_entry_added_event() -> DomainEvent {
 
 /// Create a queue entry claimed event
 fn queue_entry_claimed_event() -> DomainEvent {
+    use zjj_core::domain::events::ClaimTimestamps;
+
     let claimed_at = Utc::now();
     let expires_at = claimed_at + chrono::Duration::seconds(300);
+    let timestamp = Utc::now();
 
     DomainEvent::queue_entry_claimed(
         42,
         WorkspaceName::parse("my-workspace").expect("valid"),
         AgentId::parse("agent-1").expect("valid"),
-        claimed_at,
-        expires_at,
-        Utc::now(),
+        ClaimTimestamps {
+            claimed_at,
+            expires_at,
+            timestamp,
+        },
     )
 }
 

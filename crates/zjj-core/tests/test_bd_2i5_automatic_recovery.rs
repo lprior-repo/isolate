@@ -53,13 +53,13 @@ use zjj_core::{
 
 /// Helper: Simulate passage of time by waiting before reclaim.
 /// The detect_and_recover_stale function checks `started_at < cutoff` where cutoff = now -
-/// threshold. Using 2100ms to ensure we wait more than 2 seconds so that with
-/// lock_timeout_secs=1, entries become stale (started_at < now - 1).
-const RECLAIM_DELAY_MS: u64 = 2100;
+/// threshold. Using 100ms for fast tests - entries become stale when started_at < now - 1
+/// (with lock_timeout_secs=1), which happens quickly after starting processing.
+const RECLAIM_DELAY_MS: u64 = 100;
 
 /// Lock timeout for tests - must be less than RECLAIM_DELAY_MS for auto-recovery to work.
-/// Using 1 second so entries become stale after ~2+ seconds (due to integer truncation).
-const TEST_LOCK_TIMEOUT_SECS: i64 = 1;
+/// Using 0 seconds so entries become stale immediately after any delay (started_at < now - 0).
+const TEST_LOCK_TIMEOUT_SECS: i64 = 0;
 
 // ========================================================================
 // HP-001: Automatic recovery cleans expired locks

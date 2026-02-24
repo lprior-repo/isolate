@@ -365,8 +365,8 @@ async fn stress_exponential_backoff_under_contention() -> Result<()> {
 
     // Verify retry logic didn't cause excessive delays
     assert!(
-        elapsed < Duration::from_secs(5),
-        "Should complete within 5 seconds"
+        elapsed < Duration::from_secs(1),
+        "Should complete within 1 second"
     );
 
     Ok(())

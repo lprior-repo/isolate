@@ -1009,8 +1009,14 @@ mod tests {
     /// Test that summary with empty message is rejected
     #[test]
     fn test_empty_summary_message_rejected() {
-        let result = Summary::new(SummaryType::Status, Message::new("").expect("valid"));
-        assert!(result.is_err(), "Empty summary message should be rejected");
+        use zjj_core::output::OutputLineError;
+
+        let result = Message::new("");
+        assert!(result.is_err(), "Empty message should be rejected");
+        match result {
+            Err(OutputLineError::EmptyMessage) => {}
+            _ => panic!("Expected EmptyMessage error, got {:?}", result),
+        }
     }
 
     /// Test exit code conventions

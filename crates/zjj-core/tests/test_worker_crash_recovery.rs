@@ -47,7 +47,8 @@ use zjj_core::{
 /// The reclaim_stale function checks `started_at < cutoff` where cutoff = now - threshold.
 /// Since timestamps are in seconds (not milliseconds), we need at least 1 second delay
 /// for the entry's started_at to be strictly less than now() with threshold 0.
-const RECLAIM_DELAY_MS: u64 = 1100;
+/// Using 1010ms for minimal safe delay (1 second + 10ms margin for clock precision).
+const RECLAIM_DELAY_MS: u64 = 1010;
 
 // ========================================================================
 // BDD SCENARIO 1: Worker Crash Leaves Stale Claimed Entry

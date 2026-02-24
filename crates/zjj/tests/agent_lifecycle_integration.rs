@@ -503,10 +503,7 @@ async fn lifecycle_concurrent_registration() -> Result<()> {
 // LIFECYCLE TEST 11: Lock timeout and expiry
 // ============================================================================
 
-// NOTE: This test has a 2-second sleep to test lock TTL expiry.
-// Run with: cargo test lifecycle_lock_timeout_expiry -- --ignored
 #[tokio::test]
-#[ignore = "Slow test with 2-second sleep for lock TTL expiry - run with --ignored"]
 async fn lifecycle_lock_timeout_expiry() -> Result<()> {
     let ctx = IntegrationTestContext::new().await?;
 
@@ -525,11 +522,20 @@ async fn lifecycle_lock_timeout_expiry() -> Result<()> {
     let result = lock_manager.lock("session-1", "agent-2").await;
     assert!(result.is_err());
 
-    // Wait for lock to expire
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    // Poll for lock acquisition with 50ms intervals until expiry (1s TTL + margin)
+    let poll_start = std::time::Instant::now();
+    let poll_timeout = Duration::from_millis(1500);
+    let poll_interval = Duration::from_millis(50);
 
-    // Agent 2 should now be able to acquire
-    let lock_resp = lock_manager.lock("session-1", "agent-2").await?;
+    let lock_resp = loop {
+        if let Ok(resp) = lock_manager.lock("session-1", "agent-2").await {
+            break resp;
+        }
+        if poll_start.elapsed() >= poll_timeout {
+            panic!("Lock did not expire within {poll_timeout:?}");
+        }
+        tokio::time::sleep(poll_interval).await;
+    };
     assert_eq!(lock_resp.agent_id, "agent-2");
 
     Ok(())

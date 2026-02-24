@@ -24,7 +24,7 @@ use zjj_core::coordination::{
 async fn create_test_pool() -> SqlitePool {
     SqlitePoolOptions::new()
         .max_connections(1)
-        .acquire_timeout(Duration::from_secs(5))
+        .acquire_timeout(Duration::from_secs(1))
         .connect(":memory:")
         .await
         .expect("Failed to create test pool")

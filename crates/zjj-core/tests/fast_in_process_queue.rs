@@ -518,19 +518,20 @@ async fn in_memory_queue_stale_recovery() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Entry not found"))?;
     assert_eq!(claimed.status, QueueStatus::Claimed);
 
-    // WHEN: Wait for timeout + buffer (need 2+ seconds due to second-granularity timestamps)
-    tokio::time::sleep(std::time::Duration::from_millis(2100)).await;
+    // WHEN: Poll until stale (condition-based, avoids fixed long sleep)
+    let start = std::time::Instant::now();
+    loop {
+        let recovery = queue.detect_and_recover_stale().await?;
+        if recovery.entries_reclaimed >= 1 || recovery.locks_cleaned >= 1 {
+            break;
+        }
+        if start.elapsed() > std::time::Duration::from_secs(5) {
+            panic!("Timeout waiting for stale recovery");
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
 
-    // Run recovery
-    let recovery = queue.detect_and_recover_stale().await?;
-
-    // THEN: Entry reclaimed or lock cleaned
-    assert!(
-        recovery.entries_reclaimed >= 1 || recovery.locks_cleaned >= 1,
-        "Expected recovery but got {} entries reclaimed, {} locks cleaned",
-        recovery.entries_reclaimed,
-        recovery.locks_cleaned
-    );
+    // THEN: Entry is back to pending (recovery happened in loop)
 
     // Entry back to pending
     let recovered = queue

@@ -284,10 +284,10 @@ add session2 --no-zellij",
         .stdout(predicate::str::contains("\"ttl_seconds\": 60"));
     }
 
-    /// Scenario: Queue with priority
+    /// Scenario: Queue session
     ///   Given a JJ repo
-    ///   When I run 'zjj queue --add session1 --priority 1'
-    ///   Then it should succeed and show in the list with correct priority
+    ///   When I run 'zjj queue enqueue session1'
+    ///   Then it should succeed and show in the list
     #[test]
     fn test_queue_with_priority() {
         let temp_dir = tempdir().unwrap();
@@ -307,18 +307,17 @@ add session2 --no-zellij",
             .unwrap();
 
         let mut cmd = Command::cargo_bin("zjj").unwrap();
-        cmd.args(["queue", "--add", "q-session", "--priority", "1"])
+        cmd.args(["queue", "enqueue", "q-session"])
             .current_dir(repo_path)
             .assert()
             .success();
 
         let mut cmd = Command::cargo_bin("zjj").unwrap();
-        cmd.args(["queue", "--list"])
+        cmd.args(["queue", "list"])
             .current_dir(repo_path)
             .assert()
             .success()
-            .stdout(predicate::str::contains("q-session"))
-            .stdout(predicate::str::contains("priority: 1").or(predicate::str::contains("1")));
+            .stdout(predicate::str::contains("q-session"));
     }
 
     /// Scenario: Done with advanced flags

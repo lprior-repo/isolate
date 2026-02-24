@@ -25,6 +25,7 @@ mod common;
 
 use std::{
     fs,
+    hint::spin_loop,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     sync::{
@@ -32,7 +33,6 @@ use std::{
         Arc,
     },
     thread,
-    time::Duration,
 };
 
 use common::TestHarness;
@@ -719,7 +719,11 @@ fn submit_concurrent_auto_commit_race_preserves_machine_readability() {
         while !stop_writer.load(Ordering::Relaxed) {
             let _ = std::fs::write(writer_path.join("race.txt"), format!("r{i}\n"));
             i = i.saturating_add(1);
-            thread::sleep(Duration::from_millis(3));
+            // Spin with yield to create contention without blocking on I/O sleep
+            for _ in 0..100 {
+                spin_loop();
+            }
+            thread::yield_now();
         }
     });
 
@@ -814,7 +818,11 @@ fn submit_multiprocess_parallel_storm_keeps_structured_json() {
         while !stop_writer.load(Ordering::Relaxed) {
             let _ = std::fs::write(writer_path.join("storm.txt"), format!("s{i}\n"));
             i = i.saturating_add(1);
-            thread::sleep(Duration::from_millis(2));
+            // Spin with yield to create contention without blocking on I/O sleep
+            for _ in 0..50 {
+                spin_loop();
+            }
+            thread::yield_now();
         }
     });
 

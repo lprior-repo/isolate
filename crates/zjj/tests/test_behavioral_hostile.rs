@@ -61,10 +61,8 @@ fn test_wait_timeout_and_interval() {
     );
 }
 
-// NOTE: This test has a 3-second sleep to test lock TTL expiry.
-// Run with: cargo test test_lock_ttl -- --ignored
+// Test lock TTL expiry with short TTL (100ms) for fast execution
 #[test]
-#[ignore = "Slow test with 3-second sleep for lock TTL expiry - run with --ignored"]
 fn test_lock_ttl() {
     let Some(harness) = TestHarness::try_new() else {
         return;
@@ -72,8 +70,8 @@ fn test_lock_ttl() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "lock-test", "--no-zellij", "--no-hooks"]);
 
-    // Lock with 2s TTL
-    harness.assert_success(&["lock", "lock-test", "--ttl", "2", "--agent-id", "agent1"]);
+    // Lock with 100ms TTL
+    harness.assert_success(&["lock", "lock-test", "--ttl", "0.1", "--agent-id", "agent1"]);
 
     // Immediately try to lock as another agent - should fail
     let result = harness.zjj(&["lock", "lock-test", "--agent-id", "agent2"]);
@@ -82,8 +80,8 @@ fn test_lock_ttl() {
         "Should not be able to lock while another agent holds it"
     );
 
-    // Wait for TTL to expire
-    std::thread::sleep(std::time::Duration::from_secs(3));
+    // Wait for TTL to expire (150ms gives margin over 100ms TTL)
+    std::thread::sleep(std::time::Duration::from_millis(150));
 
     // Now should be able to lock as another agent
     harness.assert_success(&["lock", "lock-test", "--agent-id", "agent2"]);

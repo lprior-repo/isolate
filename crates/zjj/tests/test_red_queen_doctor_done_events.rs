@@ -190,6 +190,56 @@ fn saw_line_containing(rx: &Receiver<String>, needle: &str, timeout: Duration) -
     false
 }
 
+/// Polls for follow process readiness by checking if the process is still running.
+/// Returns true if the process is ready (running), false if it exited or timed out.
+fn wait_for_follow_process_ready(child: &mut Child, timeout: Duration) -> bool {
+    let start = Instant::now();
+    let poll_interval = Duration::from_millis(50);
+
+    // Wait briefly for the process to initialize
+    thread::sleep(poll_interval);
+
+    while start.elapsed() < timeout {
+        match child.try_wait() {
+            Ok(None) => {
+                // Process is still running, which means it's ready to follow events
+                return true;
+            }
+            Ok(Some(_status)) => {
+                // Process exited - not ready
+                return false;
+            }
+            Err(_) => {
+                // Error checking process status - continue polling
+            }
+        }
+        thread::sleep(poll_interval);
+    }
+
+    false
+}
+
+/// Kills a child process and waits for it to exit with a timeout.
+/// If the timeout is reached before the process exits, the process is killed again
+/// (as a safety measure) and the function returns.
+fn kill_and_wait_with_timeout(child: &mut Child, timeout: Duration) {
+    let _ = child.kill();
+    let start = Instant::now();
+    let poll_interval = Duration::from_millis(50);
+
+    while start.elapsed() < timeout {
+        match child.try_wait() {
+            Ok(Some(_)) => return, // Process has exited
+            Ok(None) => {}         // Process still running, continue polling
+            Err(_) => return,      // Error checking status, give up
+        }
+        thread::sleep(poll_interval);
+    }
+
+    // Timeout reached - force kill again as a safety measure
+    let _ = child.kill();
+}
+
 fn append_events_line(events_file: &std::path::Path, line: &str) {
     use std::io::Write;
 
@@ -858,7 +908,10 @@ fn given_events_follow_mode_when_new_event_appended_then_streams_event_and_exits
     std::fs::write(&events_file, "").expect("failed to clear events log");
 
     let mut follow = spawn_follow_process(&harness, &["events", "--follow", "--json"]);
-    thread::sleep(Duration::from_millis(1200));
+    assert!(
+        wait_for_follow_process_ready(&mut follow.child, Duration::from_secs(2)),
+        "follow process should be ready within timeout"
+    );
 
     append_events_line(
         &events_file,
@@ -886,8 +939,7 @@ fn given_events_follow_mode_when_new_event_appended_then_streams_event_and_exits
         "follow process should remain running until terminated"
     );
 
-    let _ = follow.child.kill();
-    let _ = follow.child.wait();
+    kill_and_wait_with_timeout(&mut follow.child, Duration::from_secs(5));
 }
 
 // NOTE: This test has a 1.2-second sleep for process startup and uses --follow mode.
@@ -904,7 +956,10 @@ fn given_events_follow_mode_with_malformed_line_when_valid_event_appended_then_s
     std::fs::write(&events_file, "").expect("failed to clear events log");
 
     let mut follow = spawn_follow_process(&harness, &["events", "--follow", "--json"]);
-    thread::sleep(Duration::from_millis(1200));
+    assert!(
+        wait_for_follow_process_ready(&mut follow.child, Duration::from_secs(2)),
+        "follow process should be ready within timeout"
+    );
 
     append_events_line(&events_file, "this is not valid json\n");
     append_events_line(
@@ -928,8 +983,7 @@ fn given_events_follow_mode_with_malformed_line_when_valid_event_appended_then_s
         "follow process should keep running after malformed lines"
     );
 
-    let _ = follow.child.kill();
-    let _ = follow.child.wait();
+    kill_and_wait_with_timeout(&mut follow.child, Duration::from_secs(5));
 }
 
 // NOTE: This test has a 1.2-second sleep for process startup and uses --follow mode.
@@ -946,7 +1000,10 @@ fn given_events_follow_mode_without_json_when_event_appended_then_streams_human_
     std::fs::write(&events_file, "").expect("failed to clear events log");
 
     let mut follow = spawn_follow_process(&harness, &["events", "--follow"]);
-    thread::sleep(Duration::from_millis(1200));
+    assert!(
+        wait_for_follow_process_ready(&mut follow.child, Duration::from_secs(2)),
+        "follow process should be ready within timeout"
+    );
 
     append_events_line(
         &events_file,
@@ -973,8 +1030,7 @@ fn given_events_follow_mode_without_json_when_event_appended_then_streams_human_
         "human-readable follow output should include session context: {rendered}"
     );
 
-    let _ = follow.child.kill();
-    let _ = follow.child.wait();
+    kill_and_wait_with_timeout(&mut follow.child, Duration::from_secs(5));
 }
 
 // NOTE: This test has a 1.2-second sleep for process startup and uses --follow mode.
@@ -992,7 +1048,10 @@ fn given_events_follow_mode_with_session_filter_when_interleaved_events_appended
     std::fs::write(&events_file, "").expect("failed to clear events log");
 
     let mut follow = spawn_follow_process(&harness, &["events", "--follow", "--session", "alpha"]);
-    thread::sleep(Duration::from_millis(1200));
+    assert!(
+        wait_for_follow_process_ready(&mut follow.child, Duration::from_secs(2)),
+        "follow process should be ready within timeout"
+    );
 
     append_events_line(
         &events_file,
@@ -1023,8 +1082,7 @@ fn given_events_follow_mode_with_session_filter_when_interleaved_events_appended
         "matching follow output should include session identifier: {rendered}"
     );
 
-    let _ = follow.child.kill();
-    let _ = follow.child.wait();
+    kill_and_wait_with_timeout(&mut follow.child, Duration::from_secs(5));
 }
 
 #[test]
