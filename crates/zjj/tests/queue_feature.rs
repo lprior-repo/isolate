@@ -126,7 +126,7 @@ async fn scenario_list_shows_entries_with_status() {
         .expect("Failed to add workspace-beta");
 
     // WHEN
-    let result = ctx.harness.zjj(&["queue", "--list"]);
+    let result = ctx.harness.zjj(&["queue", "list"]);
 
     // THEN
     assert!(
@@ -188,7 +188,7 @@ async fn scenario_show_displays_entry_details() {
         .expect("Failed to add workspace-test");
 
     // WHEN
-    let result = ctx.harness.zjj(&["queue", "--status", "workspace-test"]);
+    let result = ctx.harness.zjj(&["queue", "status", "workspace-test"]);
 
     // THEN
     assert!(

@@ -691,11 +691,14 @@ pub fn parse_json_output(s: &str) -> Result<JsonValue, serde_json::Error> {
 
 /// Parse JSONL output from CLI commands, returning all parsed JSON lines.
 ///
-/// JSONL format has one JSON object per line. This function filters empty lines
-/// and parses each non-empty line as a JSON value.
+/// JSONL format has one JSON object per line. This function filters empty lines,
+/// log lines (ANSI escape sequences), and parses each remaining line as JSON.
 pub fn parse_jsonl_output(s: &str) -> Result<Vec<JsonValue>, serde_json::Error> {
     s.lines()
-        .filter(|line| !line.trim().is_empty())
+        .filter(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty() && trimmed.starts_with('{')
+        })
         .map(serde_json::from_str)
         .collect()
 }

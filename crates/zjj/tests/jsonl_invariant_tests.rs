@@ -137,7 +137,7 @@ fn assert_all_lines_have_variant_type(parsed_lines: &[JsonValue]) -> Result<()> 
 // INV-GLOBAL-04: Success cases emit ResultOutput::success as final line
 // ============================================================================
 
-/// INV-GLOBAL-04: Verify the last line is a ResultOutput with success=true
+/// INV-GLOBAL-04: Verify the last line is a ResultOutput with outcome="success"
 fn assert_final_line_is_success_result(parsed_lines: &[JsonValue]) -> Result<()> {
     let last_line = parsed_lines
         .last()
@@ -148,14 +148,15 @@ fn assert_final_line_is_success_result(parsed_lines: &[JsonValue]) -> Result<()>
         .get("result")
         .context("Final line must be a Result variant (missing 'result' key)")?;
 
-    let success = result_obj
-        .get("success")
-        .and_then(JsonValue::as_bool)
-        .context("Result must have a boolean 'success' field")?;
+    let outcome = result_obj
+        .get("outcome")
+        .and_then(JsonValue::as_str)
+        .context("Result must have a string 'outcome' field")?;
 
-    if !success {
+    if outcome != "success" {
         anyhow::bail!(
-            "Final line must be a success Result, but success=false. Line: {:?}",
+            "Final line must be a success Result, but outcome={:?}. Line: {:?}",
+            outcome,
             last_line
         );
     }
@@ -163,7 +164,7 @@ fn assert_final_line_is_success_result(parsed_lines: &[JsonValue]) -> Result<()>
     Ok(())
 }
 
-/// INV-GLOBAL-04 (failure case): Verify the last line is a ResultOutput with success=false
+/// INV-GLOBAL-04 (failure case): Verify the last line is a ResultOutput with outcome="failure"
 #[allow(dead_code)]
 fn assert_final_line_is_failure_result(parsed_lines: &[JsonValue]) -> Result<()> {
     let last_line = parsed_lines
@@ -174,14 +175,14 @@ fn assert_final_line_is_failure_result(parsed_lines: &[JsonValue]) -> Result<()>
         .get("result")
         .context("Final line must be a Result variant (missing 'result' key)")?;
 
-    let success = result_obj
-        .get("success")
-        .and_then(JsonValue::as_bool)
-        .context("Result must have a boolean 'success' field")?;
+    let outcome = result_obj
+        .get("outcome")
+        .and_then(JsonValue::as_str)
+        .context("Result must have a string 'outcome' field")?;
 
-    if success {
+    if outcome == "success" {
         anyhow::bail!(
-            "Final line must be a failure Result, but success=true. Line: {:?}",
+            "Final line must be a failure Result, but outcome=success. Line: {:?}",
             last_line
         );
     }
@@ -729,8 +730,8 @@ mod output_types_unit_tests {
             json
         );
         assert!(
-            json.contains("\"success\":true"),
-            "Should have success=true: {}",
+            json.contains("\"outcome\":\"success\""),
+            "Should have outcome=success: {}",
             json
         );
 
@@ -800,9 +801,9 @@ mod output_types_unit_tests {
         Ok(())
     }
 
-    /// Verify that ResultOutput::failure has success=false
+    /// Verify that ResultOutput::failure has outcome="failure"
     #[test]
-    fn test_result_failure_has_success_false() -> Result<()> {
+    fn test_result_failure_has_outcome_failure() -> Result<()> {
         let result = ResultOutput::failure(
             ResultKind::Command,
             Message::new("Test failure").expect("valid message"),
@@ -812,8 +813,8 @@ mod output_types_unit_tests {
         let json = serde_json::to_string(&line)?;
 
         assert!(
-            json.contains("\"success\":false"),
-            "Failure should have success=false: {}",
+            json.contains("\"outcome\":\"failure\""),
+            "Failure should have outcome=failure: {}",
             json
         );
 

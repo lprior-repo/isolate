@@ -223,9 +223,9 @@ mod focus_command {
 
         let result_obj = last_line.get("result").unwrap();
         assert_eq!(
-            result_obj.get("success").and_then(|s| s.as_bool()),
-            Some(true),
-            "Result should have success=true"
+            result_obj.get("outcome").and_then(|s| s.as_str()),
+            Some("success"),
+            "Result should have outcome=success"
         );
 
         // Cleanup

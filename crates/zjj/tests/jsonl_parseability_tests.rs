@@ -364,9 +364,10 @@ fn test_issue_output_has_required_fields() {
     );
 
     // Verify optional fields have correct types
+    // Session is nested in scope: {"scope": {"InSession": {"session": "..."}}}
     assert!(
-        json.get("session").and_then(JsonValue::as_str).is_some(),
-        "Issue.session should be a string"
+        json.get("scope").is_some(),
+        "Issue.scope should be present when session is set"
     );
     assert!(
         json.get("suggestion").and_then(JsonValue::as_str).is_some(),
@@ -401,8 +402,8 @@ fn test_result_output_has_required_fields() {
     let result_output = find_json_line_by_type(&result.stdout, "result");
 
     if let Some(json) = result_output {
-        // Verify required fields
-        let required_fields = ["kind", "success", "message", "timestamp"];
+        // Verify required fields (outcome instead of success)
+        let required_fields = ["kind", "outcome", "message", "timestamp"];
 
         for field in &required_fields {
             assert!(
@@ -417,8 +418,8 @@ fn test_result_output_has_required_fields() {
             "ResultOutput.kind should be a string"
         );
         assert!(
-            json.get("success").and_then(JsonValue::as_bool).is_some(),
-            "ResultOutput.success should be a boolean"
+            json.get("outcome").and_then(JsonValue::as_str).is_some(),
+            "ResultOutput.outcome should be a string (success/failure)"
         );
         assert!(
             json.get("message").and_then(JsonValue::as_str).is_some(),
@@ -715,10 +716,10 @@ fn test_failed_command_has_success_false() {
     let json_str = serde_json::to_string(&result).expect("serialize result");
     let json: JsonValue = serde_json::from_str(&json_str).expect("parse result json");
 
-    // Verify success is false
+    // Verify outcome is failure
     assert!(
-        json.get("success").and_then(JsonValue::as_bool) == Some(false),
-        "Failed command ResultOutput should have success=false"
+        json.get("outcome").and_then(JsonValue::as_str) == Some("failure"),
+        "Failed command ResultOutput should have outcome=failure"
     );
 }
 

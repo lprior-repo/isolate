@@ -111,7 +111,7 @@ pub mod given_steps {
 
     /// Given no session named "X" exists
     pub async fn no_session_named_exists(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["list", "--format", "json"]);
+        let result = ctx.harness.zjj(&["session", "list", "--json"]);
         let sessions = parse_sessions_from_output(&result.stdout)?;
 
         if sessions.iter().any(|s| s["name"].as_str() == Some(name)) {
@@ -122,7 +122,7 @@ pub mod given_steps {
 
     /// Given no session exists
     pub async fn no_session_exists(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.harness.zjj(&["list", "--format", "json"]);
+        let result = ctx.harness.zjj(&["session", "list", "--json"]);
         let sessions = parse_sessions_from_output(&result.stdout)?;
 
         if !sessions.is_empty() {
@@ -145,7 +145,7 @@ pub mod given_steps {
         }
 
         // Check if session exists
-        let result = ctx.harness.zjj(&["list", "--format", "json"]);
+        let result = ctx.harness.zjj(&["session", "list", "--json"]);
         let sessions = parse_sessions_from_output(&result.stdout)?;
 
         if sessions.iter().any(|s| s["name"].as_str() == Some(name)) {
@@ -154,7 +154,7 @@ pub mod given_steps {
         }
 
         // Create the session if it doesn't exist
-        let create_result = ctx.harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let create_result = ctx.harness.zjj(&["session", "add", name, "--no-open"]);
         if !create_result.success {
             anyhow::bail!(
                 "Failed to create session '{name}': {}",
@@ -177,20 +177,27 @@ pub mod given_steps {
 
         // If we need a specific status, we'd update the database directly
         // For now, we'll just verify the session exists
-        let result = ctx.harness.zjj(&["status", name, "--format", "json"]);
+        let result = ctx.harness.zjj(&["status", name, "--json"]);
 
         // Verify status if the session is in a specific state
         if result.success && result.stdout.contains("\"status\"") {
-            let parsed: JsonValue = serde_json::from_str(&result.stdout)
-                .with_context(|| "Failed to parse status JSON")?;
+            // Parse as JSONL and find session line
+            if let Ok(lines) = parse_jsonl_output(&result.stdout) {
+                let parsed = lines
+                    .iter()
+                    .find(|line| line.get("session").is_some())
+                    .and_then(|line| line.get("session"))
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({}));
 
-            if let Some(actual_status) = parsed.get("status").and_then(|s| s.as_str()) {
-                if actual_status != status {
-                    // In a real implementation, we'd update the status via database
-                    // For now, just log the discrepancy
-                    eprintln!(
-                        "Warning: Session '{name}' has status '{actual_status}', expected '{status}'"
-                    );
+                if let Some(actual_status) = parsed.get("status").and_then(|s| s.as_str()) {
+                    if actual_status != status {
+                        // In a real implementation, we'd update the status via database
+                        // For now, just log the discrepancy
+                        eprintln!(
+                            "Warning: Session '{name}' has status '{actual_status}', expected '{status}'"
+                        );
+                    }
                 }
             }
         }
@@ -333,7 +340,7 @@ pub mod when_steps {
         name: &str,
         _workspace_path: &str,
     ) -> Result<()> {
-        let result = ctx.harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let result = ctx.harness.zjj(&["session", "add", name, "--no-open"]);
         *ctx.last_result.lock().await = Some(result.clone());
 
         if result.success {
@@ -345,14 +352,14 @@ pub mod when_steps {
 
     /// When I attempt to create a session named "X"
     pub async fn attempt_create_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let result = ctx.harness.zjj(&["session", "add", name, "--no-open"]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
 
     /// When I remove the session "X"
     pub async fn remove_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["remove", name, "--force"]);
+        let result = ctx.harness.zjj(&["session", "remove", name, "-f"]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
@@ -388,7 +395,7 @@ pub mod when_steps {
 
     /// When I submit the session "X"
     pub async fn submit_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["submit", "--workspace", name]);
+        let result = ctx.harness.zjj(&["submit", "-w", name]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
@@ -421,7 +428,7 @@ pub mod when_steps {
 
     /// When I list all sessions
     pub async fn list_sessions(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.harness.zjj(&["list", "--format", "json"]);
+        let result = ctx.harness.zjj(&["session", "list", "--json"]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
@@ -430,14 +437,14 @@ pub mod when_steps {
     pub async fn list_sessions_with_filter(ctx: &SessionTestContext, status: &str) -> Result<()> {
         let result = ctx
             .harness
-            .zjj(&["list", "--format", "json", "--status", status]);
+            .zjj(&["session", "list", "--json", "--status", status]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
 
     /// When I show the session "X"
     pub async fn show_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["status", name, "--format", "json"]);
+        let result = ctx.harness.zjj(&["status", name, "--json"]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
@@ -463,15 +470,15 @@ pub mod when_steps {
 
     /// When I pause the session "X"
     pub async fn pause_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        // Pause would be a session management command
-        let result = ctx.harness.zjj(&["status", name, "--set-status", "paused"]);
+        // Use session pause command
+        let result = ctx.harness.zjj(&["session", "pause", name]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
 
     /// When I resume the session "X"
     pub async fn resume_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["status", name, "--set-status", "active"]);
+        let result = ctx.harness.zjj(&["session", "resume", name]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
@@ -485,7 +492,7 @@ pub mod when_steps {
     pub async fn retry_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
         let result = ctx
             .harness
-            .zjj(&["status", name, "--set-status", "creating"]);
+            .zjj(&["session", "resume", name]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
@@ -499,7 +506,7 @@ pub mod when_steps {
             .clone()
             .context("No session to inspect")?;
 
-        let result = ctx.harness.zjj(&["status", &session, "--format", "json"]);
+        let result = ctx.harness.zjj(&["status", &session, "--json"]);
         *ctx.last_result.lock().await = Some(result.clone());
         Ok(())
     }
@@ -514,7 +521,7 @@ pub mod then_steps {
 
     /// Then the session "X" should exist
     pub async fn session_should_exist(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["list", "--format", "json"]);
+        let result = ctx.harness.zjj(&["session", "list", "--json"]);
         let sessions = parse_sessions_from_output(&result.stdout)?;
 
         let exists = sessions.iter().any(|s| s["name"].as_str() == Some(name));
@@ -526,7 +533,7 @@ pub mod then_steps {
 
     /// Then the session "X" should not exist
     pub async fn session_should_not_exist(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.zjj(&["list", "--format", "json"]);
+        let result = ctx.harness.zjj(&["session", "list", "--json"]);
         let sessions = parse_sessions_from_output(&result.stdout)?;
 
         let exists = sessions.iter().any(|s| s["name"].as_str() == Some(name));
@@ -542,7 +549,7 @@ pub mod then_steps {
         name: &str,
         expected_status: &str,
     ) -> Result<()> {
-        let result = ctx.harness.zjj(&["status", name, "--format", "json"]);
+        let result = ctx.harness.zjj(&["status", name, "--json"]);
 
         if !result.success {
             anyhow::bail!(
@@ -551,8 +558,15 @@ pub mod then_steps {
             );
         }
 
-        let parsed: JsonValue =
-            serde_json::from_str(&result.stdout).with_context(|| "Failed to parse status JSON")?;
+        // Parse as JSONL and find session line
+        let lines = parse_jsonl_output(&result.stdout)
+            .with_context(|| "Failed to parse status JSONL")?;
+        let parsed = lines
+            .iter()
+            .find(|line| line.get("session").is_some())
+            .and_then(|line| line.get("session"))
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
 
         let actual_status = parsed
             .get("status")
@@ -586,10 +600,17 @@ pub mod then_steps {
         name: &str,
         expected_tab: &str,
     ) -> Result<()> {
-        let result = ctx.harness.zjj(&["status", name, "--format", "json"]);
+        let result = ctx.harness.zjj(&["status", name, "--json"]);
 
-        let parsed: JsonValue =
-            serde_json::from_str(&result.stdout).with_context(|| "Failed to parse status JSON")?;
+        // Parse as JSONL and find session line
+        let lines = parse_jsonl_output(&result.stdout)
+            .with_context(|| "Failed to parse status JSONL")?;
+        let parsed = lines
+            .iter()
+            .find(|line| line.get("session").is_some())
+            .and_then(|line| line.get("session"))
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
 
         let zellij_tab: Option<String> = parsed
             .get("zellij_tab")
@@ -666,7 +687,7 @@ pub mod then_steps {
             .clone()
             .context("No session tracked")?;
 
-        let result = ctx.harness.zjj(&["list", "--format", "json"]);
+        let result = ctx.harness.zjj(&["session", "list", "--json"]);
         let sessions = parse_sessions_from_output(&result.stdout)?;
 
         let count = sessions
@@ -766,7 +787,7 @@ pub mod then_steps {
             .clone()
             .context("No session tracked")?;
 
-        let result = ctx.harness.zjj(&["status", &session, "--format", "json"]);
+        let result = ctx.harness.zjj(&["status", &session, "--json"]);
         if !result.stdout.contains("last_synced") && !result.stdout.contains("lastSynced") {
             // This might not be implemented yet, so just log
             eprintln!("Warning: last_synced field not found in output");
@@ -1217,10 +1238,17 @@ pub mod then_steps {
             .clone()
             .context("No session tracked")?;
 
-        let result = ctx.harness.zjj(&["status", &session, "--format", "json"]);
+        let result = ctx.harness.zjj(&["status", &session, "--json"]);
 
-        let parsed: JsonValue =
-            serde_json::from_str(&result.stdout).with_context(|| "Failed to parse status JSON")?;
+        // Parse as JSONL and find session line
+        let lines = parse_jsonl_output(&result.stdout)
+            .with_context(|| "Failed to parse status JSONL")?;
+        let parsed = lines
+            .iter()
+            .find(|line| line.get("session").is_some())
+            .and_then(|line| line.get("session"))
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
 
         let db_path = parsed
             .get("workspace_path")
