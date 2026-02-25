@@ -1,56 +1,81 @@
 pub mod handlers;
 
-use clap::Command;
+use clap::{Arg, Command};
 
 pub fn build_cli() -> Command {
     Command::new("stak")
         .version(env!("CARGO_PKG_VERSION"))
-        .about("Merge queue and PR coordination for zjj workspaces")
+        .about("Merge queue for stacking PRs - local Graphite")
         .subcommand_required(true)
-        .subcommand(cmd_queue())
-        .subcommand(cmd_agent())
-        .subcommand(cmd_lock())
-        .subcommand(cmd_events())
-        .subcommand(cmd_batch())
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .global(true)
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+        .subcommand(cmd_list())
+        .subcommand(cmd_status())
+        .subcommand(cmd_enqueue())
+        .subcommand(cmd_dequeue())
+        .subcommand(cmd_process())
 }
 
-fn cmd_queue() -> Command {
-    Command::new("queue")
-        .about("Manage merge queue")
-        .subcommand_required(true)
-        .subcommand(Command::new("list").about("List queue entries"))
-        .subcommand(Command::new("status").about("Show queue status"))
-        .subcommand(Command::new("enqueue").about("Add session to queue"))
-        .subcommand(Command::new("dequeue").about("Remove session from queue"))
-        .subcommand(Command::new("process").about("Process queue entries"))
+fn cmd_list() -> Command {
+    Command::new("list").about("List queue entries").arg(
+        Arg::new("all")
+            .long("all")
+            .action(clap::ArgAction::SetTrue)
+            .help("Include completed entries"),
+    )
 }
 
-fn cmd_agent() -> Command {
-    Command::new("agent")
-        .about("Manage agents")
-        .subcommand_required(true)
-        .subcommand(Command::new("list").about("List agents"))
-        .subcommand(Command::new("register").about("Register as agent"))
-        .subcommand(Command::new("heartbeat").about("Send heartbeat"))
-        .subcommand(Command::new("unregister").about("Unregister agent"))
+fn cmd_status() -> Command {
+    Command::new("status")
+        .about("Show queue status")
+        .arg(Arg::new("session").help("Session name to show status for"))
 }
 
-fn cmd_lock() -> Command {
-    Command::new("lock")
-        .about("Manage locks")
-        .subcommand_required(true)
-        .subcommand(Command::new("acquire").about("Acquire lock"))
-        .subcommand(Command::new("release").about("Release lock"))
+fn cmd_enqueue() -> Command {
+    Command::new("enqueue")
+        .about("Add session to queue")
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Session name to enqueue"),
+        )
+        .arg(
+            Arg::new("priority")
+                .long("priority")
+                .short('p')
+                .value_name("N")
+                .help("Priority 1-10, lower = higher (default: 5)"),
+        )
 }
 
-fn cmd_events() -> Command {
-    Command::new("events")
-        .about("System events")
-        .subcommand_required(true)
-        .subcommand(Command::new("list").about("List events"))
-        .subcommand(Command::new("follow").about("Stream events"))
+fn cmd_dequeue() -> Command {
+    Command::new("dequeue")
+        .about("Remove session from queue")
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Session name to dequeue"),
+        )
 }
 
-fn cmd_batch() -> Command {
-    Command::new("batch").about("Execute multiple commands")
+fn cmd_process() -> Command {
+    Command::new("process")
+        .about("Process queue entries (merge in order)")
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("limit")
+                .long("limit")
+                .value_name("N")
+                .help("Max entries to process (default: all)"),
+        )
 }

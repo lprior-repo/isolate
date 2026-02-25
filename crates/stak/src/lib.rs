@@ -1,14 +1,9 @@
-//! Stak - Merge queue and PR coordination
+//! Stak - Merge queue for stacking PRs
 //!
-//! This crate handles:
-//! - Merge queue management
-//! - Agent coordination
-//! - Resource locking
-//! - Event broadcasting
+//! Local Graphite - manages merge queue for zjj workspaces.
 
 pub mod cli;
 pub mod commands;
-pub mod coordination;
 pub mod db;
 pub mod error;
 
