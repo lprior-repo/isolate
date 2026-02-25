@@ -28,31 +28,6 @@ Feature: Status Query
     And the output should be valid JSON
 
   # ==========================================================================
-  # Scenario: Status shows queue position
-  # ==========================================================================
-  Scenario: Status shows queue position
-    Given I have created a session named "feature-queued"
-    And the session has been submitted to the merge queue
-    And there are 2 entries ahead in the queue
-    When I query the status for "feature-queued"
-    Then the output should show the queue position as 3
-    And the output should show the queue status
-    And the output should be valid JSON
-
-  # ==========================================================================
-  # Scenario: Status shows stack context
-  # ==========================================================================
-  Scenario: Status shows stack context
-    Given I have created a session named "child-feature"
-    And the session has a parent session named "parent-feature"
-    And the session is in a stack with depth 2
-    When I query the status for "child-feature"
-    Then the output should show the stack depth
-    And the output should show the parent session "parent-feature"
-    And the output should show the stack root
-    And the output should be valid JSON
-
-  # ==========================================================================
   # Scenario: Missing session handled gracefully
   # ==========================================================================
   Scenario: Missing session handled gracefully

@@ -24,10 +24,6 @@ pub enum ZjjObject {
     Task,
     /// Session management (workspaces)
     Session,
-    /// Merge queue operations
-    Queue,
-    /// Stack operations (parent-child session relationships)
-    Stack,
     /// Agent coordination and tracking
     Agent,
     /// Status and introspection queries
@@ -44,8 +40,6 @@ impl ZjjObject {
         &[
             Self::Task,
             Self::Session,
-            Self::Queue,
-            Self::Stack,
             Self::Agent,
             Self::Status,
             Self::Config,
@@ -58,8 +52,6 @@ impl ZjjObject {
         match self {
             Self::Task => "task",
             Self::Session => "session",
-            Self::Queue => "queue",
-            Self::Stack => "stack",
             Self::Agent => "agent",
             Self::Status => "status",
             Self::Config => "config",
@@ -72,8 +64,6 @@ impl ZjjObject {
         match self {
             Self::Task => "Manage tasks and work items (beads)",
             Self::Session => "Manage workspaces and sessions",
-            Self::Queue => "Manage merge queue operations",
-            Self::Stack => "Manage stacked session relationships",
             Self::Agent => "Manage agent coordination and tracking",
             Self::Status => "Query system and session status",
             Self::Config => "Manage zjj configuration",
@@ -126,36 +116,6 @@ pub enum SessionAction {
     Sync,
     /// Initialize zjj in repository
     Init,
-}
-
-/// Subcommands for the Queue object
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QueueAction {
-    /// List queue entries
-    List,
-    /// Add entry to queue
-    Enqueue,
-    /// Remove entry from queue
-    Dequeue,
-    /// Show queue status
-    Status,
-    /// Process queue entries
-    Process,
-}
-
-/// Subcommands for the Stack object
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StackAction {
-    /// Show stack status
-    Status,
-    /// List all stacks
-    List,
-    /// Create a new stack
-    Create,
-    /// Push to stack
-    Push,
-    /// Pop from stack
-    Pop,
 }
 
 /// Subcommands for the Agent object
@@ -382,13 +342,6 @@ pub fn cmd_session() -> ClapCommand {
                         .help("Associate with a bead ID"),
                 )
                 .arg(
-                    Arg::new("parent")
-                        .long("parent")
-                        .short('p')
-                        .value_name("PARENT")
-                        .help("Create as stacked session under parent"),
-                )
-                .arg(
                     Arg::new("template")
                         .long("template")
                         .short('t')
@@ -525,125 +478,6 @@ pub fn cmd_session() -> ClapCommand {
                 .about("Initialize zjj in a JJ repository")
                 .arg(json_arg())
                 .arg(dry_run_arg()),
-        )
-}
-
-/// Build the Queue object command with all subcommands
-pub fn cmd_queue() -> ClapCommand {
-    ClapCommand::new("queue")
-        .about("Manage merge queue operations")
-        .subcommand_required(true)
-        .arg(json_arg())
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List queue entries")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("all")
-                        .long("all")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Include completed entries"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("enqueue")
-                .about("Add session to queue")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("session")
-                        .required(true)
-                        .help("Session name to enqueue"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("dequeue")
-                .about("Remove session from queue")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("session")
-                        .required(true)
-                        .help("Session name to dequeue"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("status")
-                .about("Show queue status")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("session")
-                        .help("Session name to show status for (shows queue stats if omitted)"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("process")
-                .about("Process queue entries")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("dry-run")
-                        .long("dry-run")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Preview without executing"),
-                ),
-        )
-}
-
-/// Build the Stack object command with all subcommands
-pub fn cmd_stack() -> ClapCommand {
-    ClapCommand::new("stack")
-        .about("Manage stacked session relationships")
-        .subcommand_required(true)
-        .arg(json_arg())
-        .subcommand(
-            ClapCommand::new("status")
-                .about("Show stack status")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("workspace")
-                        .required(true)
-                        .help("Workspace name to query stack status for"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List all stacks")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("verbose")
-                        .long("verbose")
-                        .short('v')
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Show detailed information"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("create")
-                .about("Create a new stack")
-                .arg(json_arg())
-                .arg(Arg::new("name").required(true).help("Name for the stack"))
-                .arg(
-                    Arg::new("base")
-                        .long("base")
-                        .value_name("SESSION")
-                        .help("Base session for the stack"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("push")
-                .about("Push session onto stack")
-                .arg(json_arg())
-                .arg(Arg::new("session").required(true).help("Session to push"))
-                .arg(
-                    Arg::new("parent")
-                        .long("parent")
-                        .value_name("PARENT")
-                        .help("Parent session in stack"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("pop")
-                .about("Pop session from stack")
-                .arg(json_arg())
-                .arg(Arg::new("session").help("Session to pop (uses current if omitted)")),
         )
 }
 
@@ -870,8 +704,6 @@ pub fn build_object_cli() -> ClapCommand {
              Object-based command structure:\n\
              \n  zjj task <action>     Manage tasks and work items\n\
              \n  zjj session <action>  Manage workspaces and sessions\n\
-             \n  zjj queue <action>    Manage merge queue\n\
-             \n  zjj stack <action>    Manage session stacks\n\
              \n  zjj agent <action>    Manage agent coordination\n\
              \n  zjj status <action>   Query system status\n\
              \n  zjj config <action>   Manage configuration\n\
@@ -882,8 +714,6 @@ pub fn build_object_cli() -> ClapCommand {
         .arg(verbose_arg().global(true))
         .subcommand(cmd_task())
         .subcommand(cmd_session())
-        .subcommand(cmd_queue())
-        .subcommand(cmd_stack())
         .subcommand(cmd_agent())
         .subcommand(cmd_status())
         .subcommand(cmd_config())
@@ -898,8 +728,6 @@ mod tests {
     fn test_zjj_object_names() {
         assert_eq!(ZjjObject::Task.name(), "task");
         assert_eq!(ZjjObject::Session.name(), "session");
-        assert_eq!(ZjjObject::Queue.name(), "queue");
-        assert_eq!(ZjjObject::Stack.name(), "stack");
         assert_eq!(ZjjObject::Agent.name(), "agent");
         assert_eq!(ZjjObject::Status.name(), "status");
         assert_eq!(ZjjObject::Config.name(), "config");
@@ -908,7 +736,7 @@ mod tests {
 
     #[test]
     fn test_zjj_object_all_count() {
-        assert_eq!(ZjjObject::all().len(), 8);
+        assert_eq!(ZjjObject::all().len(), 6);
     }
 
     #[test]
@@ -918,8 +746,6 @@ mod tests {
 
         assert!(subcommands.contains(&"task"));
         assert!(subcommands.contains(&"session"));
-        assert!(subcommands.contains(&"queue"));
-        assert!(subcommands.contains(&"stack"));
         assert!(subcommands.contains(&"agent"));
         assert!(subcommands.contains(&"status"));
         assert!(subcommands.contains(&"config"));

@@ -2,13 +2,12 @@
 //!
 //! These tests cover the critical user workflows end-to-end:
 //! - Session creation → workspace creation → task operations → close workflow
-//! - Queue operations: enqueue → list → dequeue
 //! - Session state transitions through full lifecycle
 //! - Workspace creation and removal
 //!
 //! ## Test Architecture
 //!
-//! - **Multiple state changes across aggregates**: Tests span sessions, workspaces, tasks, and queues
+//! - **Multiple state changes across aggregates**: Tests span sessions, workspaces, and tasks
 //! - **Database/file I/O interactions**: Real SQLite databases and file system operations
 //! - **Full workflow scenarios**: Complete user journeys from start to finish
 //!
@@ -134,103 +133,6 @@ fn integration_session_branch_transitions() {
     // Cleanup
     harness.assert_success(&["session", "remove", session1, "-f"]);
     harness.assert_success(&["session", "remove", session2, "-f"]);
-}
-
-// ============================================================================
-// WORKFLOW 2: Queue Operations - Enqueue → List → Dequeue
-// ============================================================================
-
-#[test]
-fn integration_queue_enqueue_dequeue_workflow() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    // Initialize
-    harness.assert_success(&["init"]);
-
-    // Create sessions for queue processing
-    let sessions = vec!["queue-session-1", "queue-session-2", "queue-session-3"];
-    for session in &sessions {
-        harness.assert_success(&["session", "add", session, "--no-open"]);
-    }
-
-    // Add workspaces to queue
-    for session in &sessions {
-        let result = harness.zjj(&["queue", "enqueue", session, "--json"]);
-        result.assert_success();
-        // Check for queue entry in output
-        assert!(result.stdout.contains("queue_entry") || result.stdout.contains(session));
-    }
-
-    // List queue to verify entries
-    let queue_list = harness.zjj(&["queue", "list", "--json"]);
-    queue_list.assert_success();
-    // Queue list shows summary
-    assert!(queue_list.stdout.contains("queue_summary") || queue_list.success);
-
-    // Get queue status
-    let status = harness.zjj(&["queue", "status", "--json"]);
-    status.assert_success();
-
-    // Dequeue sessions
-    for session in &sessions {
-        let result = harness.zjj(&["queue", "dequeue", session]);
-        result.assert_success();
-    }
-
-    // Verify queue is empty
-    let list_after = harness.zjj(&["queue", "list", "--json"]);
-    list_after.assert_success();
-    // Empty queue should show total: 0
-    assert!(list_after.stdout.contains("\"total\":0") || list_after.success);
-
-    // Cleanup sessions
-    for session in &sessions {
-        harness.assert_success(&["session", "remove", session, "-f"]);
-    }
-}
-
-#[test]
-fn integration_queue_status_with_entries() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    harness.assert_success(&["init"]);
-
-    // Create and enqueue a session
-    let session_name = "status-test";
-    harness.assert_success(&["session", "add", session_name, "--no-open"]);
-
-    let enqueue_result = harness.zjj(&["queue", "enqueue", session_name, "--json"]);
-    enqueue_result.assert_success();
-
-    // Get queue status with JSON output
-    let status = harness.zjj(&["queue", "status", "--json"]);
-    status.assert_success();
-
-    // Status should show queue has entries
-    assert!(status.stdout.contains("queue_summary") || status.stdout.contains("total"));
-
-    // Cleanup
-    harness.zjj(&["queue", "dequeue", session_name]);
-    harness.assert_success(&["session", "remove", session_name, "-f"]);
-}
-
-#[test]
-fn integration_queue_dequeue_nonexistent() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    harness.assert_success(&["init"]);
-
-    // Attempt to dequeue non-existent session
-    let result = harness.zjj(&["queue", "dequeue", "nonexistent-session"]);
-    // Should fail or succeed gracefully (idempotent)
-    // The behavior depends on implementation - just verify it doesn't panic
-    assert!(result.exit_code.is_some());
 }
 
 // ============================================================================
@@ -424,41 +326,6 @@ fn integration_workspace_state_persistence() {
 // ============================================================================
 
 #[test]
-fn integration_status_across_all_aggregates() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    harness.assert_success(&["init"]);
-
-    // Create multiple sessions
-    let sessions = vec!["status-test-1", "status-test-2"];
-    for session in &sessions {
-        harness.assert_success(&["session", "add", session, "--no-open"]);
-    }
-
-    // Add to queue
-    harness.zjj(&["queue", "enqueue", "status-test-1"]).assert_success();
-
-    // Get comprehensive status
-    let status_result = harness.zjj(&["status", "status-test-1", "--json"]);
-    status_result.assert_success();
-
-    // Status should include sessions information
-    let list_result = harness.zjj(&["session", "list", "--json"]);
-    list_result.assert_success();
-    for session in &sessions {
-        list_result.assert_stdout_contains(session);
-    }
-
-    // Cleanup
-    harness.zjj(&["queue", "dequeue", "status-test-1"]);
-    for session in &sessions {
-        harness.assert_success(&["session", "remove", session, "-f"]);
-    }
-}
-
-#[test]
 fn integration_error_recovery_workflow() {
     let Some(harness) = TestHarness::try_new() else {
         return;
@@ -644,9 +511,9 @@ fn integration_done_workflow() {
     harness.assert_workspace_not_exists(session_name);
 }
 
-// ============================================================================
+// =============================================================================
 // HELPERS AND ASSERTIONS
-// ============================================================================
+// =============================================================================
 
 /// Helper to verify a session exists in the list output
 #[allow(dead_code)]

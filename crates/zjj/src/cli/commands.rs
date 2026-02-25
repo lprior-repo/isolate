@@ -1,6 +1,6 @@
 //! CLI command definitions using `clap`
 
-use clap::{Arg, ArgGroup, Command as ClapCommand};
+use clap::{Arg, Command as ClapCommand};
 
 use crate::cli::{json_docs, object_commands};
 
@@ -80,7 +80,6 @@ pub fn cmd_add() -> ClapCommand {
                 "zjj add experiment -t minimal      Use minimal layout template",
                 "zjj add quick-test --no-hooks      Skip post-create hooks",
                 "zjj add work --bead zjj-abc123     Associate with bead zjj-abc123",
-                "zjj add fix-auth --parent auth     Create stacked session under 'auth' parent",
                 "zjj add --example-json            Show example JSON output",
             ],
             Some(json_docs::add()),
@@ -97,13 +96,6 @@ pub fn cmd_add() -> ClapCommand {
                 .short('b')
                 .value_name("BEAD_ID")
                 .help("Associate this session with a bead/issue ID"),
-        )
-        .arg(
-            Arg::new("parent")
-                .long("parent")
-                .short('p')
-                .value_name("PARENT_NAME")
-                .help("Create as a stacked session under parent session"),
         )
         .arg(
             Arg::new("no-hooks")
@@ -767,6 +759,11 @@ pub fn cmd_submit() -> ClapCommand {
             None,
         ))
         .arg(
+            Arg::new("name")
+                .required(false)
+                .help("Session name to submit (default: current workspace)"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -790,13 +787,6 @@ pub fn cmd_submit() -> ClapCommand {
                 .short('m')
                 .value_name("MESSAGE")
                 .help("Custom commit message"),
-        )
-        .arg(
-            Arg::new("parent")
-                .long("parent")
-                .short('p')
-                .value_name("WORKSPACE")
-                .help("Parent workspace for stacked PRs"),
         )
 }
 
@@ -1206,337 +1196,6 @@ pub fn cmd_query() -> ClapCommand {
                 .help("AI: Show execution hints"),
         )
 }
-
-#[allow(clippy::too_many_lines)]
-pub fn cmd_queue() -> ClapCommand {
-    ClapCommand::new("queue")
-        .about("Manage merge queue for multi-agent coordination")
-        .args_conflicts_with_subcommands(true)
-        .long_about(
-            "Manage the merge queue that coordinates sequential processing of workspaces.
-
-
-            The merge queue ensures that multiple agents process workspaces in order,
-
-            preventing merge conflicts and ensuring deterministic ordering.",
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj queue --list                          Show all queue entries",
-                "zjj queue --add <workspace> --bead <id>  Add workspace to queue",
-                "zjj queue --next                          Get next pending entry",
-                "zjj queue --status <workspace>            Check workspace queue status",
-                "zjj queue --status-id <id>                Show entry details with events",
-                "zjj queue --cancel <id>                   Cancel a non-terminal entry",
-                "zjj queue --retry <id>                    Retry a failed_retryable entry",
-                "zjj queue --reclaim-stale [SECS]          Reclaim stale leased entries",
-                "zjj queue --remove <workspace>            Remove workspace from queue",
-                "zjj queue --stats                         Show queue statistics",
-                "zjj queue worker --once                   Process one queue entry",
-                "zjj queue worker --loop                   Run worker continuously",
-                "zjj queue --list --json                   Show queue as JSON",
-            ],
-            Some(json_docs::queue()),
-        ))
-        .group(
-            ArgGroup::new("queue-action")
-                .args([
-                    "add",
-                    "list",
-                    "next",
-                    "process",
-                    "remove",
-                    "status",
-                    "status-id",
-                    "cancel",
-                    "retry",
-                    "stats",
-                    "reclaim-stale",
-                ])
-                .multiple(false),
-        )
-        .subcommand(cmd_queue_list())
-        .subcommand(cmd_queue_worker())
-        .arg(
-            Arg::new("add")
-                .long("add")
-                .value_name("WORKSPACE")
-                .help("Add workspace to queue"),
-        )
-        .arg(
-            Arg::new("bead")
-                .long("bead")
-                .value_name("BEAD_ID")
-                .requires("add")
-                .conflicts_with_all([
-                    "list",
-                    "next",
-                    "process",
-                    "remove",
-                    "status",
-                    "status-id",
-                    "cancel",
-                    "retry",
-                    "stats",
-                    "reclaim-stale",
-                ])
-                .help("Associate with bead/issue ID (used with --add)"),
-        )
-        .arg(
-            Arg::new("priority")
-                .long("priority")
-                .value_name("PRIORITY")
-                .value_parser(clap::value_parser!(i32))
-                .requires("add")
-                .conflicts_with_all([
-                    "list",
-                    "next",
-                    "process",
-                    "remove",
-                    "status",
-                    "status-id",
-                    "cancel",
-                    "retry",
-                    "stats",
-                    "reclaim-stale",
-                ])
-                .help("Queue priority (lower = higher priority, 1-10, default: 5)"),
-        )
-        .arg(
-            Arg::new("agent")
-                .long("agent")
-                .value_name("AGENT_ID")
-                .requires("add")
-                .conflicts_with_all([
-                    "list",
-                    "next",
-                    "process",
-                    "remove",
-                    "status",
-                    "status-id",
-                    "cancel",
-                    "retry",
-                    "stats",
-                    "reclaim-stale",
-                ])
-                .help("Agent ID that will process this entry"),
-        )
-        .arg(
-            Arg::new("list")
-                .long("list")
-                .action(clap::ArgAction::SetTrue)
-                .help("List all queue entries"),
-        )
-        .arg(
-            Arg::new("next")
-                .long("next")
-                .action(clap::ArgAction::SetTrue)
-                .help("Get next pending entry"),
-        )
-        .arg(
-            Arg::new("process")
-                .long("process")
-                .action(clap::ArgAction::SetTrue)
-                .help("Process next ready-to-merge entry with freshness checks"),
-        )
-        .arg(
-            Arg::new("remove")
-                .long("remove")
-                .value_name("WORKSPACE")
-                .help("Remove workspace from queue"),
-        )
-        .arg(
-            Arg::new("status")
-                .long("status")
-                .value_name("WORKSPACE")
-                .help("Check queue status of workspace"),
-        )
-        .arg(
-            Arg::new("status-id")
-                .long("status-id")
-                .value_name("ID")
-                .value_parser(clap::value_parser!(i64).range(1..))
-                .help("Show detailed status for queue entry with events"),
-        )
-        .arg(
-            Arg::new("cancel")
-                .long("cancel")
-                .value_name("ID")
-                .value_parser(clap::value_parser!(i64).range(1..))
-                .help("Cancel a non-terminal queue entry (releases worker lease)"),
-        )
-        .arg(
-            Arg::new("retry")
-                .long("retry")
-                .value_name("ID")
-                .value_parser(clap::value_parser!(i64).range(1..))
-                .help("Retry a failed_retryable entry (must be retryable and under max_attempts)"),
-        )
-        .arg(
-            Arg::new("stats")
-                .long("stats")
-                .action(clap::ArgAction::SetTrue)
-                .help("Show queue statistics"),
-        )
-        .arg(
-            Arg::new("reclaim-stale")
-                .long("reclaim-stale")
-                .value_name("SECS")
-                .value_parser(clap::value_parser!(i64).range(0..))
-                .num_args(0..=1)
-                .default_missing_value("300")
-                .help("Reclaim entries with expired leases (default: 300s threshold)"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-}
-
-pub fn cmd_queue_list() -> ClapCommand {
-    ClapCommand::new("list")
-        .about("List all queue entries in FIFO order")
-        .long_about(
-            "Display all queue entries in FIFO (first-in-first-out) order.
-
-            Shows entries with their status, priority, and associated metadata.
-            Non-terminal entries (pending, processing) are displayed by default.",
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj queue list                  Show all queue entries",
-                "zjj queue list --json           Show queue as JSON with state counts",
-            ],
-            None,
-        ))
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-}
-
-pub fn cmd_queue_worker() -> ClapCommand {
-    ClapCommand::new("worker")
-        .about("Run a queue worker daemon to process queue entries")
-        .long_about(
-            "Process entries from the merge queue.
-
-            The worker can run in two modes:
-            - --once: Process exactly one item, then exit
-            - --loop: Run continuously, processing items until interrupted
-
-            On startup, the worker reclaims any stale entries (entries that were
-            claimed but whose lease has expired due to worker crash/disconnect).",
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj queue worker --once                   Process one item and exit",
-                "zjj queue worker --loop                   Run continuously until Ctrl+C",
-                "zjj queue worker --loop --interval 30     Poll every 30 seconds",
-                "zjj queue worker --once --worker-id my-id Use custom worker ID",
-                "zjj queue worker --once --json            Output as JSON",
-            ],
-            None,
-        ))
-        .arg(
-            Arg::new("loop")
-                .long("loop")
-                .action(clap::ArgAction::SetTrue)
-                .conflicts_with("once")
-                .help("Run continuously, processing items until interrupted"),
-        )
-        .arg(
-            Arg::new("once")
-                .long("once")
-                .action(clap::ArgAction::SetTrue)
-                .conflicts_with("loop")
-                .help("Process exactly one item, then exit"),
-        )
-        .arg(
-            Arg::new("interval")
-                .long("interval")
-                .value_name("SECONDS")
-                .value_parser(clap::value_parser!(u64))
-                .default_value("10")
-                .help("Polling interval in seconds (default: 10, used with --loop)"),
-        )
-        .arg(
-            Arg::new("worker-id")
-                .long("worker-id")
-                .value_name("ID")
-                .value_parser(clap::builder::ValueParser::new(parse_worker_id))
-                .help("Unique worker identifier (default: hostname-pid)"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-}
-
-fn parse_worker_id(value: &str) -> Result<String, String> {
-    if value.trim().is_empty() {
-        Err("worker id must not be empty or whitespace".to_string())
-    } else {
-        Ok(value.to_string())
-    }
-}
-
-pub fn cmd_stack() -> ClapCommand {
-    ClapCommand::new("stack")
-        .about("Query stack relationships for workspaces in the merge queue")
-        .long_about(
-            "Commands for querying stack context (depth, parent, children, root)
-            for workspaces in the merge queue.
-
-            Stacked PRs allow multiple dependent changes to be queued and merged
-            in order. This command helps understand the stack hierarchy.",
-        )
-        .subcommand_required(true)
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-        .subcommand(cmd_stack_status())
-}
-
-pub fn cmd_stack_status() -> ClapCommand {
-    ClapCommand::new("status")
-        .about("Show stack context for a workspace in the queue")
-        .long_about(
-            "Display stack information for a workspace including:
-            - Stack depth (how many ancestors)
-            - Parent workspace (if any)
-            - Direct children in the stack
-            - Root workspace of the stack",
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj stack status feature-auth        Show stack context",
-                "zjj stack status feature-auth --json Output as JSON",
-            ],
-            None,
-        ))
-        .arg(
-            Arg::new("workspace")
-                .required(true)
-                .help("Workspace name to query stack status for"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-}
-
 pub fn cmd_context() -> ClapCommand {
     ClapCommand::new("context")
         .about("Show complete environment context (AI agent query)")
@@ -3386,8 +3045,6 @@ pub fn build_cli() -> ClapCommand {
         // Object-based commands (new pattern: zjj <object> <action>)
         .subcommand(object_commands::cmd_task())
         .subcommand(object_commands::cmd_session())
-        .subcommand(object_commands::cmd_queue())
-        .subcommand(object_commands::cmd_stack())
     // Note: The following are already defined above:
     // - cmd_agent() via cmd_agents() with "agent" alias
     // - cmd_status() at line 3571

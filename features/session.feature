@@ -123,13 +123,11 @@ Feature: Session Management
   # SUBMIT SESSION
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Scenario: Submit adds to queue
+  Scenario: Submit pushes bookmark to remote
     Given a session named "feature-submit" exists with status "synced"
     And the session has a bookmark named "feature-submit"
     When I submit the session "feature-submit"
     Then the bookmark should be pushed to remote
-    And the session should be added to the merge queue
-    And the queue entry should contain the workspace identity
     And the response should include the dedupe key
 
   Scenario: Submit with dirty workspace fails
@@ -145,7 +143,6 @@ Feature: Session Management
     When I submit the session "feature-autocommit" with auto-commit
     Then the changes should be committed automatically
     And the bookmark should be pushed to remote
-    And the session should be added to the merge queue
 
   Scenario: Submit with no bookmark fails
     Given a session named "feature-nobookmark" exists with status "synced"
@@ -159,9 +156,7 @@ Feature: Session Management
     And the session has a bookmark named "feature-dryrun"
     When I submit the session "feature-dryrun" with dry-run
     Then no bookmark should be pushed
-    And no queue entry should be created
     And the response should indicate "dry_run: true"
-    And the response should include "would_queue: true"
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # LIST SESSIONS

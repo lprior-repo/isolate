@@ -274,55 +274,6 @@ impl Display for SessionStatus {
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Queue status state machine.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum QueueStatus {
-    Pending,
-    Processing,
-    Completed,
-    Failed,
-    Cancelled,
-}
-
-impl QueueStatus {
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Pending => "pending",
-            Self::Processing => "processing",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-        }
-    }
-}
-
-impl FromStr for QueueStatus {
-    type Err = ContractError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "pending" => Ok(Self::Pending),
-            "processing" => Ok(Self::Processing),
-            "completed" => Ok(Self::Completed),
-            "failed" => Ok(Self::Failed),
-            "cancelled" => Ok(Self::Cancelled),
-            _ => Err(ContractError::invalid_input(
-                "status",
-                "must be one of: pending, processing, completed, failed, cancelled",
-            )),
-        }
-    }
-}
-
-impl Display for QueueStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-
 /// Agent status state machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AgentStatus {

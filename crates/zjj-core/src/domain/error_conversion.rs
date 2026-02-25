@@ -38,7 +38,6 @@
 #![forbid(unsafe_code)]
 
 use crate::domain::aggregates::bead::BeadError;
-use crate::domain::aggregates::queue_entry::QueueEntryError;
 use crate::domain::aggregates::session::SessionError;
 use crate::domain::aggregates::workspace::WorkspaceError;
 use crate::domain::builders::BuilderError;
@@ -70,12 +69,6 @@ impl From<IdentifierError> for BeadError {
     }
 }
 
-impl From<IdentifierError> for QueueEntryError {
-    fn from(_err: IdentifierError) -> Self {
-        Self::InvalidExpiration
-    }
-}
-
 // ============================================================================
 // AGGREGATE ERROR TO REPOSITORY ERROR CONVERSIONS
 // ============================================================================
@@ -86,17 +79,11 @@ impl From<SessionError> for RepositoryError {
             SessionError::InvalidBranchTransition { from, to } => {
                 Self::InvalidInput(format!("invalid branch transition: {from:?} -> {to:?}"))
             }
-            SessionError::InvalidParentTransition { from, to } => {
-                Self::InvalidInput(format!("invalid parent transition: {from:?} -> {to:?}"))
-            }
             SessionError::WorkspaceNotFound(path) => {
                 Self::NotFound(format!("workspace not found: {}", path.display()))
             }
             SessionError::NotActive => Self::InvalidInput("session is not active".into()),
             SessionError::CannotActivate => Self::InvalidInput("cannot activate session".into()),
-            SessionError::CannotModifyRootParent => {
-                Self::InvalidInput("cannot modify parent of root session".into())
-            }
             SessionError::NameAlreadyExists(name) => {
                 Self::Conflict(format!("session name already exists: {name}"))
             }
@@ -160,35 +147,8 @@ impl From<BeadError> for RepositoryError {
     }
 }
 
-impl From<QueueEntryError> for RepositoryError {
-    fn from(err: QueueEntryError) -> Self {
-        match &err {
-            QueueEntryError::InvalidClaimTransition { from, to } => {
-                Self::InvalidInput(format!("invalid claim transition: {from:?} -> {to:?}"))
-            }
-            QueueEntryError::NotClaimed => Self::InvalidInput("queue entry is not claimed".into()),
-            QueueEntryError::AlreadyClaimed(agent) => {
-                Self::Conflict(format!("queue entry already claimed by {agent}"))
-            }
-            QueueEntryError::NotOwner { actual, expected } => {
-                Self::Conflict(format!("queue entry claimed by {actual}, not {expected}"))
-            }
-            QueueEntryError::ClaimExpired => {
-                Self::InvalidInput("queue entry claim has expired".into())
-            }
-            QueueEntryError::InvalidExpiration => {
-                Self::InvalidInput("invalid expiration time".into())
-            }
-            QueueEntryError::NegativePriority => {
-                Self::InvalidInput("priority cannot be negative".into())
-            }
-            QueueEntryError::CannotModify(state) => {
-                Self::InvalidInput(format!("cannot modify entry in state: {state:?}"))
-            }
-        }
-    }
-}
-
+// ============================================================================
+// EXTENSION TRAIT IMPLEMENTATIONS
 // ============================================================================
 // BUILDER ERROR CONVERSIONS
 // ============================================================================
@@ -332,22 +292,6 @@ impl IntoRepositoryError for BeadError {
     }
 }
 
-impl IntoRepositoryError for QueueEntryError {
-    fn into_repository_error(self, entity: &str, operation: &str) -> RepositoryError {
-        match self {
-            Self::AlreadyClaimed(agent) => RepositoryError::Conflict(format!(
-                "{entity} already claimed by {agent} during {operation}",
-            )),
-            Self::NotOwner { actual, expected } => RepositoryError::Conflict(format!(
-                "{entity} claimed by {actual}, not {expected} during {operation}",
-            )),
-            other => {
-                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}",))
-            }
-        }
-    }
-}
-
 // ============================================================================
 // EXTENSION TRAITS FOR ERGONOMIC ERROR HANDLING
 // ============================================================================
@@ -362,9 +306,6 @@ pub trait IdentifierErrorExt {
 
     /// Convert `IdentifierError` to `BeadError` with context.
     fn to_bead_error(self) -> BeadError;
-
-    /// Convert `IdentifierError` to `QueueEntryError` with context.
-    fn to_queue_entry_error(self) -> QueueEntryError;
 }
 
 impl IdentifierErrorExt for IdentifierError {
@@ -377,10 +318,6 @@ impl IdentifierErrorExt for IdentifierError {
     }
 
     fn to_bead_error(self) -> BeadError {
-        self.into()
-    }
-
-    fn to_queue_entry_error(self) -> QueueEntryError {
         self.into()
     }
 }
@@ -428,7 +365,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::identifiers::{AgentId, SessionName, WorkspaceName};
+    use crate::domain::identifiers::{SessionName, WorkspaceName};
     use crate::domain::workspace::WorkspaceState;
     use std::path::PathBuf;
 
@@ -522,18 +459,6 @@ mod tests {
         assert!(matches!(repo_err, RepositoryError::InvalidInput(_)));
     }
 
-    #[test]
-    fn test_queue_entry_error_to_repository_error() {
-        let agent = AgentId::parse("agent-1").expect("valid agent");
-        let err = QueueEntryError::AlreadyClaimed(agent.clone());
-        let repo_err: RepositoryError = err.into();
-        assert!(matches!(repo_err, RepositoryError::Conflict(_)));
-
-        let err = QueueEntryError::InvalidExpiration;
-        let repo_err: RepositoryError = err.into();
-        assert!(matches!(repo_err, RepositoryError::InvalidInput(_)));
-    }
-
     // ===== Context-preserving conversions =====
 
     #[test]
@@ -552,11 +477,6 @@ mod tests {
         let repo_err = err.on_save("bead");
         assert!(matches!(repo_err, RepositoryError::InvalidInput(_)));
         assert!(repo_err.to_string().contains("save"));
-
-        let err = QueueEntryError::NotClaimed;
-        let repo_err = err.on_delete("queue entry");
-        assert!(matches!(repo_err, RepositoryError::InvalidInput(_)));
-        assert!(repo_err.to_string().contains("delete"));
     }
 
     // ===== BuilderError conversions =====

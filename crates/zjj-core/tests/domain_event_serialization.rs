@@ -13,9 +13,9 @@
 use chrono::Utc;
 use std::path::PathBuf;
 use zjj_core::domain::events::{
-    serialize_event, serialize_event_bytes, ClaimTimestamps, DomainEvent, EventMetadata, StoredEvent,
+    serialize_event, serialize_event_bytes, DomainEvent, EventMetadata, StoredEvent,
 };
-use zjj_core::domain::identifiers::{AgentId, BeadId, SessionName, WorkspaceName};
+use zjj_core::domain::identifiers::{BeadId, SessionName, WorkspaceName};
 
 // ============================================================================
 // SESSION EVENTS
@@ -121,116 +121,6 @@ fn test_workspace_removed_event_serialization() {
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "workspace_removed");
-}
-
-// ============================================================================
-// QUEUE EVENTS
-// ============================================================================
-
-#[test]
-fn test_queue_entry_added_event_serialization() {
-    let timestamp = Utc::now();
-    let event = DomainEvent::queue_entry_added(
-        42,
-        WorkspaceName::parse("queued-workspace").expect("valid name"),
-        1,
-        Some(BeadId::parse("bd-abc123").expect("valid id")),
-        timestamp,
-    );
-
-    // Test JSON serialization
-    let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
-
-    assert_eq!(event, deserialized);
-    assert_eq!(event.event_type(), "queue_entry_added");
-
-    // Verify entry details
-    if let DomainEvent::QueueEntryAdded(e) = &deserialized {
-        assert_eq!(e.entry_id, 42);
-        assert_eq!(e.priority, 1);
-        assert!(e.bead_id.is_some());
-    } else {
-        panic!("Expected QueueEntryAdded event");
-    }
-}
-
-#[test]
-fn test_queue_entry_added_without_bead_serialization() {
-    let timestamp = Utc::now();
-    let event = DomainEvent::queue_entry_added(
-        43,
-        WorkspaceName::parse("workspace-no-bead").expect("valid name"),
-        5,
-        None,
-        timestamp,
-    );
-
-    // Test JSON serialization
-    let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
-
-    assert_eq!(event, deserialized);
-
-    // Verify bead_id is None
-    if let DomainEvent::QueueEntryAdded(e) = &deserialized {
-        assert!(e.bead_id.is_none());
-    } else {
-        panic!("Expected QueueEntryAdded event");
-    }
-}
-
-#[test]
-fn test_queue_entry_claimed_event_serialization() {
-    use zjj_core::domain::events::ClaimTimestamps;
-
-    let timestamp = Utc::now();
-    let claimed_at = timestamp;
-    let expires_at = timestamp + chrono::Duration::seconds(300);
-
-    let event = DomainEvent::queue_entry_claimed(
-        44,
-        WorkspaceName::parse("claimed-workspace").expect("valid name"),
-        AgentId::parse("agent-1").expect("valid agent"),
-        ClaimTimestamps::new(claimed_at, expires_at, timestamp),
-    );
-
-    // Test JSON serialization
-    let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
-
-    assert_eq!(event, deserialized);
-    assert_eq!(event.event_type(), "queue_entry_claimed");
-
-    // Verify claim details
-    if let DomainEvent::QueueEntryClaimed(e) = &deserialized {
-        assert_eq!(e.entry_id, 44);
-        assert_eq!(e.agent.as_str(), "agent-1");
-    } else {
-        panic!("Expected QueueEntryClaimed event");
-    }
-}
-
-#[test]
-fn test_queue_entry_completed_event_serialization() {
-    let timestamp = Utc::now();
-    let event = DomainEvent::queue_entry_completed(
-        45,
-        WorkspaceName::parse("completed-workspace").expect("valid name"),
-        AgentId::parse("agent-2").expect("valid agent"),
-        timestamp,
-    );
-
-    // Test JSON serialization
-    let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
-
-    assert_eq!(event, deserialized);
-    assert_eq!(event.event_type(), "queue_entry_completed");
 }
 
 // ============================================================================
@@ -436,25 +326,6 @@ fn test_all_event_types_have_unique_types() {
             PathBuf::from("/tmp"),
             timestamp,
         ),
-        DomainEvent::queue_entry_added(
-            1,
-            WorkspaceName::parse("w").expect("valid"),
-            1,
-            None,
-            timestamp,
-        ),
-        DomainEvent::queue_entry_claimed(
-            1,
-            WorkspaceName::parse("w").expect("valid"),
-            AgentId::parse("a").expect("valid"),
-            ClaimTimestamps::new(timestamp, timestamp, timestamp),
-        ),
-        DomainEvent::queue_entry_completed(
-            1,
-            WorkspaceName::parse("w").expect("valid"),
-            AgentId::parse("a").expect("valid"),
-            timestamp,
-        ),
         DomainEvent::bead_created(
             BeadId::parse("bd-abc").expect("valid"),
             "t".to_string(),
@@ -479,7 +350,7 @@ fn test_all_event_types_have_unique_types() {
     );
 
     // Verify we have all expected event types
-    assert_eq!(unique_types.len(), 10, "Should have 10 unique event types");
+    assert_eq!(unique_types.len(), 7, "Should have 7 unique event types");
 }
 
 #[test]
@@ -510,25 +381,6 @@ fn test_all_events_serialize_and_deserialize() {
         DomainEvent::workspace_removed(
             WorkspaceName::parse("workspace2").expect("valid"),
             PathBuf::from("/tmp/w2"),
-            timestamp,
-        ),
-        DomainEvent::queue_entry_added(
-            1,
-            WorkspaceName::parse("workspace1").expect("valid"),
-            1,
-            Some(BeadId::parse("bd-abc1").expect("valid")),
-            timestamp,
-        ),
-        DomainEvent::queue_entry_claimed(
-            1,
-            WorkspaceName::parse("workspace1").expect("valid"),
-            AgentId::parse("agent-1").expect("valid"),
-            ClaimTimestamps::new(timestamp, timestamp + chrono::Duration::seconds(300), timestamp),
-        ),
-        DomainEvent::queue_entry_completed(
-            1,
-            WorkspaceName::parse("workspace1").expect("valid"),
-            AgentId::parse("agent-1").expect("valid"),
             timestamp,
         ),
         DomainEvent::bead_created(
@@ -675,32 +527,6 @@ fn test_workspace_name_preserved_in_events() {
         assert_eq!(e.workspace_name, workspace_name);
     } else {
         panic!("Expected WorkspaceCreated event");
-    }
-}
-
-#[test]
-fn test_agent_id_preserved_in_events() {
-    use zjj_core::domain::events::ClaimTimestamps;
-
-    let timestamp = Utc::now();
-    let agent_id = AgentId::parse("special-agent:123").expect("valid agent");
-
-    let event = DomainEvent::queue_entry_claimed(
-        1,
-        WorkspaceName::parse("test").expect("valid name"),
-        agent_id.clone(),
-        ClaimTimestamps::new(timestamp, timestamp, timestamp),
-    );
-
-    // Serialize and deserialize
-    let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
-
-    if let DomainEvent::QueueEntryClaimed(e) = &deserialized {
-        assert_eq!(e.agent, agent_id);
-    } else {
-        panic!("Expected QueueEntryClaimed event");
     }
 }
 

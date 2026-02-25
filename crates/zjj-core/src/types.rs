@@ -14,7 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::{
     contracts::{Constraint, ContextualHint, FieldContract, HasContract, HintType, TypeContract},
     domain::{
-        session::{BranchState, ParentState},
+        session::BranchState,
         AbsolutePath, SessionId,
     },
     output::ValidatedMetadata,
@@ -246,22 +246,6 @@ pub struct Session {
     /// Validated metadata (extensibility with type safety)
     #[serde(default)]
     pub metadata: ValidatedMetadata,
-
-    /// Parent session state (root or child)
-    ///
-    /// # Contract
-    /// - Uses enum instead of `Option<String>` for clearer state
-    /// - Parent MUST exist if `ChildOf`
-    /// - MUST NOT form cycles
-    pub parent_session: ParentState,
-
-    /// Queue status for merge train integration (bd-2np)
-    ///
-    /// # Contract
-    /// - `Some(status)` if session is in the merge queue
-    /// - `None` if session is not queued
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub queue_status: Option<super::coordination::queue_status::QueueStatus>,
 }
 
 // Serde serialization helpers for AbsolutePath
@@ -897,8 +881,6 @@ mod tests {
             updated_at: earlier, // updated before created!
             last_synced: None,
             metadata: ValidatedMetadata::empty(),
-            parent_session: ParentState::Root,
-            queue_status: None,
         };
 
         assert!(session.validate().is_err());

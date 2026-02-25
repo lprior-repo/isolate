@@ -993,7 +993,3 @@ mod tests {
         let _ = harness.zjj(&["remove", "test-custom-workspace", "--merge"]);
     }
 }
-
-// Merge train test fixtures and assertions
-pub mod merge_train_assertions;
-pub mod merge_train_fixtures;

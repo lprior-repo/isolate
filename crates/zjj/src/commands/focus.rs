@@ -258,8 +258,6 @@ mod tests {
             created_at: now,
             updated_at: now,
             last_synced: None,
-            parent_session: None,
-            queue_status: None,
         };
 
         let workspace_path: PathBuf = session.workspace_path.clone().into();

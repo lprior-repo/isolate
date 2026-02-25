@@ -8,11 +8,10 @@
 //! 1. Detects dirty workspace state before submission
 //! 2. Fails with exit code 3 if dirty and --auto-commit not set
 //! 3. Commits automatically if --auto-commit is set
-//! 4. Pushes bookmarks to remote before queueing
+//! 4. Pushes bookmarks to remote
 //! 5. Extracts stable commit identities (`head_sha`, `change_id`)
 //! 6. Computes `logical_change_id` for deduplication
-//! 7. Fails submission if bookmark push fails (without adding to queue)
-//! 8. Returns structured JSON with schema envelope (bd-3am)
+//! 7. Returns structured JSON with schema envelope (bd-3am)
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -27,15 +26,9 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::process::Command;
-use zjj_core::{
-    config,
-    coordination::queue::{MergeQueue, QueueEntry},
-    jj,
-    json::schemas,
-    OutputFormat,
-};
+use zjj_core::{config, jj, json::schemas, OutputFormat};
 
-use crate::commands::{check_in_jj_repo, get_queue_db_path, workspace_utils};
+use crate::commands::{check_in_jj_repo, workspace_utils};
 
 /// Submit-specific errors
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -56,9 +49,6 @@ pub enum SubmitError {
     #[error("failed to extract identity: {0}")]
     IdentityExtractionFailed(String),
 
-    #[error("queue operation failed: {0}")]
-    QueueError(String),
-
     #[error("auto-commit failed: {0}")]
     AutoCommitFailed(String),
 
@@ -70,6 +60,8 @@ pub enum SubmitError {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct SubmitOptions {
+    /// Session name to submit (optional)
+    pub name: Option<String>,
     /// Output format (JSON or human-readable)
     pub format: OutputFormat,
     /// Show what would happen without making changes
@@ -78,8 +70,6 @@ pub struct SubmitOptions {
     pub auto_commit: bool,
     /// Custom commit message
     pub message: Option<String>,
-    /// Parent workspace for stacked PRs
-    pub parent: Option<String>,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -108,9 +98,6 @@ pub struct SubmitResponse {
 /// Success data for submit response (bd-3am contract)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitSuccessData {
-    /// Queue entry ID (absent for dry-run)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub queue_id: Option<i64>,
     /// Workspace name
     pub workspace: String,
     /// Bookmark name
@@ -119,16 +106,10 @@ pub struct SubmitSuccessData {
     pub change_id: String,
     /// Current HEAD SHA
     pub head_sha: String,
-    /// Queue status (absent for dry-run)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
     /// Deduplication key (`workspace:change_id`)
     pub dedupe_key: String,
     /// Whether this was a dry run
     pub dry_run: bool,
-    /// For dry-run: `would_queue` flag
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub would_queue: Option<bool>,
 }
 
 /// Error data for submit response (bd-3am contract)
@@ -200,7 +181,18 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
     let root = check_in_jj_repo().await?;
 
     // Determine workspace context
-    let workspace_info = resolve_workspace_context(&root).await?;
+    let workspace_info = if let Some(ref name) = options.name {
+        let db = crate::commands::get_session_db().await?;
+        let session = db.get(name).await?.ok_or_else(|| {
+            anyhow::anyhow!("Session '{name}' not found")
+        })?;
+        WorkspaceInfo {
+            path: PathBuf::from(session.workspace_path),
+            name: session.name,
+        }
+    } else {
+        resolve_workspace_context(&root).await?
+    };
 
     // Extract initial identity information
     let identity = match extract_workspace_identity(&workspace_info.path).await {
@@ -279,7 +271,7 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
     // Compute final dedupe_key
     let dedupe_key = compute_dedupe_key(&identity.change_id, &identity.workspace_name);
 
-    // Push bookmark to remote BEFORE queueing
+    // Push bookmark to remote
     if let Err(e) = push_bookmark(&identity.bookmark_name, &workspace_info.path).await {
         let error_msg = e.to_string();
         // Check if it's a remote/network error
@@ -298,19 +290,7 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
         return output_error(options.format.is_json(), code, error_msg, exit_code);
     }
 
-    // Add to merge queue with identity information
-    let queue_result =
-        add_to_queue(&identity.workspace_name, &dedupe_key, &identity.head_sha).await;
-
-    match queue_result {
-        Ok(entry) => output_success(options.format.is_json(), &identity, &dedupe_key, &entry),
-        Err(e) => output_error(
-            options.format.is_json(),
-            "QUEUE_ERROR",
-            format!("Failed to add to queue: {e}"),
-            1,
-        ),
-    }
+    output_success(options.format.is_json(), &identity, &dedupe_key)
 }
 
 /// Workspace context information
@@ -643,50 +623,16 @@ async fn auto_commit_changes(
     Ok(())
 }
 
-/// Add submission to the merge queue
-async fn add_to_queue(
-    workspace_name: &str,
-    dedupe_key: &str,
-    head_sha: &str,
-) -> Result<QueueEntry, SubmitError> {
-    // Get queue database path
-    let db_path = get_queue_db_path()
-        .await
-        .map_err(|e| SubmitError::QueueError(format!("failed to resolve queue path: {e}")))?;
-
-    // Open the merge queue
-    let queue = MergeQueue::open(&db_path)
-        .await
-        .map_err(|e| SubmitError::QueueError(format!("failed to open queue: {e}")))?;
-
-    // Use upsert_for_submit for idempotent behavior
-    // The dedupe_key serves as the deduplication key
-    queue
-        .upsert_for_submit(
-            workspace_name,
-            None, // bead_id - not yet associated
-            0,    // default priority
-            None, // agent_id - not yet assigned
-            dedupe_key,
-            head_sha,
-        )
-        .await
-        .map_err(|e| SubmitError::QueueError(format!("failed to add to queue: {e}")))
-}
-
 /// Output for dry run (bd-3am contract)
 fn output_dry_run(is_json: bool, identity: &WorkspaceIdentity, dedupe_key: &str) -> Result<i32> {
     if is_json {
         let data = SubmitSuccessData {
-            queue_id: None,
             workspace: identity.workspace_name.clone(),
             bookmark: identity.bookmark_name.clone(),
             change_id: identity.change_id.clone(),
             head_sha: identity.head_sha.clone(),
-            status: None,
             dedupe_key: dedupe_key.to_string(),
             dry_run: true,
-            would_queue: Some(true),
         };
 
         let response = SubmitResponse::success(data);
@@ -703,30 +649,21 @@ fn output_dry_run(is_json: bool, identity: &WorkspaceIdentity, dedupe_key: &str)
         println!();
         println!("Actions that would be performed:");
         println!("  1. Push bookmark '{}' to remote", identity.bookmark_name);
-        println!("  2. Add to merge queue");
     }
 
     Ok(0)
 }
 
 /// Output for successful submission (bd-3am contract)
-fn output_success(
-    is_json: bool,
-    identity: &WorkspaceIdentity,
-    dedupe_key: &str,
-    entry: &QueueEntry,
-) -> Result<i32> {
+fn output_success(is_json: bool, identity: &WorkspaceIdentity, dedupe_key: &str) -> Result<i32> {
     if is_json {
         let data = SubmitSuccessData {
-            queue_id: Some(entry.id),
             workspace: identity.workspace_name.clone(),
             bookmark: identity.bookmark_name.clone(),
             change_id: identity.change_id.clone(),
             head_sha: identity.head_sha.clone(),
-            status: Some(entry.status.as_str().to_string()),
             dedupe_key: dedupe_key.to_string(),
             dry_run: false,
-            would_queue: None,
         };
 
         let response = SubmitResponse::success(data);
@@ -740,9 +677,6 @@ fn output_success(
         println!("  Change ID: {}", identity.change_id);
         println!("  HEAD SHA: {}", identity.head_sha);
         println!("  Dedupe Key: {dedupe_key}");
-        println!();
-        println!("Queue entry ID: {}", entry.id);
-        println!("Status: {}", entry.status);
     }
 
     Ok(0)
@@ -771,14 +705,12 @@ mod tests {
             dry_run: false,
             auto_commit: false,
             message: None,
-            parent: None,
         };
 
         assert!(options.format.is_json());
         assert!(!options.dry_run);
         assert!(!options.auto_commit);
         assert!(options.message.is_none());
-        assert!(options.parent.is_none());
     }
 
     #[test]
@@ -823,23 +755,17 @@ mod tests {
 
         let err = SubmitError::IdentityExtractionFailed("no change_id".to_string());
         assert_eq!(err.to_string(), "failed to extract identity: no change_id");
-
-        let err = SubmitError::QueueError("db locked".to_string());
-        assert_eq!(err.to_string(), "queue operation failed: db locked");
     }
 
     #[test]
     fn test_submit_response_success_schema() {
         let data = SubmitSuccessData {
-            queue_id: Some(123),
             workspace: "feature-xyz".to_string(),
             bookmark: "my-feature".to_string(),
             change_id: "kxyz123".to_string(),
             head_sha: "abc123def456".to_string(),
-            status: Some("pending".to_string()),
             dedupe_key: "feature-xyz:kxyz123".to_string(),
             dry_run: false,
-            would_queue: None,
         };
 
         let response = SubmitResponse::success(data);
@@ -853,7 +779,7 @@ mod tests {
 
     #[test]
     fn test_submit_response_error_schema() {
-        let response = SubmitResponse::error("QUEUE_ERROR", "Failed to add to queue: db locked");
+        let response = SubmitResponse::error("PUSH_FAILED", "Failed to push to remote");
 
         // Verify schema and ok fields
         assert_eq!(response.schema, "zjj://submit-response/v1");
@@ -865,23 +791,20 @@ mod tests {
         assert!(error.is_some());
         let error = error;
         if let Some(err) = error {
-            assert_eq!(err.code, "QUEUE_ERROR");
-            assert_eq!(err.message, "Failed to add to queue: db locked");
+            assert_eq!(err.code, "PUSH_FAILED");
+            assert_eq!(err.message, "Failed to push to remote");
         }
     }
 
     #[test]
     fn test_submit_response_dry_run_schema() {
         let data = SubmitSuccessData {
-            queue_id: None,
             workspace: "feature-xyz".to_string(),
             bookmark: "my-feature".to_string(),
             change_id: "kxyz123".to_string(),
             head_sha: "abc123def456".to_string(),
-            status: None,
             dedupe_key: "feature-xyz:kxyz123".to_string(),
             dry_run: true,
-            would_queue: Some(true),
         };
 
         let response = SubmitResponse::success(data);
@@ -891,24 +814,18 @@ mod tests {
 
         if let Some(d) = response.data.as_ref() {
             assert!(d.dry_run);
-            assert_eq!(d.would_queue, Some(true));
-            assert!(d.queue_id.is_none());
-            assert!(d.status.is_none());
         }
     }
 
     #[test]
     fn test_submit_response_json_serialization() {
         let data = SubmitSuccessData {
-            queue_id: Some(123),
             workspace: "feature-xyz".to_string(),
             bookmark: "my-feature".to_string(),
             change_id: "kxyz123".to_string(),
             head_sha: "abc123".to_string(),
-            status: Some("pending".to_string()),
             dedupe_key: "feature-xyz:kxyz123".to_string(),
             dry_run: false,
-            would_queue: None,
         };
 
         let response = SubmitResponse::success(data);
@@ -922,12 +839,10 @@ mod tests {
         // Verify required fields are present
         assert!(json_str.contains("\"schema\":\"zjj://submit-response/v1\""));
         assert!(json_str.contains("\"ok\":true"));
-        assert!(json_str.contains("\"queue_id\":123"));
         assert!(json_str.contains("\"workspace\":\"feature-xyz\""));
         assert!(json_str.contains("\"bookmark\":\"my-feature\""));
         assert!(json_str.contains("\"change_id\":\"kxyz123\""));
         assert!(json_str.contains("\"head_sha\":\"abc123\""));
-        assert!(json_str.contains("\"status\":\"pending\""));
         assert!(json_str.contains("\"dedupe_key\":\"feature-xyz:kxyz123\""));
         assert!(json_str.contains("\"dry_run\":false"));
     }
@@ -989,15 +904,12 @@ mod tests {
     fn test_success_data_skip_serialization() {
         // Test that optional fields are skipped when None
         let data = SubmitSuccessData {
-            queue_id: None,
             workspace: "ws".to_string(),
             bookmark: "b".to_string(),
             change_id: "c".to_string(),
             head_sha: "h".to_string(),
-            status: None,
             dedupe_key: "ws:c".to_string(),
             dry_run: true,
-            would_queue: Some(true),
         };
 
         let response = SubmitResponse::success(data);
@@ -1010,11 +922,6 @@ mod tests {
 
         // These fields should be present with values
         assert!(json_str.contains("\"dry_run\":true"));
-        assert!(json_str.contains("\"would_queue\":true"));
-
-        // queue_id and status should be null or absent (skip_serializing_if)
-        assert!(json_str.contains("\"queue_id\":null") || !json_str.contains("queue_id"));
-        assert!(json_str.contains("\"status\":null") || !json_str.contains("status"));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1062,7 +969,6 @@ mod tests {
             dry_run: false,
             auto_commit: true,
             message: Some("custom message".to_string()),
-            parent: None,
         };
 
         assert!(options_with_commit.auto_commit);
@@ -1076,7 +982,6 @@ mod tests {
             dry_run: false,
             auto_commit: false,
             message: None,
-            parent: None,
         };
 
         assert!(!options_without_commit.auto_commit);

@@ -23,7 +23,6 @@
 //! - [`TaskId`] / [`BeadId`] - Task identifiers with `bd-` prefix
 //! - [`SessionId`] - Unique session identifiers
 //! - [`AbsolutePath`] - Validated absolute filesystem paths
-//! - [`QueueEntryId`] - Queue entry identifiers
 //!
 //! Each identifier type:
 //! - Validates input on construction (parse-once pattern)
@@ -37,7 +36,6 @@
 //! - [`Session`] - Development session with branch and parent hierarchy
 //! - [`Workspace`] - Workspace lifecycle management
 //! - [`Bead`] - Issue/task with state transitions
-//! - [`QueueEntry`] - Distributed queue work item with claim management
 //!
 //! ### Domain Events (`events`)
 //!
@@ -46,7 +44,6 @@
 //! - [`SessionCompletedEvent`] - A session was completed successfully
 //! - [`SessionFailedEvent`] - A session failed
 //! - [`WorkspaceCreatedEvent`] / [`WorkspaceRemovedEvent`] - Workspace lifecycle
-//! - [`QueueEntryAddedEvent`] / [`QueueEntryClaimedEvent`] / [`QueueEntryCompletedEvent`] - Queue operations
 //! - [`BeadCreatedEvent`] / [`BeadClosedEvent`] - Bead lifecycle
 //!
 //! Events are:
@@ -60,7 +57,6 @@
 //! - [`SessionRepository`] - Session CRUD operations
 //! - [`WorkspaceRepository`] - Workspace management
 //! - [`BeadRepository`] - Bead CRUD operations
-//! - [`QueueRepository`] - Queue management with claiming
 //! - [`AgentRepository`] - Agent registration and heartbeat
 //!
 //! Traits enable:
@@ -71,7 +67,6 @@
 //! ### Supporting Modules
 //!
 //! - **`agent`** - Agent domain model and state management
-//! - **`queue`** - Queue domain types and operations
 //! - **`session`** - Session domain types and state transitions
 //! - **`workspace`** - Workspace domain types and lifecycle
 //! - **`builders`** - Builder pattern implementations for aggregates
@@ -124,7 +119,6 @@
 //!
 //! - **`IdentifierError`** - Identifier validation failures
 //! - **`SessionError`** / **`WorkspaceError`** / **`BeadError`** - Aggregate-specific errors
-//! - **`QueueEntryError`** - Queue operation errors
 //! - **`RepositoryError`** - Repository operation errors
 //!
 //! All domain errors are:
@@ -152,14 +146,13 @@ pub mod error_conversion;
 pub mod events;
 pub mod identifiers;
 pub mod macros;
-pub mod queue;
 pub mod repository;
 pub mod session;
 pub mod workspace;
 
 pub use aggregates::{
-    Bead, BeadError, BeadState, QueueEntry, QueueEntryError, Session, SessionBuilder, SessionError,
-    Workspace, WorkspaceBuilder, WorkspaceError,
+    Bead, BeadError, BeadState, Session, SessionBuilder, SessionError, Workspace, WorkspaceBuilder,
+    WorkspaceError,
 };
 pub use events::{
     DomainEvent, EventMetadata, SessionCompletedEvent, SessionCreatedEvent, SessionFailedEvent,
@@ -167,15 +160,15 @@ pub use events::{
 };
 pub use identifiers::{
     AbsolutePath, AbsolutePathError, AgentId, AgentIdError, BeadId, BeadIdError, IdError,
-    IdentifierError, QueueEntryId, QueueEntryIdError, SessionId, SessionIdError, SessionName,
-    SessionNameError, TaskId, TaskIdError, WorkspaceName, WorkspaceNameError,
+    IdentifierError, SessionId, SessionIdError, SessionName, SessionNameError, TaskId, TaskIdError,
+    WorkspaceName, WorkspaceNameError,
 };
 pub use workspace::WorkspaceState;
 
 // Re-export repository traits for convenience
 pub use repository::{
-    AgentRepository, AgentState, BeadRepository, ClaimState, QueueRepository, QueueStats,
-    RepositoryError, RepositoryResult, SessionRepository, WorkspaceRepository,
+    AgentRepository, AgentState, BeadRepository, RepositoryError, RepositoryResult,
+    SessionRepository, WorkspaceRepository,
 };
 
 // Re-export error conversion traits for ergonomic error handling

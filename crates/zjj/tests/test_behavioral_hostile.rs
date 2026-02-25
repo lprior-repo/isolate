@@ -5,7 +5,6 @@
 mod common;
 
 use common::TestHarness;
-use serde_json::Value;
 
 #[test]
 fn test_spawn_dry_run() {
@@ -107,34 +106,6 @@ fn test_lock_agent_id_enforcement() {
 
     // Unlock as agent1 - should succeed
     harness.assert_success(&["unlock", "agent-lock", "--agent-id", "agent1"]);
-}
-
-#[test]
-fn test_queue_priority_ordering() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-    harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "ws-low", "--no-hooks"]);
-    harness.assert_success(&["add", "ws-high", "--no-hooks"]);
-
-    // Add ws-low with low priority (10)
-    harness.assert_success(&["queue", "--add", "ws-low", "--priority", "10"]);
-    // Add ws-high with high priority (1)
-    harness.assert_success(&["queue", "--add", "ws-high", "--priority", "1"]);
-
-    // Next should be ws-high because it has higher priority (1 < 10)
-    let result = harness.zjj(&["queue", "--next", "--json"]);
-    assert!(result.success);
-
-    let json: Value = serde_json::from_str(&result.stdout).unwrap();
-    let workspace = json["entry"]["workspace"]
-        .as_str()
-        .expect("Should have workspace name");
-    assert_eq!(
-        workspace, "ws-high",
-        "High priority workspace should come first"
-    );
 }
 
 #[test]

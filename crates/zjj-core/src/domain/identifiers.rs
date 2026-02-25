@@ -190,9 +190,6 @@ pub type SessionIdError = IdentifierError;
 /// Error type for absolute path validation.
 pub type AbsolutePathError = IdentifierError;
 
-/// Error type for queue entry ID validation.
-pub type QueueEntryIdError = IdentifierError;
-
 // ============================================================================
 // HELPER METHODS
 // ============================================================================
@@ -936,73 +933,6 @@ impl AsRef<str> for AbsolutePath {
     }
 }
 
-/// A validated queue entry ID
-///
-/// # Construction
-///
-/// ```rust
-/// use zjj_core::domain::QueueEntryId;
-///
-/// let id = QueueEntryId::new(42)?;
-/// ```
-///
-/// # Guarantees
-///
-/// - Positive integer (> 0)
-/// - Database auto-increment ID representation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "i64")]
-pub struct QueueEntryId(i64);
-
-impl QueueEntryId {
-    /// Parse and validate a queue entry ID
-    ///
-    /// # Errors
-    ///
-    /// Returns `IdentifierError` if the ID is not positive.
-    pub fn new(value: i64) -> Result<Self, IdentifierError> {
-        if value <= 0 {
-            return Err(IdentifierError::InvalidFormat {
-                details: format!("queue entry ID must be positive, got: {value}"),
-            });
-        }
-        Ok(Self(value))
-    }
-
-    /// Get the underlying i64 value
-    #[must_use]
-    pub const fn value(self) -> i64 {
-        self.0
-    }
-}
-
-impl TryFrom<i64> for QueueEntryId {
-    type Error = IdentifierError;
-
-    fn try_from(value: i64) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl std::fmt::Display for QueueEntryId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::str::FromStr for QueueEntryId {
-    type Err = IdentifierError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let value = s
-            .parse::<i64>()
-            .map_err(|_| IdentifierError::InvalidFormat {
-                details: format!("cannot parse queue entry ID from '{s}'"),
-            })?;
-        Self::new(value)
-    }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1189,70 +1119,6 @@ mod tests {
             (Err(e), _) => panic!("Failed to parse bead ID: {e}"),
             (_, Err(e)) => panic!("Failed to parse task ID: {e}"),
         }
-    }
-
-    // ===== QueueEntryId Tests =====
-
-    #[test]
-    fn test_valid_queue_entry_id() {
-        assert!(QueueEntryId::new(1).is_ok());
-        assert!(QueueEntryId::new(42).is_ok());
-        assert!(QueueEntryId::new(i64::MAX).is_ok());
-    }
-
-    #[test]
-    fn test_invalid_queue_entry_id_zero() {
-        let result = QueueEntryId::new(0);
-        assert!(result.is_err());
-        assert!(matches!(result, Err(IdentifierError::InvalidFormat { .. })));
-    }
-
-    #[test]
-    fn test_invalid_queue_entry_id_negative() {
-        let result = QueueEntryId::new(-1);
-        assert!(result.is_err());
-        assert!(matches!(result, Err(IdentifierError::InvalidFormat { .. })));
-    }
-
-    #[test]
-    fn test_queue_entry_id_from_str_valid() {
-        match "42".parse::<QueueEntryId>() {
-            Ok(id) => {
-                assert_eq!(id.value(), 42);
-            }
-            Err(e) => panic!("Failed to parse queue entry ID: {e}"),
-        }
-    }
-
-    #[test]
-    fn test_queue_entry_id_from_str_invalid() {
-        let result = "abc".parse::<QueueEntryId>();
-        assert!(result.is_err());
-        assert!(matches!(result, Err(IdentifierError::InvalidFormat { .. })));
-    }
-
-    #[test]
-    fn test_queue_entry_id_display() {
-        match QueueEntryId::new(123) {
-            Ok(id) => {
-                assert_eq!(id.to_string(), "123");
-                assert_eq!(id.value(), 123);
-            }
-            Err(e) => panic!("Failed to create queue entry ID: {e}"),
-        }
-    }
-
-    #[test]
-    fn test_queue_entry_id_try_from_i64() {
-        match QueueEntryId::try_from(42i64) {
-            Ok(id) => {
-                assert_eq!(id.value(), 42);
-            }
-            Err(e) => panic!("Failed to create queue entry ID: {e}"),
-        }
-
-        let result = QueueEntryId::try_from(0i64);
-        assert!(result.is_err());
     }
 }
 

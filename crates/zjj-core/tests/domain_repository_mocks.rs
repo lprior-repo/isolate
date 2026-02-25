@@ -11,16 +11,15 @@
 #![forbid(unsafe_code)]
 
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use zjj_core::domain::identifiers::{
     AgentId, BeadId, SessionId, SessionName, WorkspaceName,
 };
 use zjj_core::domain::repository::{
-    AgentRepository, BeadRepository, ClaimState, QueueEntry, QueueRepository, QueueStats,
-    RepositoryError, RepositoryResult, SessionRepository, WorkspaceRepository,
+    AgentRepository, BeadRepository,
+    RepositoryResult, SessionRepository, WorkspaceRepository,
 };
-use zjj_core::domain::session::{BranchState, ParentState};
+use zjj_core::domain::session::BranchState;
 
 // ============================================================================
 // MOCK SESSION REPOSITORY
@@ -36,7 +35,6 @@ impl SessionRepository for MockSessionRepository {
             id: SessionId::parse("mock-session").expect("valid id"),
             name: SessionName::parse("mock").expect("valid name"),
             branch: BranchState::Detached,
-            parent: ParentState::Root,
             workspace_path: PathBuf::from("/tmp"),
         })
     }
@@ -50,7 +48,6 @@ impl SessionRepository for MockSessionRepository {
             id: SessionId::parse("mock-session").expect("valid id"),
             name: _name.clone(),
             branch: BranchState::Detached,
-            parent: ParentState::Root,
             workspace_path: PathBuf::from("/tmp"),
         })
     }
@@ -161,78 +158,6 @@ impl BeadRepository for MockBeadRepository {
 }
 
 // ============================================================================
-// MOCK QUEUE REPOSITORY
-// ============================================================================
-
-/// Simple mock queue repository demonstrating the repository pattern.
-pub struct MockQueueRepository;
-
-impl QueueRepository for MockQueueRepository {
-    fn load(&self, _id: i64) -> RepositoryResult<QueueEntry> {
-        use chrono::Utc;
-
-        Ok(QueueEntry {
-            id: _id,
-            workspace: WorkspaceName::parse("mock-workspace").expect("valid name"),
-            bead: None,
-            priority: 0,
-            claim_state: ClaimState::Unclaimed,
-            created_at: Utc::now(),
-        })
-    }
-
-    fn save(&self, _entry: &QueueEntry) -> RepositoryResult<()> {
-        Ok(())
-    }
-
-    fn delete(&self, _id: i64) -> RepositoryResult<()> {
-        Ok(())
-    }
-
-    fn list_all(&self) -> RepositoryResult<Vec<QueueEntry>> {
-        Ok(Vec::new())
-    }
-
-    fn claim_next(
-        &self,
-        _agent: &AgentId,
-        _claim_duration_secs: i64,
-    ) -> RepositoryResult<Option<QueueEntry>> {
-        Ok(None)
-    }
-
-    fn release(&self, _id: i64, _agent: &AgentId) -> RepositoryResult<()> {
-        Ok(())
-    }
-
-    fn expire_claims(&self, _older_than_secs: i64) -> RepositoryResult<usize> {
-        Ok(0)
-    }
-
-    fn add_workspace(
-        &self,
-        _workspace: &WorkspaceName,
-        _bead: Option<&BeadId>,
-        _priority: i32,
-    ) -> RepositoryResult<i64> {
-        Ok(1)
-    }
-
-    fn remove_workspace(&self, _workspace: &WorkspaceName) -> RepositoryResult<()> {
-        Ok(())
-    }
-
-    fn stats(&self) -> RepositoryResult<QueueStats> {
-        Ok(QueueStats {
-            total: 0,
-            unclaimed: 0,
-            claimed: 0,
-            expired: 0,
-        })
-    }
-}
-
-// ============================================================================
 // MOCK AGENT REPOSITORY
 // ============================================================================
 
@@ -311,22 +236,6 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_queue_repository_implements_trait() {
-        let repo = MockQueueRepository;
-
-        let _entry = repo.load(1).expect("load works");
-
-        let agent = AgentId::parse("agent-1").expect("valid agent");
-        let _claimed = repo.claim_next(&agent, 300).expect("claim works");
-
-        let _stats = repo.stats().expect("stats works");
-        assert_eq!(_stats.total, 0);
-
-        let workspace = WorkspaceName::parse("test").expect("valid name");
-        let _id = repo.add_workspace(&workspace, None, 1).expect("add works");
-    }
-
-    #[test]
     fn test_mock_agent_repository_implements_trait() {
         let repo = MockAgentRepository;
 
@@ -346,7 +255,6 @@ mod tests {
         assert_send_sync::<MockSessionRepository>();
         assert_send_sync::<MockWorkspaceRepository>();
         assert_send_sync::<MockBeadRepository>();
-        assert_send_sync::<MockQueueRepository>();
         assert_send_sync::<MockAgentRepository>();
     }
 

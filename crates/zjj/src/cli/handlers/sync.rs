@@ -32,18 +32,18 @@ pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_submit(sub_m: &ArgMatches) -> Result<()> {
+    let name = sub_m.get_one::<String>("name").cloned();
     let format = get_format(sub_m);
     let dry_run = sub_m.get_flag("dry-run");
     let auto_commit = sub_m.get_flag("auto-commit");
     let message = sub_m.get_one::<String>("message").cloned();
-    let parent = sub_m.get_one::<String>("parent").cloned();
 
     let options = submit::SubmitOptions {
+        name,
         format,
         dry_run,
         auto_commit,
         message,
-        parent,
     };
 
     let exit_code = submit::run_with_options(&options).await?;

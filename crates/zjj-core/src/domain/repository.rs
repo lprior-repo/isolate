@@ -57,7 +57,7 @@
 use std::path::PathBuf;
 
 use crate::domain::identifiers::{AgentId, BeadId, SessionId, SessionName, WorkspaceName};
-use crate::domain::session::{BranchState, ParentState};
+use crate::domain::session::BranchState;
 
 // ============================================================================
 // SHARED ERROR TYPES
@@ -142,8 +142,6 @@ pub struct Session {
     pub name: SessionName,
     /// Branch state (detached or on branch)
     pub branch: BranchState,
-    /// Parent state (root or child)
-    pub parent: ParentState,
     /// Absolute path to workspace root
     pub workspace_path: PathBuf,
 }
@@ -171,45 +169,6 @@ impl Session {
 /// - `Conflict`: Session name already exists (on create), concurrent modification
 /// - `InvalidInput`: Invalid session name or ID format
 /// - `StorageError`: Database/file corruption, permissions, I/O errors
-///
-/// # Example Implementation
-///
-/// ```rust
-/// use zjj_core::domain::repository::{SessionRepository, RepositoryError, RepositoryResult, Session};
-/// use zjj_core::domain::identifiers::{SessionId, SessionName};
-///
-/// struct InMemorySessionRepo {
-///     sessions: std::sync::Arc<std::sync::Mutex<Vec<Session>>>,
-/// }
-///
-/// impl SessionRepository for InMemorySessionRepo {
-///     fn load(&self, id: &SessionId) -> RepositoryResult<Session> {
-///         self.sessions
-///             .lock()
-///             .map_err(|e| RepositoryError::StorageError(e.to_string()))?
-///             .iter()
-///             .find(|s| &s.id == id)
-///             .cloned()
-///             .ok_or_else(|| RepositoryError::not_found("session", id))
-///     }
-///
-///     fn save(&self, session: &Session) -> RepositoryResult<()> {
-///         let mut sessions = self.sessions
-///             .lock()
-///             .map_err(|e| RepositoryError::StorageError(e.to_string()))?;
-///
-///         if let Some(pos) = sessions.iter().position(|s| s.id == session.id) {
-///             sessions[pos] = session.clone();
-///             Ok(())
-///         } else {
-///             sessions.push(session.clone());
-///             Ok(())
-///         }
-///     }
-///
-///     // ... implement other methods
-/// }
-/// ```
 pub trait SessionRepository: Send + Sync {
     /// Load a session by its unique ID.
     ///
@@ -535,199 +494,6 @@ pub trait BeadRepository: Send + Sync {
 }
 
 // ============================================================================
-// QUEUE AGGREGATE
-// ============================================================================
-
-/// Queue entry aggregate root.
-///
-/// Represents a work item in the distributed queue.
-#[derive(Debug, Clone)]
-pub struct QueueEntry {
-    /// Unique entry ID (database-generated)
-    pub id: i64,
-    /// Workspace to process
-    pub workspace: WorkspaceName,
-    /// Optional bead to process
-    pub bead: Option<BeadId>,
-    /// Priority (lower = higher priority)
-    pub priority: i32,
-    /// Current claim state
-    pub claim_state: ClaimState,
-    /// Creation timestamp
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// Claim state for queue entries (from domain/queue.rs)
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ClaimState {
-    Unclaimed,
-    Claimed {
-        agent: AgentId,
-        claimed_at: chrono::DateTime<chrono::Utc>,
-        expires_at: chrono::DateTime<chrono::Utc>,
-    },
-    Expired {
-        previous_agent: AgentId,
-        expired_at: chrono::DateTime<chrono::Utc>,
-    },
-}
-
-impl ClaimState {
-    #[must_use]
-    pub const fn is_claimed(&self) -> bool {
-        matches!(self, Self::Claimed { .. })
-    }
-
-    #[must_use]
-    pub const fn is_unclaimed(&self) -> bool {
-        matches!(self, Self::Unclaimed)
-    }
-}
-
-// ============================================================================
-// QUEUE REPOSITORY
-// ============================================================================
-
-/// Repository for Queue entry operations.
-///
-/// Provides queue-specific operations beyond simple CRUD.
-/// Supports distributed coordination with claiming and expiration.
-///
-/// # Error Conditions
-///
-/// - `NotFound`: Entry with given ID doesn't exist
-/// - `Conflict`: Entry already claimed, concurrent modification
-/// - `InvalidInput`: Invalid entry data
-/// - `StorageError`: Database corruption, permissions, I/O errors
-pub trait QueueRepository: Send + Sync {
-    /// Load a queue entry by ID.
-    ///
-    /// # Errors
-    ///
-    /// Returns `NotFound` if entry doesn't exist.
-    /// Returns `StorageError` on access failure.
-    fn load(&self, id: i64) -> RepositoryResult<QueueEntry>;
-
-    /// Save a queue entry (create or update).
-    ///
-    /// # Errors
-    ///
-    /// Returns `Conflict` if entry already exists (for new entries).
-    /// Returns `InvalidInput` if entry data is invalid.
-    /// Returns `StorageError` on write failure.
-    fn save(&self, entry: &QueueEntry) -> RepositoryResult<()>;
-
-    /// Delete a queue entry by ID.
-    ///
-    /// # Errors
-    ///
-    /// Returns `NotFound` if entry doesn't exist.
-    /// Returns `StorageError` on deletion failure.
-    fn delete(&self, id: i64) -> RepositoryResult<()>;
-
-    /// List all queue entries.
-    ///
-    /// # Errors
-    ///
-    /// Returns `StorageError` on read failure.
-    fn list_all(&self) -> RepositoryResult<Vec<QueueEntry>>;
-
-    /// List unclaimed entries, sorted by priority.
-    ///
-    /// Returns entries in priority order (lower value = higher priority).
-    ///
-    /// # Errors
-    ///
-    /// Returns `StorageError` on read failure.
-    fn list_unclaimed(&self) -> RepositoryResult<Vec<QueueEntry>> {
-        let mut entries = self
-            .list_all()?
-            .into_iter()
-            .filter(|e| e.claim_state.is_unclaimed())
-            .collect::<Vec<_>>();
-        entries.sort_by_key(|e| e.priority);
-        Ok(entries)
-    }
-
-    /// Claim the next unclaimed entry.
-    ///
-    /// Atomically claims the highest-priority unclaimed entry.
-    /// Returns `None` if no unclaimed entries available.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Conflict` if entry is already claimed.
-    /// Returns `StorageError` on transaction failure.
-    fn claim_next(
-        &self,
-        agent: &AgentId,
-        claim_duration_secs: i64,
-    ) -> RepositoryResult<Option<QueueEntry>>;
-
-    /// Release a claimed entry.
-    ///
-    /// # Errors
-    ///
-    /// Returns `NotFound` if entry doesn't exist.
-    /// Returns `Conflict` if entry not owned by agent.
-    /// Returns `StorageError` on update failure.
-    fn release(&self, id: i64, agent: &AgentId) -> RepositoryResult<()>;
-
-    /// Mark claimed entries as expired.
-    ///
-    /// Expires claims older than the given threshold.
-    /// Returns number of entries expired.
-    ///
-    /// # Errors
-    ///
-    /// Returns `StorageError` on update failure.
-    fn expire_claims(&self, older_than_secs: i64) -> RepositoryResult<usize>;
-
-    /// Add a workspace to the queue.
-    ///
-    /// Creates a new queue entry for the workspace.
-    /// Returns the new entry ID.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Conflict` if workspace already queued (with dedupe key).
-    /// Returns `InvalidInput` if workspace name is invalid.
-    /// Returns `StorageError` on insert failure.
-    fn add_workspace(
-        &self,
-        workspace: &WorkspaceName,
-        bead: Option<&BeadId>,
-        priority: i32,
-    ) -> RepositoryResult<i64>;
-
-    /// Remove a workspace from the queue.
-    ///
-    /// # Errors
-    ///
-    /// Returns `NotFound` if workspace not in queue.
-    /// Returns `StorageError` on deletion failure.
-    fn remove_workspace(&self, workspace: &WorkspaceName) -> RepositoryResult<()>;
-
-    /// Get queue statistics.
-    ///
-    /// Returns (total, unclaimed, claimed, expired) counts.
-    ///
-    /// # Errors
-    ///
-    /// Returns `StorageError` on read failure.
-    fn stats(&self) -> RepositoryResult<QueueStats>;
-}
-
-/// Queue statistics.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QueueStats {
-    pub total: usize,
-    pub unclaimed: usize,
-    pub claimed: usize,
-    pub expired: usize,
-}
-
-// ============================================================================
 // AGENT REPOSITORY
 // ============================================================================
 
@@ -921,7 +687,6 @@ mod mock_tests {
             branch: BranchState::OnBranch {
                 name: "main".to_string(),
             },
-            parent: ParentState::Root,
             workspace_path: PathBuf::from("/tmp/test"),
         };
 

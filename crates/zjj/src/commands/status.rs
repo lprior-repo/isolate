@@ -489,8 +489,6 @@ mod tests {
             updated_at: 1_234_567_890,
             last_synced: None,
             metadata: None,
-            parent_session: None,
-            queue_status: None,
         };
 
         let info = SessionStatusInfo {
@@ -556,8 +554,6 @@ mod tests {
             updated_at: 1_234_567_890,
             last_synced: None,
             metadata: None,
-            parent_session: None,
-            queue_status: None,
         };
 
         let status_info = SessionStatusInfo {

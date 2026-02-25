@@ -797,7 +797,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        domain::session::{BranchState, ParentState},
+        domain::session::BranchState,
         domain::{AbsolutePath, SessionId},
         output::ValidatedMetadata,
         types::SessionName,
@@ -816,8 +816,6 @@ mod tests {
             updated_at: Utc::now(),
             last_synced: None,
             metadata: ValidatedMetadata::empty(),
-            parent_session: ParentState::Root,
-            queue_status: None,
         }
     }
 

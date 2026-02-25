@@ -13,7 +13,6 @@ use crate::{
         BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus,
         IssueType, Priority, SortDirection,
     },
-    coordination::{QueueStats, QueueStatus, TransitionError},
     types::{Session, SessionName, SessionStatus},
     workspace_state::WorkspaceState,
 };
@@ -53,10 +52,6 @@ impl DomainLayer for IssueType {}
 impl DomainLayer for Priority {}
 impl DomainLayer for BeadsError {}
 
-impl DomainLayer for QueueStatus {}
-impl DomainLayer for TransitionError {}
-impl DomainLayer for QueueStats {}
-
 impl DomainLayer for crate::Error {}
 impl DomainLayer for crate::Config {}
 
@@ -78,13 +73,11 @@ fn domain_types_implement_domain_marker() {
     assert_domain::<BeadSort>();
     assert_domain::<SortDirection>();
     assert_domain::<BeadsSummary>();
+
     assert_domain::<IssueStatus>();
     assert_domain::<IssueType>();
     assert_domain::<Priority>();
     assert_domain::<BeadsError>();
-    assert_domain::<QueueStatus>();
-    assert_domain::<TransitionError>();
-    assert_domain::<QueueStats>();
     assert_domain::<crate::Error>();
     assert_domain::<crate::Config>();
 
@@ -128,21 +121,6 @@ fn domain_errors_are_pure() {
     assert!(error_msg.contains("test-id"));
 }
 
-/// Test that domain status types are pure enums.
-#[test]
-fn domain_status_types_are_pure_enums() {
-    use std::str::FromStr;
-
-    let status = QueueStatus::from_str("pending").ok();
-    assert_eq!(status, Some(QueueStatus::Pending));
-
-    let status = QueueStatus::from_str("claimed").ok();
-    assert_eq!(status, Some(QueueStatus::Claimed));
-
-    let status = QueueStatus::from_str("merged").ok();
-    assert_eq!(status, Some(QueueStatus::Merged));
-}
-
 /// Test that Session types work without tokio runtime.
 #[test]
 fn session_types_dont_require_tokio_runtime() {
@@ -177,11 +155,6 @@ fn bead_issue_has_no_runtime_dependency() {
 #[test]
 fn bead_filter_has_no_runtime_dependency() {
     let _checker: NoRuntimeDependency<BeadFilter> = NoRuntimeDependency(PhantomData);
-}
-
-#[test]
-fn queue_status_has_no_runtime_dependency() {
-    let _checker: NoRuntimeDependency<QueueStatus> = NoRuntimeDependency(PhantomData);
 }
 
 #[test]
@@ -237,7 +210,6 @@ fn architecture_boundaries_documentation() {
         type_name::<BeadIssue>(),
         type_name::<BeadFilter>(),
         type_name::<IssueStatus>(),
-        type_name::<QueueStatus>(),
         type_name::<crate::Error>(),
         type_name::<Session>(),
         type_name::<SessionName>(),

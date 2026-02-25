@@ -17,7 +17,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 // Re-export from domain (single source of truth)
-pub use crate::domain::{BeadId, QueueEntryId, SessionName};
+pub use crate::domain::{BeadId, SessionName};
 
 use super::OutputLineError;
 
@@ -60,46 +60,6 @@ impl fmt::Display for IssueId {
 }
 
 impl AsRef<str> for IssueId {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-/// A validated train identifier
-///
-/// # Invariants
-/// - Must be non-empty after trimming
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct TrainId(String);
-
-impl TrainId {
-    /// Create a new train ID, validating it's non-empty
-    ///
-    /// # Errors
-    ///
-    /// Returns `OutputLineError::EmptyMessage` if the ID is empty
-    pub fn new(id: impl Into<String>) -> Result<Self, OutputLineError> {
-        let id = id.into();
-        if id.trim().is_empty() {
-            return Err(OutputLineError::EmptyMessage);
-        }
-        Ok(Self(id))
-    }
-
-    /// Get the train ID as a string slice
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for TrainId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl AsRef<str> for TrainId {
     fn as_ref(&self) -> &str {
         &self.0
     }
@@ -288,8 +248,6 @@ pub enum WarningCode {
     GitOperationFailed,
     /// Merge conflict detected
     MergeConflict,
-    /// Queue entry blocked by dependency
-    QueueEntryBlocked,
     /// Agent not available
     AgentUnavailable,
     /// Custom warning code with string value
@@ -315,7 +273,6 @@ impl WarningCode {
             "WORKSPACE_NOT_FOUND" => Ok(Self::WorkspaceNotFound),
             "GIT_OPERATION_FAILED" => Ok(Self::GitOperationFailed),
             "MERGE_CONFLICT" => Ok(Self::MergeConflict),
-            "QUEUE_ENTRY_BLOCKED" => Ok(Self::QueueEntryBlocked),
             "AGENT_UNAVAILABLE" => Ok(Self::AgentUnavailable),
             custom => {
                 // Validate custom code format: letter followed by alphanumeric
@@ -361,7 +318,6 @@ impl WarningCode {
             Self::WorkspaceNotFound => "WORKSPACE_NOT_FOUND",
             Self::GitOperationFailed => "GIT_OPERATION_FAILED",
             Self::MergeConflict => "MERGE_CONFLICT",
-            Self::QueueEntryBlocked => "QUEUE_ENTRY_BLOCKED",
             Self::AgentUnavailable => "AGENT_UNAVAILABLE",
             Self::Custom(s) => s.as_str(),
         }
@@ -413,8 +369,6 @@ pub enum ActionVerb {
     Fix,
     /// Check status
     Check,
-    /// Process a queue entry
-    Process,
     /// Focus on a target
     Focus,
     /// Attach to a session
@@ -454,7 +408,6 @@ impl ActionVerb {
             "sync" => Ok(Self::Sync),
             "fix" => Ok(Self::Fix),
             "check" => Ok(Self::Check),
-            "process" => Ok(Self::Process),
             "focus" => Ok(Self::Focus),
             "attach" => Ok(Self::Attach),
             "switch-tab" => Ok(Self::SwitchTab),
@@ -512,7 +465,6 @@ impl ActionVerb {
             Self::Sync => "sync",
             Self::Fix => "fix",
             Self::Check => "check",
-            Self::Process => "process",
             Self::Focus => "focus",
             Self::Attach => "attach",
             Self::SwitchTab => "switch-tab",
@@ -912,7 +864,7 @@ impl AgentAssignment {
 /// - Type-level distinction from arbitrary JSON
 /// - Clear intent for metadata usage
 /// - Future extensibility for validation rules
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ValidatedMetadata(serde_json::Value);
 
 impl ValidatedMetadata {

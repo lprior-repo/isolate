@@ -413,12 +413,11 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
         }
     }
 
-    // Transition to 'active' status and set parent session if provided
+    // Transition to 'active' status
     db.update(
         &options.name,
         SessionUpdate {
             status: Some(SessionStatus::Active),
-            parent_session: options.parent.clone(),
             ..Default::default()
         },
     )
@@ -693,12 +692,11 @@ async fn perform_creation_sequence(
         }
     }
 
-    // Transition to 'active' status and set parent session if provided
+    // Transition to 'active' status
     db.update(
         &options.name,
         SessionUpdate {
             status: Some(SessionStatus::Active),
-            parent_session: options.parent.clone(),
             ..Default::default()
         },
     )
@@ -706,7 +704,6 @@ async fn perform_creation_sequence(
     .context("Failed to activate session")?;
 
     session.status = SessionStatus::Active;
-    session.parent_session = options.parent.clone();
     Ok(session)
 }
 
@@ -1150,7 +1147,6 @@ mod tests {
         let opts = AddOptions {
             name: "test".to_string(),
             bead_id: None,
-            parent: None,
             no_hooks: false,
             no_open: false,
             format: OutputFormat::Json,
@@ -1169,7 +1165,6 @@ mod tests {
         let opts = AddOptions {
             name: "test".to_string(),
             bead_id: None,
-            parent: None,
             no_hooks: false,
             no_open: false,
             format: OutputFormat::Json,
@@ -1191,7 +1186,6 @@ mod tests {
         let opts = AddOptions {
             name: "session".to_string(),
             bead_id: None,
-            parent: None,
             no_hooks: false,
             no_open: false,
             format,
@@ -1215,7 +1209,6 @@ mod tests {
         let opts = AddOptions {
             name: "test".to_string(),
             bead_id: None,
-            parent: None,
             no_hooks: false,
             no_open: false,
             format: OutputFormat::Json,

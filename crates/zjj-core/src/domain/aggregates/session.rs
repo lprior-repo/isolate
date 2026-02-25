@@ -4,16 +4,13 @@
 //! - Unique identity (`SessionId`)
 //! - Human-readable name (`SessionName`)
 //! - Branch state (detached or on branch)
-//! - Parent hierarchy (root or child)
 //! - Workspace location
 //!
 //! # Invariants
 //!
 //! 1. Session names must be unique within a workspace
-//! 2. Root sessions cannot become children (no parent transition)
-//! 3. Active sessions must have valid workspace paths
-//! 4. Branch transitions must be valid (detached <-> branch, branch <-> branch)
-//! 5. Parent transitions are limited (root stays root, child can change parent)
+//! 2. Active sessions must have valid workspace paths
+//! 3. Branch transitions must be valid (detached <-> branch, branch <-> branch)
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -24,10 +21,9 @@
 
 use std::path::PathBuf;
 
-use thiserror::Error;
-
 use crate::domain::identifiers::{SessionId, SessionName};
-use crate::domain::session::{BranchState, ParentState};
+use crate::domain::session::BranchState;
+use thiserror::Error;
 
 // ============================================================================
 // DOMAIN ERRORS
@@ -40,10 +36,6 @@ pub enum SessionError {
     #[error("invalid branch transition: {from:?} -> {to:?}")]
     InvalidBranchTransition { from: BranchState, to: BranchState },
 
-    /// Invalid parent transition
-    #[error("invalid parent transition: {from:?} -> {to:?}")]
-    InvalidParentTransition { from: ParentState, to: ParentState },
-
     /// Workspace path does not exist
     #[error("workspace path does not exist: {0}")]
     WorkspaceNotFound(PathBuf),
@@ -55,10 +47,6 @@ pub enum SessionError {
     /// Cannot activate session with invalid state
     #[error("cannot activate session: invalid state")]
     CannotActivate,
-
-    /// Cannot modify root session parent
-    #[error("cannot modify parent of root session")]
-    CannotModifyRootParent,
 
     /// Session name conflicts with existing session
     #[error("session name already exists: {0}")]
@@ -81,8 +69,6 @@ pub struct Session {
     pub name: SessionName,
     /// Branch state (detached or on branch)
     pub branch: BranchState,
-    /// Parent state (root or child)
-    pub parent: ParentState,
     /// Absolute path to workspace root
     pub workspace_path: PathBuf,
 }
@@ -92,12 +78,12 @@ impl Session {
     // CONSTRUCTORS
     // ========================================================================
 
-    /// Create a new root session.
+    /// Create a new session.
     ///
     /// # Errors
     ///
     /// Returns `SessionError::WorkspaceNotFound` if workspace path doesn't exist.
-    pub fn new_root(
+    pub fn new(
         id: SessionId,
         name: SessionName,
         branch: BranchState,
@@ -112,33 +98,6 @@ impl Session {
             id,
             name,
             branch,
-            parent: ParentState::Root,
-            workspace_path,
-        })
-    }
-
-    /// Create a new child session.
-    ///
-    /// # Errors
-    ///
-    /// Returns `SessionError::WorkspaceNotFound` if workspace path doesn't exist.
-    pub fn new_child(
-        id: SessionId,
-        name: SessionName,
-        branch: BranchState,
-        parent: SessionName,
-        workspace_path: PathBuf,
-    ) -> Result<Self, SessionError> {
-        // Validate workspace exists
-        if !workspace_path.exists() {
-            return Err(SessionError::WorkspaceNotFound(workspace_path));
-        }
-
-        Ok(Self {
-            id,
-            name,
-            branch,
-            parent: ParentState::ChildOf { parent },
             workspace_path,
         })
     }
@@ -151,24 +110,6 @@ impl Session {
     #[must_use]
     pub fn is_active(&self) -> bool {
         !self.branch.is_detached() && self.workspace_path.exists()
-    }
-
-    /// Check if session is a root session.
-    #[must_use]
-    pub const fn is_root(&self) -> bool {
-        self.parent.is_root()
-    }
-
-    /// Check if session is a child session.
-    #[must_use]
-    pub const fn is_child(&self) -> bool {
-        self.parent.is_child()
-    }
-
-    /// Get the parent session name if this is a child.
-    #[must_use]
-    pub const fn parent_name(&self) -> Option<&SessionName> {
-        self.parent.parent_name()
     }
 
     /// Get the branch name if on a branch.
@@ -196,31 +137,6 @@ impl Session {
 
         Ok(Self {
             branch: new_branch,
-            ..self.clone()
-        })
-    }
-
-    /// Transition to a new parent state.
-    ///
-    /// # Errors
-    ///
-    /// Returns `SessionError::InvalidParentTransition` if transition is invalid.
-    /// Returns `SessionError::CannotModifyRootParent` if trying to modify root parent.
-    pub fn transition_parent(&self, new_parent: ParentState) -> Result<Self, SessionError> {
-        // Root sessions cannot become children
-        if self.parent.is_root() && !matches!(new_parent, ParentState::Root) {
-            return Err(SessionError::CannotModifyRootParent);
-        }
-
-        if !self.parent.can_transition_to(&new_parent) {
-            return Err(SessionError::InvalidParentTransition {
-                from: self.parent.clone(),
-                to: new_parent,
-            });
-        }
-
-        Ok(Self {
-            parent: new_parent,
             ..self.clone()
         })
     }
@@ -273,7 +189,6 @@ impl Session {
     /// A session is valid if:
     /// - Workspace path exists
     /// - Branch state is valid
-    /// - Parent state is valid
     ///
     /// # Errors
     ///
@@ -308,7 +223,6 @@ pub struct SessionBuilder {
     id: Option<SessionId>,
     name: Option<SessionName>,
     branch: Option<BranchState>,
-    parent: Option<ParentState>,
     workspace_path: Option<PathBuf>,
 }
 
@@ -340,13 +254,6 @@ impl SessionBuilder {
         self
     }
 
-    /// Set the parent state.
-    #[must_use]
-    pub fn parent(mut self, parent: ParentState) -> Self {
-        self.parent = Some(parent);
-        self
-    }
-
     /// Set the workspace path.
     #[must_use]
     pub fn workspace_path(mut self, path: PathBuf) -> Self {
@@ -367,12 +274,7 @@ impl SessionBuilder {
         let branch = self.branch.ok_or(SessionError::CannotActivate)?;
         let workspace_path = self.workspace_path.ok_or(SessionError::CannotActivate)?;
 
-        match self.parent {
-            Some(ParentState::ChildOf { parent }) => {
-                Session::new_child(id, name, branch, parent, workspace_path)
-            }
-            Some(ParentState::Root) | None => Session::new_root(id, name, branch, workspace_path),
-        }
+        Session::new(id, name, branch, workspace_path)
     }
 }
 
@@ -385,12 +287,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_root_session() {
+    fn test_create_session() {
         let id = SessionId::parse("test-session-1").expect("valid id");
         let name = SessionName::parse("test-session").expect("valid name");
         let workspace = PathBuf::from("/tmp"); // Assume exists for test
 
-        let session = Session::new_root(
+        let session = Session::new(
             id.clone(),
             name.clone(),
             BranchState::OnBranch {
@@ -402,31 +304,7 @@ mod tests {
 
         assert_eq!(session.id, id);
         assert_eq!(session.name, name);
-        assert!(session.is_root());
-        assert!(!session.is_child());
         assert_eq!(session.branch_name(), Some("main"));
-    }
-
-    #[test]
-    fn test_create_child_session() {
-        let id = SessionId::parse("test-session-2").expect("valid id");
-        let name = SessionName::parse("child-session").expect("valid name");
-        let parent = SessionName::parse("parent-session").expect("valid name");
-        let workspace = PathBuf::from("/tmp");
-
-        let session = Session::new_child(
-            id.clone(),
-            name.clone(),
-            BranchState::Detached,
-            parent.clone(),
-            workspace,
-        )
-        .expect("session created");
-
-        assert!(!session.is_root());
-        assert!(session.is_child());
-        assert_eq!(session.parent_name(), Some(&parent));
-        assert!(session.branch.is_detached());
     }
 
     #[test]
@@ -436,7 +314,7 @@ mod tests {
         let workspace = PathBuf::from("/tmp");
 
         let session =
-            Session::new_root(id, name, BranchState::Detached, workspace).expect("session created");
+            Session::new(id, name, BranchState::Detached, workspace).expect("session created");
 
         // Detached -> OnBranch is valid
         let new_branch = BranchState::OnBranch {
@@ -473,7 +351,7 @@ mod tests {
         let workspace = PathBuf::from("/tmp");
 
         let session =
-            Session::new_root(id, name, BranchState::Detached, workspace).expect("session created");
+            Session::new(id, name, BranchState::Detached, workspace).expect("session created");
 
         // Detached -> Detached is invalid (no self-loop)
         let result = session.transition_branch(BranchState::Detached);
@@ -484,54 +362,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parent_transition_child_to_child() {
-        let id = SessionId::parse("test-5").expect("valid id");
-        let name = SessionName::parse("child").expect("valid name");
-        let parent1 = SessionName::parse("parent1").expect("valid name");
-        let workspace = PathBuf::from("/tmp");
-
-        let session =
-            Session::new_child(id, name, BranchState::Detached, parent1.clone(), workspace)
-                .expect("session created");
-
-        // Child can change parent (adoption)
-        let parent2 = SessionName::parse("parent2").expect("valid name");
-        let new_parent = ParentState::ChildOf {
-            parent: parent2.clone(),
-        };
-
-        let session = session
-            .transition_parent(new_parent)
-            .expect("parent change valid");
-
-        assert_eq!(session.parent_name(), Some(&parent2));
-    }
-
-    #[test]
-    fn test_invalid_parent_transition_root_to_child() {
-        let id = SessionId::parse("test-6").expect("valid id");
-        let name = SessionName::parse("root").expect("valid name");
-        let workspace = PathBuf::from("/tmp");
-
-        let session =
-            Session::new_root(id, name, BranchState::Detached, workspace).expect("session created");
-
-        // Root cannot become child
-        let new_parent = ParentState::ChildOf {
-            parent: SessionName::parse("parent").expect("valid name"),
-        };
-
-        let result = session.transition_parent(new_parent);
-        assert!(matches!(result, Err(SessionError::CannotModifyRootParent)));
-    }
-
-    #[test]
     fn test_workspace_not_found() {
         let id = SessionId::parse("test-7").expect("valid id");
         let name = SessionName::parse("test").expect("valid name");
         let workspace = PathBuf::from("/nonexistent/path/that/does/not/exist");
 
-        let result = Session::new_root(id, name, BranchState::Detached, workspace);
+        let result = Session::new(id, name, BranchState::Detached, workspace);
 
         assert!(matches!(result, Err(SessionError::WorkspaceNotFound(_))));
     }
@@ -554,7 +390,6 @@ mod tests {
 
         assert_eq!(session.id, id);
         assert_eq!(session.name, name);
-        assert!(session.is_root());
     }
 
     #[test]
@@ -564,7 +399,7 @@ mod tests {
         let name2 = SessionName::parse("name2").expect("valid name");
         let workspace = PathBuf::from("/tmp");
 
-        let session = Session::new_root(id, name1, BranchState::Detached, workspace)
+        let session = Session::new(id, name1, BranchState::Detached, workspace)
             .expect("session created");
 
         let renamed = session.rename(name2.clone());

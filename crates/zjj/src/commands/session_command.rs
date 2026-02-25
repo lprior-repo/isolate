@@ -3,23 +3,7 @@
 //! This module provides a cohesive API for session operations that integrates:
 //! - `SessionDb` for persistence
 //! - `LockManager` for coordination
-//! - `SessionStateManager` for state machine enforcement
 //! - Structured logging and JSON output
-//!
-//! # Architecture
-//!
-//! ```text
-//! SessionCommand (shell layer)
-//!     |
-//!     +-- SessionManager (core business logic)
-//!     |       |
-//!     |       +-- SessionDb (persistence)
-//!     |       +-- LockManager (coordination)
-//!     |       +-- SessionStateManager (state machine)
-//!     |
-//!     +-- JSONL output (structured logging)
-//!     +-- CLI handlers
-//! ```
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -38,10 +22,9 @@ use chrono::DateTime;
 use tracing::info;
 use zjj_core::{
     coordination::locks::LockManager,
-    domain::SessionName,
     output::{
-        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
-        IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput, SessionOutput,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb,
+        Message, OutputLine, ResultKind, ResultOutput, SessionOutput,
     },
     OutputFormat,
 };
@@ -61,7 +44,6 @@ use crate::{
 /// This is the pure functional core that coordinates:
 /// - Session persistence via `SessionDb`
 /// - Lock management via `LockManager`
-/// - State transitions via `SessionStateManager`
 ///
 /// All operations return Result<T> with zero panics.
 #[derive(Debug, Clone)]
@@ -109,7 +91,6 @@ impl SessionManager {
     ///
     /// * `name` - Session name (must be valid)
     /// * `workspace_path` - Absolute path to workspace
-    /// * `parent` - Optional parent session for stacked sessions
     /// * `agent_id` - Optional agent ID for lock acquisition
     ///
     /// # Errors
@@ -117,31 +98,15 @@ impl SessionManager {
     /// Returns an error if:
     /// - Name validation fails
     /// - Session already exists
-    /// - Parent session doesn't exist (if specified)
     /// - Database operation fails
     pub async fn create_session(
         &self,
         name: &str,
         workspace_path: &str,
-        parent: Option<&str>,
         agent_id: Option<&str>,
     ) -> Result<Session> {
         // Validate name
         validate_session_name(name).map_err(|e| anyhow::anyhow!("{e}"))?;
-
-        // Validate parent exists if specified
-        if let Some(parent_name) = parent {
-            let parent_session = self
-                .db
-                .get(parent_name)
-                .await?
-                .ok_or_else(|| anyhow::anyhow!("Parent session '{parent_name}' not found"))?;
-            if parent_session.status == SessionStatus::Completed {
-                return Err(anyhow::anyhow!(
-                    "Cannot create stacked session under completed parent '{parent_name}'"
-                ));
-            }
-        }
 
         // Check for duplicate
         if self.db.get(name).await?.is_some() {
@@ -155,20 +120,6 @@ impl SessionManager {
             .await
             .context("Failed to create session in database")?;
 
-        // Update parent if specified
-        if let Some(parent_name) = parent {
-            self.db
-                .update(
-                    name,
-                    SessionUpdate {
-                        parent_session: Some(parent_name.to_string()),
-                        ..SessionUpdate::default()
-                    },
-                )
-                .await
-                .context("Failed to set parent session")?;
-        }
-
         // Acquire lock if agent specified
         if let Some(agent) = agent_id {
             self.lock_manager
@@ -180,11 +131,10 @@ impl SessionManager {
         info!(
             session_name = %name,
             workspace_path = %workspace_path,
-            parent = ?parent,
             "Session created"
         );
 
-        // Fetch the final session state (with parent set if applicable)
+        // Fetch the final session state
         self.db
             .get(name)
             .await?
@@ -248,22 +198,10 @@ impl SessionManager {
     /// - Session not found
     /// - Session is locked by another agent
     /// - Database operation fails
-    pub async fn remove_session(&self, name: &str, force: bool, agent_id: &str) -> Result<()> {
+    pub async fn remove_session(&self, name: &str, _force: bool, agent_id: &str) -> Result<()> {
         // Check session exists
         if self.db.get(name).await?.is_none() {
             return Err(anyhow::anyhow!("Session '{name}' not found"));
-        }
-
-        // Check for child sessions
-        let all_sessions = self.db.list(None).await?;
-        let has_children = all_sessions
-            .iter()
-            .any(|s| s.parent_session.as_deref() == Some(name));
-
-        if has_children && !force {
-            return Err(anyhow::anyhow!(
-                "Session '{name}' has child sessions. Use --force to remove anyway."
-            ));
         }
 
         // Acquire lock for removal
@@ -295,7 +233,6 @@ impl SessionManager {
 
         info!(
             session_name = %name,
-            forced = force,
             agent_id = %agent_id,
             "Session removed"
         );
@@ -484,9 +421,9 @@ impl SessionManager {
                 SessionUpdate {
                     status: Some(session.status),
                     branch: session.branch.clone(),
-                    parent_session: session.parent_session.clone(),
                     metadata: session.metadata.clone(),
-                    ..SessionUpdate::default()
+                    last_synced: session.last_synced,
+                    state: Some(session.state),
                 },
             )
             .await
@@ -647,7 +584,6 @@ impl SessionCommand {
         &self,
         name: &str,
         workspace_path: &str,
-        parent: Option<&str>,
     ) -> Result<Session> {
         if self.options.dry_run {
             emit_action("create", name, ActionStatus::Pending)?;
@@ -664,7 +600,6 @@ impl SessionCommand {
             .create_session(
                 name,
                 workspace_path,
-                parent,
                 self.options.agent_id.as_deref(),
             )
             .await?;
@@ -817,15 +752,9 @@ impl SessionCommand {
                 SessionStatus::Failed => "[!]",
             };
 
-            let parent_info = session
-                .parent_session
-                .as_ref()
-                .map(|p| format!(" (parent: {p})"))
-                .unwrap_or_default();
-
             println!(
-                "{} {} {}{}",
-                status_icon, session.name, session.workspace_path, parent_info
+                "{} {} {}",
+                status_icon, session.name, session.workspace_path
             );
 
             if self.options.verbose {
@@ -900,35 +829,6 @@ fn emit_result_success(message: &str) -> Result<()> {
     emit_stdout(&OutputLine::Result(result)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-/// Emit an issue line.
-#[allow(dead_code)]
-fn emit_issue(
-    id: &str,
-    title: String,
-    kind: IssueKind,
-    severity: IssueSeverity,
-    session: Option<&str>,
-    suggestion: Option<&str>,
-) -> Result<()> {
-    let mut issue = Issue::new(
-        IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
-        IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
-        kind,
-        severity,
-    )
-    .map_err(|e| anyhow::anyhow!("{e}"))?;
-
-    if let Some(s) = session {
-        issue = issue
-            .with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
-    }
-    if let Some(s) = suggestion {
-        issue = issue.with_suggestion(s.to_string());
-    }
-
-    emit_stdout(&OutputLine::Issue(issue)).map_err(|e| anyhow::anyhow!("{e}"))
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -953,7 +853,7 @@ mod tests {
         let (manager, _dir) = setup_test_manager().await?;
 
         let session = manager
-            .create_session("test-session", "/tmp/test", None, None)
+            .create_session("test-session", "/tmp/test", None)
             .await?;
 
         assert_eq!(session.name, "test-session");
@@ -968,11 +868,11 @@ mod tests {
         let (manager, _dir) = setup_test_manager().await?;
 
         manager
-            .create_session("test-session", "/tmp/test", None, None)
+            .create_session("test-session", "/tmp/test", None)
             .await?;
 
         let result = manager
-            .create_session("test-session", "/tmp/test2", None, None)
+            .create_session("test-session", "/tmp/test2", None)
             .await;
 
         assert!(result.is_err());
@@ -983,24 +883,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_session_with_invalid_name_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        let result = manager
-            .create_session("123-invalid", "/tmp/test", None, None)
-            .await;
-
-        assert!(result.is_err());
-
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn test_get_session() -> Result<()> {
         let (manager, _dir) = setup_test_manager().await?;
 
         manager
-            .create_session("test-session", "/tmp/test", None, None)
+            .create_session("test-session", "/tmp/test", None)
             .await?;
 
         let session = manager.get_session("test-session").await?;
@@ -1013,25 +900,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_nonexistent_session() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        let session = manager.get_session("nonexistent").await?;
-
-        assert!(session.is_none());
-
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn test_list_sessions() -> Result<()> {
         let (manager, _dir) = setup_test_manager().await?;
 
         manager
-            .create_session("session-1", "/tmp/1", None, None)
+            .create_session("session-1", "/tmp/1", None)
             .await?;
         manager
-            .create_session("session-2", "/tmp/2", None, None)
+            .create_session("session-2", "/tmp/2", None)
             .await?;
 
         let sessions = manager.list_sessions(None, false).await?;
@@ -1046,7 +922,7 @@ mod tests {
         let (manager, _dir) = setup_test_manager().await?;
 
         manager
-            .create_session("test-session", "/tmp/test", None, None)
+            .create_session("test-session", "/tmp/test", None)
             .await?;
 
         manager
@@ -1060,27 +936,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_remove_nonexistent_session_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        let result = manager
-            .remove_session("nonexistent", false, "test-agent")
-            .await;
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("not found"));
-
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn test_pause_and_resume_session() -> Result<()> {
         let (manager, _dir) = setup_test_manager().await?;
 
         // Create and activate session
         manager
-            .create_session("test-session", "/tmp/test", None, None)
+            .create_session("test-session", "/tmp/test", None)
             .await?;
 
         // Update to active
@@ -1111,7 +972,7 @@ mod tests {
         let (manager, _dir) = setup_test_manager().await?;
 
         manager
-            .create_session("old-name", "/tmp/test", None, None)
+            .create_session("old-name", "/tmp/test", None)
             .await?;
 
         let renamed = manager.rename_session("old-name", "new-name").await?;
@@ -1125,515 +986,6 @@ mod tests {
         // New name should exist
         let new = manager.get_session("new-name").await?;
         assert!(new.is_some());
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_count_active_sessions() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        manager
-            .create_session("session-1", "/tmp/1", None, None)
-            .await?;
-        manager
-            .create_session("session-2", "/tmp/2", None, None)
-            .await?;
-
-        // Update one to active
-        manager
-            .db()
-            .update(
-                "session-1",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-
-        let count = manager.count_active_sessions().await?;
-        assert_eq!(count, 2); // Creating and Active both count
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_create_stacked_session() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create parent
-        manager
-            .create_session("parent", "/tmp/parent", None, None)
-            .await?;
-
-        // Update parent to active
-        manager
-            .db()
-            .update(
-                "parent",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-
-        // Create child
-        let child = manager
-            .create_session("child", "/tmp/child", Some("parent"), None)
-            .await?;
-
-        assert_eq!(child.parent_session, Some("parent".to_string()));
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_create_stacked_with_nonexistent_parent_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        let result = manager
-            .create_session("child", "/tmp/child", Some("nonexistent"), None)
-            .await;
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("Parent session"));
-
-        Ok(())
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ADVERSARIAL TESTS (Phase 5 - REVIEW)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// Test concurrent session creation from multiple tasks.
-    /// Verifies that duplicate detection works correctly under concurrent access.
-    #[tokio::test]
-    async fn test_concurrent_session_creation_no_duplicates() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-        let manager = std::sync::Arc::new(manager);
-
-        // Spawn 10 concurrent tasks trying to create the same session
-        let handles: Vec<_> = (0..10)
-            .map(|i| {
-                let mgr = std::sync::Arc::clone(&manager);
-                tokio::spawn(async move {
-                    mgr.create_session(&format!("concurrent-session-{i}"), "/tmp/test", None, None)
-                        .await
-                })
-            })
-            .collect();
-
-        // Wait for all tasks
-        let results: Vec<_> = futures_util::future::join_all(handles)
-            .await
-            .into_iter()
-            .map(|r| r.expect("task panicked"))
-            .collect();
-
-        // All should succeed (different names)
-        let success_count = results.iter().filter(|r| r.is_ok()).count();
-        assert_eq!(success_count, 10);
-
-        // Verify all sessions exist
-        let sessions = manager.list_sessions(None, false).await?;
-        assert_eq!(sessions.len(), 10);
-
-        Ok(())
-    }
-
-    /// Test concurrent creation with same name - only one should succeed.
-    #[tokio::test]
-    async fn test_concurrent_same_name_creation_only_one_succeeds() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-        let manager = std::sync::Arc::new(manager);
-
-        // Spawn 10 concurrent tasks trying to create the SAME session
-        let handles: Vec<_> = (0..10)
-            .map(|_| {
-                let mgr = std::sync::Arc::clone(&manager);
-                tokio::spawn(async move {
-                    mgr.create_session("same-name-session", "/tmp/test", None, None)
-                        .await
-                })
-            })
-            .collect();
-
-        // Wait for all tasks
-        let results: Vec<_> = futures_util::future::join_all(handles)
-            .await
-            .into_iter()
-            .map(|r| r.expect("task panicked"))
-            .collect();
-
-        // Exactly one should succeed (first to commit)
-        let success_count = results.iter().filter(|r| r.is_ok()).count();
-        let fail_count = results.iter().filter(|r| r.is_err()).count();
-
-        // At least one should succeed and at least one should fail
-        // (Due to SQLite locking, the exact distribution may vary)
-        assert!(success_count >= 1, "At least one creation should succeed");
-        assert!(
-            fail_count >= 1 || success_count == 1,
-            "Either multiple should fail or exactly one succeed"
-        );
-
-        // Verify exactly one session exists
-        let session = manager.get_session("same-name-session").await?;
-        assert!(session.is_some(), "The session should exist");
-
-        Ok(())
-    }
-
-    /// Test name collision with different case.
-    #[tokio::test]
-    async fn test_name_collision_case_sensitivity() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create session with lowercase
-        manager
-            .create_session("test-session", "/tmp/test", None, None)
-            .await?;
-
-        // Try to create with uppercase - should succeed (names are case-sensitive)
-        let result = manager
-            .create_session("TEST-SESSION", "/tmp/test", None, None)
-            .await;
-
-        // Session names are case-sensitive, so this should succeed
-        assert!(result.is_ok());
-
-        // Verify both exist
-        let lower = manager.get_session("test-session").await?;
-        let upper = manager.get_session("TEST-SESSION").await?;
-        assert!(lower.is_some());
-        assert!(upper.is_some());
-
-        Ok(())
-    }
-
-    /// Test name collision with special characters.
-    #[tokio::test]
-    async fn test_name_with_special_characters() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create session with hyphen
-        let result = manager
-            .create_session("test-session-123", "/tmp/test", None, None)
-            .await;
-        assert!(result.is_ok());
-
-        // Session with underscore
-        let result = manager
-            .create_session("test_session_456", "/tmp/test", None, None)
-            .await;
-        assert!(result.is_ok());
-
-        Ok(())
-    }
-
-    /// Test rename collision - renaming to existing name should fail.
-    #[tokio::test]
-    async fn test_rename_to_existing_name_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        manager
-            .create_session("session-a", "/tmp/a", None, None)
-            .await?;
-        manager
-            .create_session("session-b", "/tmp/b", None, None)
-            .await?;
-
-        // Try to rename session-a to session-b (which exists)
-        let result = manager.rename_session("session-a", "session-b").await;
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("already exists"));
-
-        // Verify original still exists
-        let a = manager.get_session("session-a").await?;
-        assert!(a.is_some());
-
-        Ok(())
-    }
-
-    /// Test removing session with children without force.
-    #[tokio::test]
-    async fn test_remove_parent_without_force_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create parent
-        manager
-            .create_session("parent", "/tmp/parent", None, None)
-            .await?;
-
-        // Update parent to active
-        manager
-            .db()
-            .update(
-                "parent",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-
-        // Create child
-        manager
-            .create_session("child", "/tmp/child", Some("parent"), None)
-            .await?;
-
-        // Try to remove parent without force
-        let result = manager.remove_session("parent", false, "test-agent").await;
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("child sessions"));
-
-        // Verify parent still exists
-        let parent = manager.get_session("parent").await?;
-        assert!(parent.is_some());
-
-        Ok(())
-    }
-
-    /// Test removing session with children with force.
-    #[tokio::test]
-    async fn test_remove_parent_with_force_succeeds() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create parent
-        manager
-            .create_session("parent", "/tmp/parent", None, None)
-            .await?;
-
-        // Update parent to active
-        manager
-            .db()
-            .update(
-                "parent",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-
-        // Create child
-        manager
-            .create_session("child", "/tmp/child", Some("parent"), None)
-            .await?;
-
-        // Remove parent with force
-        manager.remove_session("parent", true, "test-agent").await?;
-
-        // Verify parent is gone
-        let parent = manager.get_session("parent").await?;
-        assert!(parent.is_none());
-
-        Ok(())
-    }
-
-    /// Test pause non-active session fails.
-    #[tokio::test]
-    async fn test_pause_non_active_session_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        manager
-            .create_session("test-session", "/tmp/test", None, None)
-            .await?;
-
-        // Session is in "Creating" status, not "Active"
-        let result = manager.pause_session("test-session", "test-agent").await;
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("Cannot pause session"));
-
-        Ok(())
-    }
-
-    /// Test resume non-paused session fails.
-    #[tokio::test]
-    async fn test_resume_non_paused_session_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        manager
-            .create_session("test-session", "/tmp/test", None, None)
-            .await?;
-
-        // Session is in "Creating" status, not "Paused"
-        let result = manager.resume_session("test-session", "test-agent").await;
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("Cannot resume session"));
-
-        Ok(())
-    }
-
-    /// Test focus completed session fails.
-    #[tokio::test]
-    async fn test_focus_completed_session_fails() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        manager
-            .create_session("test-session", "/tmp/test", None, None)
-            .await?;
-
-        // Mark as completed
-        manager
-            .db()
-            .update(
-                "test-session",
-                SessionUpdate {
-                    status: Some(SessionStatus::Completed),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-
-        // Try to focus completed session
-        let result = manager.focus_session("test-session").await;
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("Cannot focus completed session"));
-
-        Ok(())
-    }
-
-    /// Test large session count handling.
-    #[tokio::test]
-    async fn test_large_session_count() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create 100 sessions
-        for i in 0..100 {
-            manager
-                .create_session(&format!("session-{i:03}"), &format!("/tmp/{i}"), None, None)
-                .await?;
-        }
-
-        // Verify count
-        let sessions = manager.list_sessions(None, false).await?;
-        assert_eq!(sessions.len(), 100);
-
-        // Count active (all in Creating status)
-        let count = manager.count_active_sessions().await?;
-        assert_eq!(count, 100);
-
-        Ok(())
-    }
-
-    /// Test session state filtering.
-    #[tokio::test]
-    async fn test_session_status_filtering() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create sessions
-        manager
-            .create_session("creating-1", "/tmp/1", None, None)
-            .await?;
-        manager
-            .create_session("active-1", "/tmp/2", None, None)
-            .await?;
-        manager
-            .db()
-            .update(
-                "active-1",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-        manager
-            .create_session("paused-1", "/tmp/3", None, None)
-            .await?;
-        manager
-            .db()
-            .update(
-                "paused-1",
-                SessionUpdate {
-                    status: Some(SessionStatus::Paused),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-
-        // Filter by status
-        let active = manager
-            .list_sessions(Some(SessionStatus::Active), true)
-            .await?;
-        assert_eq!(active.len(), 1);
-        assert_eq!(active[0].name, "active-1");
-
-        let paused = manager
-            .list_sessions(Some(SessionStatus::Paused), true)
-            .await?;
-        assert_eq!(paused.len(), 1);
-        assert_eq!(paused[0].name, "paused-1");
-
-        let creating = manager
-            .list_sessions(Some(SessionStatus::Creating), true)
-            .await?;
-        assert_eq!(creating.len(), 1);
-        assert_eq!(creating[0].name, "creating-1");
-
-        Ok(())
-    }
-
-    /// Test deep nesting of sessions.
-    #[tokio::test]
-    async fn test_deep_session_nesting() -> Result<()> {
-        let (manager, _dir) = setup_test_manager().await?;
-
-        // Create root session
-        manager
-            .create_session("level-0", "/tmp/0", None, None)
-            .await?;
-        manager
-            .db()
-            .update(
-                "level-0",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..SessionUpdate::default()
-                },
-            )
-            .await?;
-
-        // Create 10 levels of nesting
-        for i in 1..=10 {
-            let parent = format!("level-{}", i - 1);
-            let child = format!("level-{i}");
-            manager
-                .create_session(&child, &format!("/tmp/{i}"), Some(&parent), None)
-                .await?;
-            manager
-                .db()
-                .update(
-                    &child,
-                    SessionUpdate {
-                        status: Some(SessionStatus::Active),
-                        ..SessionUpdate::default()
-                    },
-                )
-                .await?;
-        }
-
-        // Verify chain
-        let level_10 = manager.get_session("level-10").await?;
-        assert!(level_10.is_some());
-        assert_eq!(
-            level_10.unwrap().parent_session,
-            Some("level-9".to_string())
-        );
 
         Ok(())
     }

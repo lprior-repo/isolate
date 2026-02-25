@@ -104,40 +104,6 @@
 //! })?;
 //! ```
 //!
-//! ### Queue Entry Aggregate
-//!
-//! [`QueueEntry`] - Distributed queue work item with claim management
-//!
-//! **Responsibilities:**
-//! - Track queue entry state (unclaimed, claimed, expired)
-//! - Manage claim lifecycle
-//! - Store priority and workspace association
-//! - Track creation timestamp
-//!
-//! **Business rules:**
-//! - Cannot claim an already claimed entry
-//! - Claims expire after a timeout
-//! - Expired claims can be reclaimed
-//!
-//! **Usage:**
-//! ```rust
-//! use zjj_core::domain::aggregates::{QueueEntry, ClaimState};
-//! use zjj_core::domain::identifiers::{WorkspaceName, AgentId};
-//! use chrono::{Utc, Duration};
-//!
-//! let mut entry = QueueEntry::new(
-//!     WorkspaceName::parse("my-workspace")?,
-//!     Some(bead_id),
-//!     1, // priority
-//! )?;
-//!
-//! let agent = AgentId::parse("agent-1")?;
-//! let expires_at = Utc::now() + Duration::seconds(300);
-//!
-//! entry.claim(agent.clone(), expires_at)?;
-//! entry.release(&agent)?;
-//! ```
-//!
 //! ## Design Principles
 //!
 //! ### 1. Encapsulation
@@ -244,7 +210,6 @@
 //! - [`SessionError`] - Session operation errors
 //! - [`WorkspaceError`] - Workspace operation errors
 //! - [`BeadError`] - Bead operation errors
-//! - [`QueueEntryError`] - Queue entry operation errors
 //!
 //! Error types are:
 //! - **Specific** - Clear error conditions
@@ -266,12 +231,10 @@
 #![forbid(unsafe_code)]
 
 pub mod bead;
-pub mod queue_entry;
 pub mod session;
 pub mod workspace;
 
 // Re-export aggregate types
 pub use bead::{Bead, BeadError, BeadState};
-pub use queue_entry::{QueueEntry, QueueEntryError};
 pub use session::{Session, SessionBuilder, SessionError};
 pub use workspace::{Workspace, WorkspaceBuilder, WorkspaceError};

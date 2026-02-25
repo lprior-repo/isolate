@@ -36,7 +36,7 @@ use crate::{
     cli::jj_root,
     commands::{
         context::{detect_location, Location},
-        get_queue_db_path, get_session_db,
+        get_session_db,
     },
     session::{SessionStatus, SessionUpdate},
 };
@@ -147,9 +147,7 @@ pub async fn execute_done(
         prepare_workspace_for_merge(&root, &workspace_name, options, &workspace_executor).await?;
 
     // Phase 5: Check for conflicts
-    check_conflicts(&root, &workspace_executor)
-        .await
-        .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
+    check_conflicts(&root, &workspace_executor).await?;
 
     // Phase 5.5-6: Gather merge metadata
     let pre_merge_commit_id = get_current_commit_id(&root, &workspace_executor).await?;
@@ -227,7 +225,7 @@ async fn perform_merge_and_undo_log(
     options: &DoneOptions,
     executor: &dyn executor::JjExecutor,
     filesystem: &dyn filesystem::FileSystem,
-    bead_repo: &dyn bead::BeadRepository,
+    _bead_repo: &dyn bead::BeadRepository,
 ) -> Result<(), DoneError> {
     // Phase 7: Merge to main
     merge_to_main(
@@ -237,8 +235,7 @@ async fn perform_merge_and_undo_log(
         options.message.as_deref(),
         executor,
     )
-    .await
-    .map_err(|err| queue_merge_conflict(err, workspace_name, bead_repo))?;
+    .await?;
 
     // Phase 7.5: Log undo history
     log_undo_history(
@@ -461,80 +458,6 @@ async fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Res
     Ok(())
 }
 
-fn queue_merge_conflict(
-    error: DoneError,
-    workspace_name: &str,
-    _bead_repo: &dyn bead::BeadRepository,
-) -> DoneError {
-    // This is problematic because we can't easily await inside map_err without more refactoring
-    // For now, we'll just log that we would have queued it.
-    // Ideally this whole flow should be refactored to handle async error recovery.
-    if matches!(error, DoneError::MergeConflict { .. }) {
-        tracing::warn!(
-            "Merge conflict detected for workspace {}. Conflict queuing should be handled.",
-            workspace_name
-        );
-    }
-    error
-}
-
-#[allow(dead_code)]
-async fn queue_workspace_conflict(
-    workspace_name: &str,
-    bead_repo: &dyn bead::BeadRepository,
-) -> Result<(), DoneError> {
-    let queue_db = get_queue_db_path()
-        .await
-        .map_err(|e| DoneError::InvalidState {
-            reason: format!("Failed to resolve merge queue path: {e}"),
-        })?;
-    let queue =
-        zjj_core::MergeQueue::open(&queue_db)
-            .await
-            .map_err(|e| DoneError::InvalidState {
-                reason: format!("Failed to open merge queue: {e}"),
-            })?;
-
-    let existing =
-        queue
-            .get_by_workspace(workspace_name)
-            .await
-            .map_err(|e| DoneError::InvalidState {
-                reason: format!("Failed to read merge queue: {e}"),
-            })?;
-    if existing.is_some() {
-        return Ok(());
-    }
-
-    let env_bead = std::env::var("ZJJ_BEAD_ID").ok();
-    let bead_id = env_bead.or({
-        // We need a way to call this async here if we wanted to use it
-        // but since we are refactoring, we'll just use the env var or None for now
-        // to avoid complex async recursion issues in this specific spot.
-        None
-    });
-
-    // If we really need the bead_id from repo, we'd need to have passed it in or await it
-    let bead_id = if bead_id.is_none() {
-        get_bead_id_for_workspace(workspace_name, bead_repo)
-            .await
-            .ok()
-            .flatten()
-    } else {
-        bead_id
-    };
-
-    let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
-
-    queue
-        .add(workspace_name, bead_id.as_deref(), 5, agent_id.as_deref())
-        .await
-        .map(|_| ())
-        .map_err(|e| DoneError::InvalidState {
-            reason: format!("Failed to queue merge conflict: {e}"),
-        })
-}
-
 /// Check for potential conflicts by checking divergent changes
 async fn check_potential_conflicts(
     _root: &str,
@@ -724,10 +647,7 @@ async fn update_session_status(workspace_name: &str) -> Result<bool, DoneError> 
         state: Some(WorkspaceState::Merged),
         branch: None,
         last_synced: None,
-
         metadata: None,
-        parent_session: None,
-        queue_status: None,
     };
 
     db.update(workspace_name, update)

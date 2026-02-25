@@ -429,8 +429,6 @@ mod tests {
                 updated_at: 0,
                 last_synced: None,
                 metadata: Some(serde_json::Value::Null),
-                parent_session: None,
-                queue_status: None,
             };
         };
 
@@ -449,8 +447,6 @@ mod tests {
             updated_at: created_timestamp,
             last_synced: None,
             metadata: Some(serde_json::Value::Null),
-            parent_session: None,
-            queue_status: None,
         }
     }
 

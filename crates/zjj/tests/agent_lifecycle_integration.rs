@@ -35,7 +35,7 @@ use std::time::Duration;
 use tempfile::TempDir;
 use zjj_core::{
     agents::registry::AgentRegistry,
-    coordination::{locks::LockManager, queue::MergeQueue},
+    coordination::locks::LockManager,
     Error, Result,
 };
 
@@ -45,7 +45,6 @@ struct IntegrationTestContext {
     pool: sqlx::SqlitePool,
     agent_registry: AgentRegistry,
     lock_manager: LockManager,
-    merge_queue: MergeQueue,
 }
 
 impl IntegrationTestContext {
@@ -66,15 +65,11 @@ impl IntegrationTestContext {
         let lock_manager = LockManager::new(pool.clone());
         lock_manager.init().await?;
 
-        // Initialize merge queue sharing the same pool
-        let merge_queue = MergeQueue::new(pool.clone()).await?;
-
         Ok(Self {
             _temp_dir: temp_dir,
             pool,
             agent_registry,
             lock_manager,
-            merge_queue,
         })
     }
 
@@ -87,14 +82,6 @@ impl IntegrationTestContext {
     async fn agent_count(&self) -> Result<usize> {
         let agents = self.agent_registry.get_active().await?;
         Ok(agents.len())
-    }
-
-    /// Add work to queue
-    async fn add_work(&self, workspace: &str, priority: i32) -> Result<()> {
-        self.merge_queue
-            .add(workspace, Some("bead-1"), priority, None)
-            .await?;
-        Ok(())
     }
 
     /// Acquire session lock
@@ -112,36 +99,6 @@ impl IntegrationTestContext {
     async fn unregister_agent(&self, agent_id: &str) -> Result<()> {
         self.agent_registry.unregister(agent_id).await
     }
-
-    /// Get processing lock holder
-    async fn get_processing_lock_holder(&self) -> Result<Option<String>> {
-        let lock = self.merge_queue.get_processing_lock().await?;
-        Ok(lock.map(|l| l.agent_id))
-    }
-
-    /// Get queue stats
-    async fn queue_stats(&self) -> Result<zjj_core::coordination::queue::QueueStats> {
-        self.merge_queue.stats().await
-    }
-
-    /// Simulate timeout by resetting entry status back to pending
-    /// This simulates what would happen when a lock expires in real system
-    async fn simulate_timeout_recovery(&self, workspace: &str) -> Result<()> {
-        // Reset entry to pending
-        sqlx::query("UPDATE merge_queue SET status = 'pending', started_at = NULL, agent_id = NULL WHERE workspace = ?1")
-            .bind(workspace)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to reset entry: {e}")))?;
-
-        // Release processing lock (simulating TTL expiry)
-        sqlx::query("DELETE FROM queue_processing_lock WHERE id = 1")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to release processing lock: {e}")))?;
-
-        Ok(())
-    }
 }
 
 // ============================================================================
@@ -156,85 +113,20 @@ async fn lifecycle_complete_happy_path() -> Result<()> {
     ctx.register_agent("agent-1").await?;
     assert_eq!(ctx.agent_count().await?, 1, "agent should be registered");
 
-    // Step 2: Work assigned (queue entry exists)
-    ctx.add_work("workspace-1", 5).await?;
-
-    // Step 3: Agent claims work
-    let entry = ctx.merge_queue.next_with_lock("agent-1").await?;
-    assert!(entry.is_some(), "agent should claim work");
-
-    // Step 4: Agent acquires session lock
+    // Step 2: Agent acquires session lock
     ctx.acquire_lock("workspace-1", "agent-1").await?;
 
-    // Step 5: Agent processes work (simulate)
+    // Step 3: Agent processes work (simulate)
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    // Step 6: Agent completes work
-    ctx.merge_queue.mark_completed("workspace-1").await?;
-
-    // Step 7: Agent releases lock
+    // Step 4: Agent releases lock
     ctx.release_lock("workspace-1", "agent-1").await?;
 
-    // Step 8: Agent unregisters
+    // Step 5: Agent unregisters
     ctx.unregister_agent("agent-1").await?;
 
     // Verify cleanup
     assert_eq!(ctx.agent_count().await?, 0, "agent should be unregistered");
-
-    Ok(())
-}
-
-// ============================================================================
-// LIFECYCLE TEST 2: Agent failure during processing
-// ============================================================================
-
-#[tokio::test]
-async fn lifecycle_agent_failure_during_processing() -> Result<()> {
-    let ctx = IntegrationTestContext::new().await?;
-
-    // Agent registers and claims work
-    ctx.register_agent("agent-1").await?;
-    ctx.add_work("workspace-1", 5).await?;
-
-    let entry = ctx.merge_queue.next_with_lock("agent-1").await?;
-    assert!(entry.is_some());
-
-    // Agent acquires lock
-    ctx.acquire_lock("workspace-1", "agent-1").await?;
-
-    // Simulate agent crash (database closes, but state persists)
-    // In real scenario, agent process dies
-    ctx.lock_manager.unlock("workspace-1", "agent-1").await?;
-
-    // After crash, processing lock should timeout (TTL expiry)
-    // Simulate timeout by checking lock state
-    let lock_holder = ctx.get_processing_lock_holder().await?;
-    assert_eq!(lock_holder, Some("agent-1".to_string()));
-
-    // Another agent should be able to claim after timeout
-    // (in real system, lock expires after TTL)
-    ctx.register_agent("agent-2").await?;
-
-    // Agent 2 cannot claim yet (lock held by dead agent, entry is processing)
-    let entry2 = ctx.merge_queue.next_with_lock("agent-2").await?;
-    assert!(
-        entry2.is_none(),
-        "should not claim while entry is processing"
-    );
-
-    // Simulate timeout by resetting entry status back to pending
-    // (in real system, this would happen via timeout/recovery mechanism)
-    ctx.simulate_timeout_recovery("workspace-1").await?;
-
-    // Now agent 2 can claim
-    let entry3 = ctx.merge_queue.next_with_lock("agent-2").await?;
-    assert!(
-        entry3.is_some(),
-        "should claim after timeout and status reset"
-    );
-
-    // Complete work
-    ctx.merge_queue.mark_completed("workspace-1").await?;
 
     Ok(())
 }
@@ -303,32 +195,6 @@ async fn lifecycle_heartbeat_prevents_staleness() -> Result<()> {
 }
 
 // ============================================================================
-// LIFECYCLE TEST 5: Work priority ordering
-// ============================================================================
-
-#[tokio::test]
-async fn lifecycle_work_priority_ordering() -> Result<()> {
-    let ctx = IntegrationTestContext::new().await?;
-
-    ctx.register_agent("agent-1").await?;
-
-    // Add work with different priorities
-    ctx.add_work("low-priority", 10).await?;
-    ctx.add_work("high-priority", 0).await?;
-    ctx.add_work("mid-priority", 5).await?;
-
-    // Next should be high priority
-    let entry = ctx.merge_queue.next_with_lock("agent-1").await?;
-    assert!(entry.is_some());
-    assert_eq!(
-        entry.as_ref().map(|e| e.workspace.as_str()),
-        Some("high-priority")
-    );
-
-    Ok(())
-}
-
-// ============================================================================
 // LIFECYCLE TEST 6: Persistence across restarts
 // ============================================================================
 
@@ -336,22 +202,12 @@ async fn lifecycle_work_priority_ordering() -> Result<()> {
 async fn lifecycle_persistence_across_restart() -> Result<()> {
     let ctx = IntegrationTestContext::new().await?;
 
-    // Register agent and add work
+    // Register agent
     ctx.register_agent("agent-1").await?;
-    ctx.add_work("workspace-1", 5).await?;
 
     let agent_count_before = ctx.agent_count().await?;
     assert_eq!(agent_count_before, 1);
 
-    let stats_before = ctx.queue_stats().await?;
-    assert_eq!(stats_before.pending, 1);
-
-    // Note: We can't truly restart with the current structure because
-    // we can't clone TempDir. In a real persistence test, we'd:
-    // 1. Store the temp path
-    // 2. Drop the context
-    // 3. Create new context with same path
-    //
     // For this test, we verify data is in the database
     let row: Option<(String,)> = sqlx::query_as("SELECT agent_id FROM agents WHERE agent_id = ?")
         .bind("agent-1")
@@ -360,38 +216,6 @@ async fn lifecycle_persistence_across_restart() -> Result<()> {
         .map_err(|e| Error::DatabaseError(format!("Failed to query agent: {e}")))?;
 
     assert!(row.is_some(), "agent should persist in database");
-
-    let queue_entry = ctx.merge_queue.get_by_workspace("workspace-1").await?;
-    assert!(queue_entry.is_some(), "work should persist in queue");
-
-    Ok(())
-}
-
-// ============================================================================
-// LIFECYCLE TEST 7: Cancellation scenario
-// ============================================================================
-
-#[tokio::test]
-async fn lifecycle_work_cancellation() -> Result<()> {
-    let ctx = IntegrationTestContext::new().await?;
-
-    ctx.register_agent("agent-1").await?;
-    ctx.add_work("workspace-1", 5).await?;
-
-    // Agent claims work
-    let entry = ctx.merge_queue.next_with_lock("agent-1").await?;
-    assert!(entry.is_some());
-
-    // Work is cancelled (removed from queue)
-    let removed = ctx.merge_queue.remove("workspace-1").await?;
-    assert!(removed, "work should be removed");
-
-    // Verify it's gone
-    let entry_after = ctx.merge_queue.get_by_workspace("workspace-1").await?;
-    assert!(entry_after.is_none(), "work should not exist after removal");
-
-    // Release lock
-    ctx.merge_queue.release_processing_lock("agent-1").await?;
 
     Ok(())
 }
@@ -433,39 +257,6 @@ async fn lifecycle_agent_timeout_recovery() -> Result<()> {
     // Agent is active again
     let agents = ctx.agent_registry.get_active().await?;
     assert_eq!(agents.len(), 1, "agent should recover after heartbeat");
-
-    Ok(())
-}
-
-// ============================================================================
-// LIFECYCLE TEST 9: Cleanup of completed/failed work
-// ============================================================================
-
-#[tokio::test]
-async fn lifecycle_cleanup_old_work() -> Result<()> {
-    let ctx = IntegrationTestContext::new().await?;
-
-    ctx.register_agent("agent-1").await?;
-
-    // Add and complete work
-    ctx.add_work("workspace-1", 5).await?;
-    let entry = ctx.merge_queue.next_with_lock("agent-1").await?;
-    assert!(entry.is_some());
-
-    ctx.merge_queue.mark_completed("workspace-1").await?;
-    ctx.merge_queue.release_processing_lock("agent-1").await?;
-
-    // Verify completed
-    let stats = ctx.queue_stats().await?;
-    assert_eq!(stats.completed, 1);
-
-    // Cleanup old entries (max_age = 0, cleans all completed entries regardless of age)
-    let cleaned = ctx.merge_queue.cleanup(Duration::ZERO).await?;
-    assert_eq!(cleaned, 1, "should clean 1 completed entry");
-
-    // Verify cleanup
-    let stats_after = ctx.queue_stats().await?;
-    assert_eq!(stats_after.completed, 0);
 
     Ok(())
 }

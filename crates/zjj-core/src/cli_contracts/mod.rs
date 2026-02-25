@@ -1,10 +1,8 @@
 //! KIRK Contracts for CLI Objects
 //!
-//! This module defines design-by-contract patterns for all 8 CLI objects:
+//! This module defines design-by-contract patterns for CLI objects:
 //! - `TaskContracts`: Beads task management
 //! - `SessionContracts`: Parallel workspace sessions
-//! - `QueueContracts`: Merge train queue operations
-//! - `StackContracts`: Session stacking operations
 //! - `AgentContracts`: Agent coordination
 //! - `StatusContracts`: Status reporting
 //! - `ConfigContracts`: Configuration management
@@ -32,9 +30,7 @@ mod doctor;
 mod domain_types;
 mod error;
 mod macros;
-mod queue;
 mod session;
-mod stack;
 mod status;
 mod task;
 
@@ -43,15 +39,13 @@ pub use config::ConfigContracts;
 pub use doctor::{CheckStatus, DoctorStatus};
 pub use domain_types::{
     AgentId, AgentStatus, AgentType, ConfigKey, ConfigScope, ConfigValue, FileStatus, Limit,
-    NonEmptyString, OutputFormat, Priority, QueueStatus, SessionName, SessionStatus, TaskId,
+    NonEmptyString, OutputFormat, Priority, SessionName, SessionStatus, TaskId,
     TaskPriority, TaskStatus, TimeoutSeconds,
 };
 pub use error::ContractError;
 #[allow(unused_imports)]
 pub use macros::*;
-pub use queue::QueueContracts;
 pub use session::SessionContracts;
-pub use stack::StackContracts;
 pub use status::StatusContracts;
 pub use task::TaskContracts;
 

@@ -31,8 +31,6 @@ pub mod list;
 pub mod lock;
 pub mod prune_invalid;
 pub mod query;
-pub mod queue;
-pub mod queue_worker;
 pub mod recover;
 pub mod remove;
 pub mod rename;
@@ -57,7 +55,6 @@ pub mod whatif;
 pub mod whereami;
 pub mod whoami;
 pub mod work;
-pub mod worker_error;
 pub mod workspace_utils;
 
 use std::path::{Path, PathBuf};
@@ -157,26 +154,6 @@ pub async fn get_db_path() -> Result<PathBuf> {
     resolve_state_db_path(&port, repo_root).await
 }
 
-/// Get the merge queue database path for the current repository.
-///
-/// Returns the same path as state.db to consolidate all data into one database.
-///
-/// # Errors
-///
-/// Returns an error if JJ prerequisites are not met.
-pub async fn get_queue_db_path() -> Result<PathBuf> {
-    // Use state.db instead of separate queue.db (bd-30s)
-    get_db_path().await
-}
-
-/// Get the session database for the current repository
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Prerequisites are not met (JJ not installed or not in a JJ repo)
-/// - ZJJ is not initialized
-/// - Unable to open the database
 pub async fn get_session_db() -> Result<SessionDb> {
     let db_path = get_db_path().await?;
 

@@ -9,7 +9,7 @@ use std::time::SystemTime;
 use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
-use zjj_core::{coordination::queue_status::QueueStatus, Error, Result, WorkspaceState};
+use zjj_core::{Error, Result, WorkspaceState};
 
 /// Session status representing the lifecycle state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -79,10 +79,6 @@ pub struct Session {
     pub last_synced: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_session: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub queue_status: Option<QueueStatus>,
 }
 
 impl Session {
@@ -110,8 +106,6 @@ impl Session {
             updated_at: now,
             last_synced: None,
             metadata: None,
-            parent_session: None,
-            queue_status: None,
         })
     }
 }
@@ -129,10 +123,6 @@ pub struct SessionUpdate {
     pub last_synced: Option<u64>,
     /// Update the metadata
     pub metadata: Option<serde_json::Value>,
-    /// Update the parent session
-    pub parent_session: Option<String>,
-    /// Update the queue status
-    pub queue_status: Option<QueueStatus>,
 }
 
 /// Reserved keywords that cannot be used as session names

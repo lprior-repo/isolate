@@ -18,9 +18,9 @@ use zjj_core::domain::events::{
     serialize_event, serialize_event_bytes, DomainEvent, EventMetadata, StoredEvent,
 };
 use zjj_core::domain::identifiers::{
-    AbsolutePath, AgentId, BeadId, QueueEntryId, SessionId, SessionName, TaskId, WorkspaceName,
+    AbsolutePath, AgentId, BeadId, SessionId, SessionName, TaskId, WorkspaceName,
 };
-use zjj_core::domain::session::{BranchState, ParentState};
+use zjj_core::domain::session::BranchState;
 use zjj_core::beads::{
     Assignee, BlockedBy, DependsOn, Description, IssueId, IssueState, IssueType, Labels,
     Priority, Title,
@@ -167,33 +167,6 @@ fn test_session_id_rejects_non_ascii() {
     // Non-ASCII characters should be rejected
     let result: Result<SessionId, _> = serde_json::from_str("\"session-日本語\"");
     assert!(result.is_err(), "Session ID with non-ASCII should be rejected");
-}
-
-#[test]
-fn test_queue_entry_id_json_roundtrip() {
-    let original = QueueEntryId::new(42).expect("valid queue entry ID");
-
-    // Serialize to JSON
-    let json = serde_json::to_string(&original).expect("serialization failed");
-    assert_eq!(json, "42");
-
-    // Deserialize from JSON
-    let deserialized: QueueEntryId = serde_json::from_str(&json).expect("deserialization failed");
-    assert_eq!(deserialized, original);
-}
-
-#[test]
-fn test_queue_entry_id_rejects_negative() {
-    // Negative values should be rejected
-    let result: Result<QueueEntryId, _> = serde_json::from_str("-1");
-    assert!(result.is_err(), "Negative queue entry ID should be rejected");
-}
-
-#[test]
-fn test_queue_entry_id_rejects_zero() {
-    // Zero should be rejected
-    let result: Result<QueueEntryId, _> = serde_json::from_str("0");
-    assert!(result.is_err(), "Zero queue entry ID should be rejected");
 }
 
 #[test]
@@ -465,26 +438,6 @@ fn test_branch_state_snake_case() {
     assert!(parsed.get("on_branch").is_some());
 }
 
-#[test]
-fn test_parent_state_json_roundtrip() {
-    let test_cases = vec![
-        ParentState::Root,
-        ParentState::ChildOf {
-            parent: SessionName::parse("parent-session").expect("valid"),
-        },
-    ];
-
-    for state in test_cases {
-        // Serialize to JSON
-        let json = serde_json::to_string(&state).expect("serialization failed");
-
-        // Deserialize from JSON
-        let deserialized: ParentState =
-            serde_json::from_str(&json).expect("deserialization failed");
-        assert_eq!(deserialized, state);
-    }
-}
-
 // ============================================================================
 // COLLECTION TYPE TESTS
 // ============================================================================
@@ -659,17 +612,6 @@ fn test_special_characters_in_paths() {
 }
 
 #[test]
-fn test_numeric_edge_cases() {
-    // Test boundary values for QueueEntryId
-    let valid = QueueEntryId::new(1).expect("valid");
-    assert_eq!(valid.value(), 1);
-
-    // Zero should fail
-    let result: Result<QueueEntryId, _> = serde_json::from_str("0");
-    assert!(result.is_err());
-}
-
-#[test]
 fn test_timestamp_serialization() {
     let now = Utc::now();
     let json = serde_json::to_string(&now).expect("serialization failed");
@@ -735,24 +677,6 @@ fn test_object_instead_of_string() {
 // ============================================================================
 // COMPLEX SCENARIOS
 // ============================================================================
-
-#[test]
-fn test_nested_domain_types() {
-    let parent_name = SessionName::parse("parent-session").expect("valid");
-    let parent_state = ParentState::ChildOf {
-        parent: parent_name,
-    };
-
-    let json = serde_json::to_string(&parent_state).expect("serialization failed");
-    let deserialized: ParentState = serde_json::from_str(&json).expect("deserialization failed");
-
-    match deserialized {
-        ParentState::ChildOf { parent } => {
-            assert_eq!(parent.as_str(), "parent-session");
-        }
-        _ => panic!("Expected ChildOf state"),
-    }
-}
 
 #[test]
 fn test_event_with_all_fields() {

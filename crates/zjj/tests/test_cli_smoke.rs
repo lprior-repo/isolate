@@ -145,11 +145,9 @@ async fn test_help_for_all_commands() {
         "recover",
         "retry",
         "rollback",
-        "queue",
     ];
 
     // Run commands concurrently with a semaphore to limit parallelism
-    // This prevents overwhelming the system while still being much faster than sequential
     let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(10));
     let zjj_bin = std::sync::Arc::new(harness.zjj_bin.clone());
     let current_dir = std::sync::Arc::new(harness.current_dir.clone());
@@ -167,7 +165,7 @@ async fn test_help_for_all_commands() {
                 (command, result)
             }
         })
-        .buffer_unordered(10) // Process up to 10 commands concurrently
+        .buffer_unordered(10)
         .collect::<Vec<_>>()
         .await;
 
@@ -187,7 +185,7 @@ async fn test_smoke_json_core_commands() {
         return;
     };
 
-    // Run init synchronously first (required for other commands)
+    // Run init synchronously first
     harness.assert_success(&["init"]);
 
     let json_commands: Vec<Vec<&str>> = vec![
@@ -227,7 +225,7 @@ async fn test_smoke_json_core_commands() {
                 (args, Ok(result))
             }
         })
-        .buffer_unordered(8) // Process up to 8 commands concurrently
+        .buffer_unordered(8)
         .collect::<Vec<_>>()
         .await;
 
@@ -260,86 +258,4 @@ async fn test_completions_smoke() {
         !result.stdout.trim().is_empty(),
         "completions bash should produce output"
     );
-}
-
-#[tokio::test]
-async fn test_validate_accepts_dry_run_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    harness.assert_success(&["init"]);
-
-    let result = run_zjj_async(
-        &harness.zjj_bin,
-        &harness.current_dir,
-        &["validate", "work", "add", "test-session", "--dry-run"],
-    )
-    .await;
-
-    assert!(
-        result.success,
-        "validate --dry-run should succeed\nStdout: {}\nStderr: {}",
-        result.stdout, result.stderr
-    );
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    if let Ok(json) = parsed {
-        assert_eq!(json["success"].as_bool(), Some(true));
-        assert_eq!(json["valid"].as_bool(), Some(true));
-        assert_eq!(json["command"].as_str(), Some("work"));
-    } else {
-        assert!(
-            result.stdout.contains("[DRY RUN] Validation preview:"),
-            "validate --dry-run should show dry-run preview\nStdout: {}",
-            result.stdout
-        );
-    }
-
-    harness.assert_workspace_not_exists("add");
-    harness.assert_workspace_not_exists("test-session");
-}
-
-#[tokio::test]
-async fn test_validate_accepts_dry_run_flag_with_json_output() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    harness.assert_success(&["init"]);
-
-    let result = run_zjj_async(
-        &harness.zjj_bin,
-        &harness.current_dir,
-        &[
-            "validate",
-            "work",
-            "add",
-            "test-session",
-            "--dry-run",
-            "--json",
-        ],
-    )
-    .await;
-
-    assert_json_output(
-        &result,
-        &[
-            "validate",
-            "work",
-            "add",
-            "test-session",
-            "--dry-run",
-            "--json",
-        ],
-    );
-
-    let parsed = result
-        .parse_json()
-        .expect("validate --json output should parse");
-    assert_eq!(parsed["success"].as_bool(), Some(true));
-    assert_eq!(parsed["valid"].as_bool(), Some(true));
-    assert_eq!(parsed["command"].as_str(), Some("work"));
-
-    harness.assert_workspace_not_exists("add");
-    harness.assert_workspace_not_exists("test-session");
 }

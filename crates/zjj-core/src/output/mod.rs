@@ -28,63 +28,13 @@
 //! **Core output types:**
 //! - [`OutputLine`] - Top-level output line enum (all possible outputs)
 //! - [`Session`] - Session state and information
-//! - [`Stack`] - Stack of workspace states
-//! - [`QueueEntry`] - Queue entry information
-//! - [`Train`] - Train processing information
 //! - [`Action`] - Action execution status
 //!
 //! **Domain types** (`domain_types`):
 //! - [`BeadId`] - Bead/task identifier
 //! - [`IssueId`] - Issue identifier
 //! - [`AgentId`] - Agent identifier
-//! - [`QueueEntryId`] - Queue entry identifier
 //! - [`Command`] - Command execution metadata
-//!
-//! ## Output Types
-//!
-//! ### Session Output
-//!
-//! ```json
-//! {"type":"session","session_id":"session-123","name":"my-session","state":"active"}
-//! ```
-//!
-//! Session outputs represent:
-//! - Session creation and lifecycle events
-//! - Current active session state
-//! - Session completion/failure
-//!
-//! ### Stack Output
-//!
-//! ```json
-//! {"type":"stack","entries":[...],"depth":3,"root":"workspace-root"}
-//! ```
-//!
-//! Stack outputs show:
-//! - Nested workspace hierarchy
-//! - State of each workspace in the stack
-//! - Depth and root workspace information
-//!
-//! ### Queue Output
-//!
-//! ```json
-//! {"type":"queue_entry","entry_id":42,"workspace":"my-workspace","status":"queued"}
-//! ```
-//!
-//! Queue outputs show:
-//! - Queue state and entries
-//! - Entry positions and priorities
-//! - Claim status and agent assignments
-//!
-//! ### Train Output
-//!
-//! ```json
-//! {"type":"train","train_id":"train-abc","status":"processing","steps":[...]}
-//! ```
-//!
-//! Train outputs track:
-//! - Merge train processing progress
-//! - Step execution status
-//! - Quality gate results
 //!
 //! ## Usage Patterns
 //!
@@ -94,43 +44,17 @@
 //! use zjj_core::output::{emit_stdout, OutputLine, Session, SessionState};
 //!
 //! let session = Session {
-//!     session_id: "session-123".to_string(),
 //!     name: "my-session".to_string(),
-//!     state: SessionState::Active,
+//!     status: zjj_core::types::SessionStatus::Active,
+//!     state: zjj_core::WorkspaceState::Active,
+//!     workspace_path: std::path::PathBuf::from("/path/to/workspace"),
+//!     branch: None,
+//!     created_at: chrono::Utc::now(),
+//!     updated_at: chrono::Utc::now(),
 //! };
 //!
 //! let output = OutputLine::Session(session);
 //! emit_stdout(output)?;
-//! ```
-//!
-//! ### Error Output
-//!
-//! ```rust
-//! use zjj_core::output::{emit_stdout, OutputLine, Issue, IssueKind, IssueSeverity};
-//!
-//! let issue = Issue {
-//!     kind: IssueKind::Validation,
-//!     severity: IssueSeverity::Error,
-//!     message: "Invalid workspace name".to_string(),
-//!     context: vec![],
-//! };
-//!
-//! let output = OutputLine::Issue(issue);
-//! emit_stdout(output)?;
-//! ```
-//!
-//! ### Collection Emission
-//!
-//! ```rust
-//! use zjj_core::output::{emit_all_stdout, OutputLine};
-//!
-//! let outputs = vec![
-//!     OutputLine::Session(session1),
-//!     OutputLine::Session(session2),
-//!     OutputLine::Summary(summary),
-//! ];
-//!
-//! emit_all_stdout(outputs)?;
 //! ```
 //!
 //! ## Output Writers
@@ -147,31 +71,6 @@
 //! - [`VecEmitter`] - In-memory collector for testing
 //! - [`StdoutEmitter`] - Stdout emitter
 //!
-//! ## Domain Types
-//!
-//! The `domain_types` module provides semantic types for output:
-//!
-//! **Identifiers:**
-//! - [`BeadId`] - Bead identifier with `bd-` prefix
-//! - [`IssueId`] - Issue identifier
-//! - [`AgentId`] - Agent identifier
-//! - [`QueueEntryId`] - Queue entry identifier
-//!
-//! **Commands:**
-//! - [`Command`] - Command execution metadata
-//! - [`Command::name()`] - Get command name
-//! - [`Command::args()`] - Get command arguments
-//!
-//! **Actions:**
-//! - [`Action`] - Action execution status
-//! - [`ActionVerb`] - Type of action (merge, rebase, etc.)
-//! - [`ActionStatus`] - Action status (pending, running, completed, failed)
-//!
-//! **Recovery:**
-//! - [`Recovery`] - Recovery action information
-//! - [`RecoveryAction`] - Specific recovery action
-//! - [`RecoveryCapability`] - Available recovery options
-//!
 //! ## Error Handling
 //!
 //! Output errors are represented by [`OutputLineError`]:
@@ -180,20 +79,6 @@
 //! - **Invalid data** - Output data violates schema
 //!
 //! All output operations return `Result<(), OutputLineError>`.
-//!
-//! ## Testing
-//!
-//! Use test utilities for testing:
-//!
-//! ```rust
-//! use zjj_core::output::{VecEmitter, OutputEmitter};
-//!
-//! let mut emitter = VecEmitter::new();
-//! let output = OutputLine::Session(session);
-//!
-//! emitter.emit(output)?;
-//! assert_eq!(emitter.lines().len(), 1);
-//! ```
 //!
 //! ## Related Modules
 //!
@@ -209,17 +94,14 @@ mod writer;
 pub use domain_types::{
     ActionResult, ActionTarget, ActionVerb, AgentAssignment, BaseRef, BeadAttachment, BeadId,
     Command, ExecutionMode, IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription,
-    PlanTitle, QueueEntryId, RecoveryCapability, RecoveryExecution, TrainId, ValidatedMetadata,
-    WarningCode,
+    PlanTitle, RecoveryCapability, RecoveryExecution, ValidatedMetadata, WarningCode,
 };
 pub use test_utils::{OutputEmitter, StdoutEmitter, VecEmitter};
 pub use types::{
     Action, ActionStatus, Assessment, ConflictAnalysis, ConflictDetail, ConflictType, Context,
     ErrorSeverity, Issue, IssueKind, IssueSeverity, OutputLine, OutputLineError, Plan, PlanStep,
-    QueueCounts, QueueEntry, QueueEntryStatus, QueueSummary, Recovery, RecoveryAction,
-    ResolutionOption, ResolutionRisk, ResolutionStrategy, ResultKind, ResultOutput, Session,
-    SessionOutput, SessionState, Stack, StackEntry, StackEntryStatus, Summary, SummaryType, Train,
-    TrainAction, TrainStatus, TrainStep, TrainStepStatus, Warning,
+    Recovery, RecoveryAction, ResolutionOption, ResolutionRisk, ResolutionStrategy, ResultKind,
+    ResultOutput, Session, SessionOutput, SessionState, Summary, SummaryType, Warning,
 };
 pub use writer::{emit, emit_all_stdout, emit_stdout, JsonlConfig, JsonlWriter};
 

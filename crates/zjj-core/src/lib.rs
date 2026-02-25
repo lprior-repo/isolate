@@ -88,15 +88,10 @@ pub mod types;
 mod types_tests;
 pub mod validation;
 pub mod watcher;
-pub mod worker_error;
 pub mod workspace_integrity;
 pub mod workspace_state;
 
 pub use config::{ConfigManager, RecoveryPolicy};
-pub use coordination::{
-    MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus,
-    TransitionError,
-};
 pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
 // Re-export fs2 for file locking utilities

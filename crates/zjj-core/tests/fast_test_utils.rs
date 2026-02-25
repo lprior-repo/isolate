@@ -45,14 +45,13 @@ use thiserror::Error;
 
 use zjj_core::output::{
     domain_types::{
-        ActionTarget, ActionVerb, BaseRef, BeadAttachment, BeadId, IssueId, IssueTitle,
-        Message, Outcome, PlanDescription, PlanTitle, QueueEntryId, SessionName, TrainId,
-        WarningCode,
+        ActionTarget, ActionVerb, Message,
+        Outcome, PlanDescription, PlanTitle, SessionName, WarningCode,
+        IssueId, IssueTitle,
     },
-    Action, ActionStatus, Issue, IssueKind, IssueSeverity,
-    OutputLine, Plan, QueueEntry, QueueEntryStatus, QueueSummary, ResultOutput,
-    SessionOutput, Stack, StackEntryStatus, Summary, SummaryType, Train,
-    TrainAction, TrainStepStatus, Warning,
+    Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, Plan,
+    ResultOutput, SessionOutput, Summary,
+    SummaryType, Warning, OutputLineError,
 };
 use zjj_core::types::SessionStatus;
 use zjj_core::WorkspaceState;
@@ -115,10 +114,6 @@ pub struct InMemorySession {
     pub created_at: DateTime<Utc>,
     /// Last update timestamp
     pub updated_at: DateTime<Utc>,
-    /// Parent session (for stacked sessions)
-    pub parent: Option<String>,
-    /// Stack depth (0 for top-level)
-    pub depth: u32,
 }
 
 impl InMemorySession {
@@ -139,8 +134,6 @@ impl InMemorySession {
             branch: None,
             created_at: now,
             updated_at: now,
-            parent: None,
-            depth: 0,
         })
     }
 
@@ -157,28 +150,6 @@ impl InMemorySession {
             self.workspace_path.clone(),
         )
         .map_err(|e| FastTestError::OutputConstruction(e.to_string()))
-    }
-
-    /// Create a stacked session on top of this one
-    ///
-    /// # Errors
-    ///
-    /// Returns `FastTestError::InvalidSessionName` if the name is invalid.
-    pub fn create_stacked(&self, name: &str) -> Result<Self, FastTestError> {
-        let session_name = SessionName::parse(name)
-            .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?;
-        let now = Utc::now();
-        Ok(Self {
-            name: session_name,
-            status: SessionStatus::Active,
-            state: WorkspaceState::Created,
-            workspace_path: PathBuf::from(format!("/mock/workspaces/{name}")),
-            branch: None,
-            created_at: now,
-            updated_at: now,
-            parent: Some(self.name.as_str().to_string()),
-            depth: self.depth + 1,
-        })
     }
 
     /// Set the branch name
@@ -205,105 +176,6 @@ impl InMemorySession {
     pub fn with_status(self, status: SessionStatus) -> Self {
         Self {
             status,
-            updated_at: Utc::now(),
-            ..self
-        }
-    }
-}
-
-/// In-memory queue entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InMemoryQueueEntry {
-    /// Entry ID
-    pub id: QueueEntryId,
-    /// Session name
-    pub session: SessionName,
-    /// Priority (lower is higher priority)
-    pub priority: u8,
-    /// Entry status
-    pub status: QueueEntryStatus,
-    /// Optional bead attachment
-    pub bead: Option<String>,
-    /// Optional agent assignment
-    pub agent: Option<String>,
-    /// Creation timestamp
-    pub created_at: DateTime<Utc>,
-    /// Last update timestamp
-    pub updated_at: DateTime<Utc>,
-}
-
-impl InMemoryQueueEntry {
-    /// Create a new queue entry
-    ///
-    /// # Errors
-    ///
-    /// Returns `FastTestError::InvalidSessionName` if the session name is invalid.
-    pub fn new(id: i64, session: &str, priority: u8) -> Result<Self, FastTestError> {
-        let entry_id = QueueEntryId::new(id)
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
-        let session_name = SessionName::parse(session)
-            .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?;
-        let now = Utc::now();
-        Ok(Self {
-            id: entry_id,
-            session: session_name,
-            priority,
-            status: QueueEntryStatus::Pending,
-            bead: None,
-            agent: None,
-            created_at: now,
-            updated_at: now,
-        })
-    }
-
-    /// Convert to `QueueEntry` for output
-    ///
-    /// # Errors
-    ///
-    /// Returns `FastTestError::OutputConstruction` if conversion fails.
-    pub fn to_queue_entry(&self) -> Result<QueueEntry, FastTestError> {
-        let mut entry = QueueEntry::new(self.id, self.session.clone(), self.priority)
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?
-            .with_status(self.status);
-
-        if let Some(ref bead_id) = self.bead {
-            if let Ok(bead) = BeadId::parse(bead_id) {
-                entry = entry.with_bead(bead);
-            }
-        }
-
-        if let Some(ref agent_id) = self.agent {
-            entry = entry.with_agent(agent_id.clone());
-        }
-
-        Ok(entry)
-    }
-
-    /// Set the status
-    #[must_use]
-    pub fn with_status(self, status: QueueEntryStatus) -> Self {
-        Self {
-            status,
-            updated_at: Utc::now(),
-            ..self
-        }
-    }
-
-    /// Set the agent
-    #[must_use]
-    pub fn with_agent(self, agent: impl Into<String>) -> Self {
-        Self {
-            agent: Some(agent.into()),
-            updated_at: Utc::now(),
-            ..self
-        }
-    }
-
-    /// Set the bead
-    #[must_use]
-    pub fn with_bead(self, bead: impl Into<String>) -> Self {
-        Self {
-            bead: Some(bead.into()),
             updated_at: Utc::now(),
             ..self
         }
@@ -352,12 +224,8 @@ pub struct InMemoryWorkspace {
 pub struct FastTestHarness {
     /// Sessions indexed by name
     sessions: HashMap<String, InMemorySession>,
-    /// Queue entries indexed by ID
-    queue_entries: HashMap<i64, InMemoryQueueEntry>,
     /// Workspaces indexed by name
     workspaces: HashMap<String, InMemoryWorkspace>,
-    /// Next queue entry ID
-    next_queue_id: i64,
     /// Current session (focused)
     current_session: Option<String>,
 }
@@ -368,9 +236,7 @@ impl FastTestHarness {
     pub fn new() -> Self {
         Self {
             sessions: HashMap::new(),
-            queue_entries: HashMap::new(),
             workspaces: HashMap::new(),
-            next_queue_id: 1,
             current_session: None,
         }
     }
@@ -428,36 +294,6 @@ impl FastTestHarness {
         Ok(Self {
             sessions: new_sessions,
             workspaces: new_workspaces,
-            ..self.clone()
-        })
-    }
-
-    /// Add a stacked session on top of an existing one
-    ///
-    /// # Errors
-    ///
-    /// Returns `FastTestError::SessionNotFound` if the parent does not exist.
-    /// Returns `FastTestError::SessionAlreadyExists` if the child already exists.
-    pub fn add_stacked_session(
-        &self,
-        parent: &str,
-        child: &str,
-    ) -> Result<Self, FastTestError> {
-        let parent_session = self
-            .sessions
-            .get(parent)
-            .ok_or_else(|| FastTestError::SessionNotFound(parent.to_string()))?;
-
-        if self.sessions.contains_key(child) {
-            return Err(FastTestError::SessionAlreadyExists(child.to_string()));
-        }
-
-        let stacked = parent_session.create_stacked(child)?;
-        let mut new_sessions = self.sessions.clone();
-        new_sessions.insert(child.to_string(), stacked);
-
-        Ok(Self {
-            sessions: new_sessions,
             ..self.clone()
         })
     }
@@ -527,91 +363,6 @@ impl FastTestHarness {
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // QUEUE MANAGEMENT
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    /// Add a queue entry
-    ///
-    /// # Errors
-    ///
-    /// Returns `FastTestError::InvalidSessionName` if the session name is invalid.
-    pub fn add_queue_entry(&self, session: &str, priority: u8) -> Result<Self, FastTestError> {
-        let id = self.next_queue_id;
-        let entry = InMemoryQueueEntry::new(id, session, priority)?;
-
-        let mut new_entries = self.queue_entries.clone();
-        new_entries.insert(id, entry);
-
-        Ok(Self {
-            queue_entries: new_entries,
-            next_queue_id: id + 1,
-            ..self.clone()
-        })
-    }
-
-    /// Update queue entry status
-    ///
-    /// # Errors
-    ///
-    /// Returns `FastTestError::SessionNotFound` if the entry does not exist.
-    pub fn update_queue_status(
-        &self,
-        id: i64,
-        status: QueueEntryStatus,
-    ) -> Result<Self, FastTestError> {
-        let entry = self
-            .queue_entries
-            .get(&id)
-            .ok_or_else(|| FastTestError::SessionNotFound(format!("queue entry {id}")))?;
-
-        let updated = entry.clone().with_status(status);
-        let mut new_entries = self.queue_entries.clone();
-        new_entries.insert(id, updated);
-
-        Ok(Self {
-            queue_entries: new_entries,
-            ..self.clone()
-        })
-    }
-
-    /// Get all queue entries
-    #[must_use]
-    pub fn all_queue_entries(&self) -> Vec<&InMemoryQueueEntry> {
-        self.queue_entries.values().sorted_by_key(|e| e.priority).collect()
-    }
-
-    /// Get queue summary
-    #[must_use]
-    pub fn queue_summary(&self) -> QueueSummary {
-        let entries: Vec<_> = self.queue_entries.values().collect();
-
-        let pending = entries
-            .iter()
-            .filter(|e| matches!(e.status, QueueEntryStatus::Pending))
-            .count();
-        let ready = entries
-            .iter()
-            .filter(|e| matches!(e.status, QueueEntryStatus::Ready))
-            .count();
-        let blocked = entries
-            .iter()
-            .filter(|e| matches!(e.status, QueueEntryStatus::Blocked))
-            .count();
-        let in_progress = entries
-            .iter()
-            .filter(|e| matches!(e.status, QueueEntryStatus::InProgress))
-            .count();
-
-        QueueSummary::new().with_counts(zjj_core::output::QueueCounts {
-            total: u32::try_from(entries.len()).unwrap_or(u32::MAX),
-            pending: u32::try_from(pending).unwrap_or(u32::MAX),
-            ready: u32::try_from(ready).unwrap_or(u32::MAX),
-            blocked: u32::try_from(blocked).unwrap_or(u32::MAX),
-            in_progress: u32::try_from(in_progress).unwrap_or(u32::MAX),
-        })
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // COMMAND SIMULATION
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -628,8 +379,6 @@ impl FastTestHarness {
             Some("add") => self.run_add_command(&parts[1..]),
             Some("remove") => self.run_remove_command(&parts[1..]),
             Some("focus") => self.run_focus_command(&parts[1..]),
-            Some("queue") => self.run_queue_command(&parts[1..]),
-            Some("stack") => self.run_stack_command(&parts[1..]),
             Some(cmd) => Err(FastTestError::UnknownCommand(cmd.to_string())),
             None => Err(FastTestError::UnknownCommand(String::new())),
         }
@@ -642,10 +391,7 @@ impl FastTestHarness {
             .filter_map(|s| s.to_session_output().ok())
             .collect();
 
-        let lines: Vec<OutputLine> = sessions
-            .into_iter()
-            .map(OutputLine::Session)
-            .collect();
+        let lines: Vec<OutputLine> = sessions.into_iter().map(OutputLine::Session).collect();
 
         Ok(CommandOutput::new(lines))
     }
@@ -681,11 +427,8 @@ impl FastTestHarness {
         let message = Message::new(format!("Removed session: {name}"))
             .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
 
-        let result = ResultOutput::success(
-            zjj_core::output::ResultKind::Command,
-            message,
-        )
-        .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
+        let result = ResultOutput::success(zjj_core::output::ResultKind::Command, message)
+            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
 
         Ok(CommandOutput::new(vec![OutputLine::Result(result)]))
     }
@@ -710,95 +453,6 @@ impl FastTestHarness {
             OutputLine::Session(output),
             OutputLine::Summary(summary),
         ]))
-    }
-
-    fn run_queue_command(&self, args: &[&str]) -> Result<CommandOutput, FastTestError> {
-        match args.first().copied() {
-            Some("list") => {
-                let entries: Vec<QueueEntry> = self
-                    .queue_entries
-                    .values()
-                    .filter_map(|e| e.to_queue_entry().ok())
-                    .collect();
-
-                let summary = self.queue_summary();
-
-                let lines: Vec<OutputLine> = std::iter::once(OutputLine::QueueSummary(summary))
-                    .chain(entries.into_iter().map(OutputLine::QueueEntry))
-                    .collect();
-
-                Ok(CommandOutput::new(lines))
-            }
-            Some("summary") => {
-                let summary = self.queue_summary();
-                Ok(CommandOutput::new(vec![OutputLine::QueueSummary(
-                    summary,
-                )]))
-            }
-            _ => Err(FastTestError::InvalidArgument {
-                command: "queue".to_string(),
-                details: "expected 'list' or 'summary'".to_string(),
-            }),
-        }
-    }
-
-    fn run_stack_command(&self, args: &[&str]) -> Result<CommandOutput, FastTestError> {
-        let name = args.first().copied().unwrap_or("");
-
-        // Find sessions in the stack (this session and its children)
-        let stack_sessions: Vec<&InMemorySession> = if name.is_empty() {
-            self.sessions.values().collect()
-        } else {
-            self.sessions
-                .values()
-                .filter(|s| s.name.as_str() == name || s.parent.as_deref() == Some(name))
-                .collect()
-        };
-
-        if stack_sessions.is_empty() && !name.is_empty() {
-            return Err(FastTestError::SessionNotFound(name.to_string()));
-        }
-
-        let first = stack_sessions.first().copied();
-        let base_ref = BaseRef::new("main");
-
-        let stack_result = if let Some(first_session) = first {
-            let mut stack = Stack::new(first_session.name.clone(), base_ref)
-                .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
-
-            for (order, session) in stack_sessions.iter().enumerate() {
-                let status = if session.state == WorkspaceState::Conflict {
-                    StackEntryStatus::Failed
-                } else {
-                    StackEntryStatus::Ready
-                };
-
-                stack = stack
-                    .with_entry(
-                        session.name.clone(),
-                        session.workspace_path.clone(),
-                        status,
-                        BeadAttachment::None,
-                    )
-                    .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
-
-                // Add order check - we only want one entry per session
-                if order > 0 {
-                    break;
-                }
-            }
-
-            stack
-        } else {
-            Stack::new(
-                SessionName::parse("empty-stack")
-                    .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?,
-                base_ref,
-            )
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?
-        };
-
-        Ok(CommandOutput::new(vec![OutputLine::Stack(stack_result)]))
     }
 }
 
@@ -857,30 +511,6 @@ impl CommandOutput {
     #[must_use]
     pub fn session_count(&self) -> usize {
         self.sessions().len()
-    }
-
-    /// Check if output contains a queue entry
-    #[must_use]
-    pub fn contains_queue_entry(&self, session: &str) -> bool {
-        self.lines.iter().any(|line| {
-            if let OutputLine::QueueEntry(entry) = line {
-                entry.session.as_str() == session
-            } else {
-                false
-            }
-        })
-    }
-
-    /// Get queue summary if present
-    #[must_use]
-    pub fn queue_summary(&self) -> Option<&QueueSummary> {
-        self.lines.iter().find_map(|line| {
-            if let OutputLine::QueueSummary(summary) = line {
-                Some(summary)
-            } else {
-                None
-            }
-        })
     }
 
     /// Convert to JSONL string
@@ -968,15 +598,11 @@ impl JsonValidator {
         // OutputLine is serialized as an internally tagged enum
         json.get("session").is_some()
             || json.get("summary").is_some()
-            || json.get("queue_entry").is_some()
-            || json.get("queue_summary").is_some()
-            || json.get("stack").is_some()
             || json.get("result").is_some()
             || json.get("action").is_some()
             || json.get("warning").is_some()
             || json.get("issue").is_some()
             || json.get("plan").is_some()
-            || json.get("train").is_some()
     }
 
     /// Parse JSONL and extract all session names
@@ -1002,17 +628,6 @@ impl JsonValidator {
             .is_some_and(|n| !n.is_empty())
             && json.get("status").is_some()
             && json.get("workspace_path").is_some()
-    }
-
-    /// Validate queue entry structure
-    #[must_use]
-    pub fn is_valid_queue_entry(json: &serde_json::Value) -> bool {
-        json.get("id").is_some()
-            && json
-                .get("session")
-                .and_then(|s| s.as_str())
-                .is_some_and(|s| !s.is_empty())
-            && json.get("status").is_some()
     }
 }
 
@@ -1044,32 +659,6 @@ impl Fixtures {
             .add_session("feature-db")?
             .add_session("bugfix-timeout")?
             .add_session("refactor-config")
-    }
-
-    /// Create a harness with a stacked session
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if session creation fails.
-    pub fn stacked_harness() -> Result<FastTestHarness, FastTestError> {
-        FastTestHarness::new()
-            .add_session("feature-auth")?
-            .add_stacked_session("feature-auth", "feature-auth-tests")
-    }
-
-    /// Create a harness with queue entries
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if creation fails.
-    pub fn queue_harness() -> Result<FastTestHarness, FastTestError> {
-        FastTestHarness::new()
-            .add_session("task-1")?
-            .add_session("task-2")?
-            .add_session("task-3")?
-            .add_queue_entry("task-1", 1)?
-            .add_queue_entry("task-2", 5)?
-            .add_queue_entry("task-3", 10)
     }
 
     /// Create a harness with a conflicted session
@@ -1110,47 +699,14 @@ impl Fixtures {
         .map_err(|e| FastTestError::OutputConstruction(e.to_string()))
     }
 
-    /// Create a sample queue entry output
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if creation fails.
-    pub fn sample_queue_entry() -> Result<QueueEntry, FastTestError> {
-        let id = QueueEntryId::new(1).map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
-        let session = SessionName::parse("task-1")
-            .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?;
-
-        QueueEntry::new(id, session, 5).map_err(|e| FastTestError::OutputConstruction(e.to_string()))
-    }
-
-    /// Create a sample stack output
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if creation fails.
-    pub fn sample_stack() -> Result<Stack, FastTestError> {
-        let session = SessionName::parse("feature-auth")
-            .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?;
-        let base_ref = BaseRef::new("main");
-
-        Stack::new(session.clone(), base_ref)
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?
-            .with_entry(
-                session,
-                PathBuf::from("/mock/workspaces/feature-auth"),
-                StackEntryStatus::Ready,
-                BeadAttachment::None,
-            )
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))
-    }
-
     /// Create a sample plan output
     ///
     /// # Errors
     ///
     /// Returns an error if creation fails.
     pub fn sample_plan() -> Result<Plan, FastTestError> {
-        let title = PlanTitle::new("Merge Plan").map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
+        let title = PlanTitle::new("Merge Plan")
+            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
         let description = PlanDescription::new("Steps to merge the feature branch")
             .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
 
@@ -1166,7 +722,9 @@ impl Fixtures {
     #[must_use]
     pub fn sample_action() -> Action {
         let verb = ActionVerb::new("merge").unwrap_or(ActionVerb::Merge);
-        let target = ActionTarget::new("feature-auth").unwrap_or_else(|_| ActionTarget::new("target").unwrap_or(ActionTarget::new("unknown").unwrap()));
+        let target = ActionTarget::new("feature-auth").unwrap_or_else(|_| {
+            ActionTarget::new("target").unwrap_or(ActionTarget::new("unknown").unwrap())
+        });
 
         Action::new(verb, target, ActionStatus::InProgress)
     }
@@ -1191,38 +749,16 @@ impl Fixtures {
     ///
     /// Returns an error if creation fails.
     pub fn sample_issue() -> Result<Issue, FastTestError> {
-        let id = IssueId::new("ISSUE-001").map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
+        let id = IssueId::new("ISSUE-001")
+            .map_err(|e: OutputLineError| FastTestError::OutputConstruction(e.to_string()))?;
         let title = IssueTitle::new("Merge conflict in authentication module")
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
+            .map_err(|e: OutputLineError| FastTestError::OutputConstruction(e.to_string()))?;
 
         Issue::new(id, title, IssueKind::StateConflict, IssueSeverity::Warning)
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))
+            .map_err(|e: OutputLineError| FastTestError::OutputConstruction(e.to_string()))
     }
 
-    /// Create a sample train output
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if creation fails.
-    pub fn sample_train() -> Result<Train, FastTestError> {
-        let id = TrainId::new("train-001").map_err(|e| FastTestError::OutputConstruction(e.to_string()))?;
-        let name = SessionName::parse("merge-train")
-            .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?;
-
-        let session1 = SessionName::parse("feature-auth")
-            .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?;
-        let session2 = SessionName::parse("feature-db")
-            .map_err(|e| FastTestError::InvalidSessionName(e.to_string()))?;
-
-        Train::new(id, name)
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?
-            .with_step(session1, TrainAction::Rebase, TrainStepStatus::Success)
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))?
-            .with_step(session2, TrainAction::Rebase, TrainStepStatus::Running)
-            .map_err(|e| FastTestError::OutputConstruction(e.to_string()))
-    }
-
-    /// Create a sample result output
+    /// Create a sample success result output
     ///
     /// # Errors
     ///
@@ -1276,7 +812,9 @@ mod tests {
     #[test]
     fn test_add_session() {
         let harness = FastTestHarness::new();
-        let harness = harness.add_session("test-session").expect("add should work");
+        let harness = harness
+            .add_session("test-session")
+            .expect("add should work");
 
         assert_eq!(harness.session_count(), 1);
         assert!(harness.get_session("test-session").is_some());
@@ -1288,7 +826,10 @@ mod tests {
         let harness = harness.add_session("test").expect("add should work");
 
         let result = harness.add_session("test");
-        assert!(matches!(result, Err(FastTestError::SessionAlreadyExists(_))));
+        assert!(matches!(
+            result,
+            Err(FastTestError::SessionAlreadyExists(_))
+        ));
     }
 
     #[test]
@@ -1317,53 +858,12 @@ mod tests {
     }
 
     #[test]
-    fn test_add_stacked_session() {
-        let harness = FastTestHarness::new();
-        let harness = harness.add_session("parent").expect("add should work");
-        let harness = harness
-            .add_stacked_session("parent", "child")
-            .expect("stacked should work");
-
-        let child = harness.get_session("child").expect("child should exist");
-        assert_eq!(child.parent, Some("parent".to_string()));
-        assert_eq!(child.depth, 1);
-    }
-
-    #[test]
     fn test_focus_session() {
         let harness = FastTestHarness::new();
         let harness = harness.add_session("test").expect("add should work");
 
         let harness = harness.focus_session("test").expect("focus should work");
         assert_eq!(harness.current_session, Some("test".to_string()));
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // QUEUE TESTS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_add_queue_entry() {
-        let harness = FastTestHarness::new();
-        let harness = harness
-            .add_queue_entry("task-1", 5)
-            .expect("add queue should work");
-
-        let entries = harness.all_queue_entries();
-        assert_eq!(entries.len(), 1);
-    }
-
-    #[test]
-    fn test_queue_summary() {
-        let harness = FastTestHarness::new()
-            .add_session("t1").expect("add session")
-            .add_queue_entry("t1", 1).expect("add queue")
-            .add_session("t2").expect("add session")
-            .add_queue_entry("t2", 5).expect("add queue");
-
-        let summary = harness.queue_summary();
-        assert_eq!(summary.total, 2);
-        assert_eq!(summary.pending, 2);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1384,7 +884,9 @@ mod tests {
     fn test_run_add_command() {
         let harness = FastTestHarness::new();
 
-        let output = harness.run_command("add new-session").expect("add should work");
+        let output = harness
+            .run_command("add new-session")
+            .expect("add should work");
         assert!(output.contains_session("new-session"));
     }
 
@@ -1393,19 +895,10 @@ mod tests {
         let harness = FastTestHarness::new();
         let harness = harness.add_session("test").expect("add should work");
 
-        let output = harness.run_command("remove test").expect("remove should work");
+        let output = harness
+            .run_command("remove test")
+            .expect("remove should work");
         assert!(output.is_success());
-    }
-
-    #[test]
-    fn test_run_queue_list_command() {
-        let harness = FastTestHarness::new()
-            .add_session("t1").expect("add session")
-            .add_queue_entry("t1", 1).expect("add queue");
-
-        let output = harness.run_command("queue list").expect("queue list should work");
-        assert!(output.contains_queue_entry("t1"));
-        assert!(output.queue_summary().is_some());
     }
 
     #[test]
@@ -1488,27 +981,6 @@ mod tests {
     }
 
     #[test]
-    fn test_stacked_harness_fixture() {
-        let harness = Fixtures::stacked_harness().expect("fixture should work");
-
-        let child = harness.get_session("feature-auth-tests").expect("child exists");
-        assert_eq!(child.parent, Some("feature-auth".to_string()));
-    }
-
-    #[test]
-    fn test_queue_harness_fixture() {
-        let harness = Fixtures::queue_harness().expect("fixture should work");
-
-        let entries = harness.all_queue_entries();
-        assert_eq!(entries.len(), 3);
-
-        // Should be sorted by priority
-        assert_eq!(entries[0].priority, 1);
-        assert_eq!(entries[1].priority, 5);
-        assert_eq!(entries[2].priority, 10);
-    }
-
-    #[test]
     fn test_conflicted_harness_fixture() {
         let harness = Fixtures::conflicted_harness().expect("fixture should work");
 
@@ -1520,18 +992,6 @@ mod tests {
     fn test_sample_session_output_fixture() {
         let output = Fixtures::sample_session_output().expect("fixture should work");
         assert_eq!(output.name, "feature-test");
-    }
-
-    #[test]
-    fn test_sample_queue_entry_fixture() {
-        let entry = Fixtures::sample_queue_entry().expect("fixture should work");
-        assert_eq!(entry.session.as_str(), "task-1");
-    }
-
-    #[test]
-    fn test_sample_stack_fixture() {
-        let stack = Fixtures::sample_stack().expect("fixture should work");
-        assert_eq!(stack.name.as_str(), "feature-auth");
     }
 
     #[test]
@@ -1556,12 +1016,6 @@ mod tests {
     fn test_sample_issue_fixture() {
         let issue = Fixtures::sample_issue().expect("fixture should work");
         assert_eq!(issue.kind, IssueKind::StateConflict);
-    }
-
-    #[test]
-    fn test_sample_train_fixture() {
-        let train = Fixtures::sample_train().expect("fixture should work");
-        assert_eq!(train.steps.len(), 2);
     }
 
     #[test]
@@ -1603,7 +1057,9 @@ mod tests {
         let harness = FastTestHarness::new();
         let harness = harness.add_session("test").expect("add should work");
 
-        let output = harness.run_command("remove test").expect("remove should work");
+        let output = harness
+            .run_command("remove test")
+            .expect("remove should work");
         assert!(output.is_success());
     }
 }
