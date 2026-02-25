@@ -78,7 +78,6 @@ pub struct TaskId(String);
 impl TaskId {
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -111,7 +110,6 @@ pub struct ConfigKey(String);
 impl ConfigKey {
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -181,7 +179,6 @@ pub struct ConfigValue(String);
 impl ConfigValue {
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -663,7 +660,6 @@ pub struct NonEmptyString(String);
 impl NonEmptyString {
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 

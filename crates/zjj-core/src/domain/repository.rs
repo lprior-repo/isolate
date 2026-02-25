@@ -640,7 +640,8 @@ pub trait QueueRepository: Send + Sync {
     ///
     /// Returns `StorageError` on read failure.
     fn list_unclaimed(&self) -> RepositoryResult<Vec<QueueEntry>> {
-        let mut entries = self.list_all()?
+        let mut entries = self
+            .list_all()?
             .into_iter()
             .filter(|e| e.claim_state.is_unclaimed())
             .collect::<Vec<_>>();

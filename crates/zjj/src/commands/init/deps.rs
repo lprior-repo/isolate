@@ -8,7 +8,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use tokio::process::Command;
 
-use crate::cli::{is_jj_installed, is_zellij_installed};
+use crate::cli::is_jj_installed;
 
 /// Check that required dependencies are installed
 pub(super) async fn check_dependencies() -> Result<()> {
@@ -16,10 +16,6 @@ pub(super) async fn check_dependencies() -> Result<()> {
 
     if !is_jj_installed().await {
         missing.push("jj (Jujutsu)");
-    }
-
-    if !is_zellij_installed().await {
-        missing.push("zellij");
     }
 
     if missing.is_empty() {
@@ -39,13 +35,6 @@ pub(super) async fn check_dependencies() -> Result<()> {
         msg.push_str("    cargo install jj-cli\n");
         msg.push_str("    # or: brew install jj\n");
         msg.push_str("    # or: https://martinvonz.github.io/jj/latest/install-and-setup/\n");
-    }
-
-    if missing.contains(&"zellij") {
-        msg.push_str("\n  zellij:\n");
-        msg.push_str("    cargo install zellij\n");
-        msg.push_str("    # or: brew install zellij\n");
-        msg.push_str("    # or: https://zellij.dev/documentation/installation\n");
     }
 
     bail!("{msg}")

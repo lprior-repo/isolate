@@ -20,9 +20,9 @@
 //! workspace_dir = "../{repo}__workspaces"
 //! main_branch = "main"
 //!
-//! [zellij.panes.main]
-//! command = "claude"
-//! size = "70%"
+//! [watch]
+//! enabled = true
+//! debounce_ms = 100
 //!
 //! [hooks]
 //! post_create = ["br sync", "npm install"]
@@ -203,7 +203,6 @@ pub struct Config {
     pub state_db: String,
     pub watch: WatchConfig,
     pub hooks: HooksConfig,
-    pub zellij: ZellijConfig,
     pub dashboard: DashboardConfig,
     pub agent: AgentConfig,
     pub session: SessionConfig,
@@ -251,37 +250,6 @@ pub struct HooksConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ZellijConfig {
-    pub session_prefix: String,
-    pub use_tabs: ValidatedBool,
-    pub layout_dir: String,
-    pub panes: PanesConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PanesConfig {
-    pub main: PaneConfig,
-    pub beads: PaneConfig,
-    pub status: PaneConfig,
-    pub float: FloatPaneConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PaneConfig {
-    pub command: String,
-    pub args: Vec<String>,
-    pub size: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FloatPaneConfig {
-    pub enabled: ValidatedBool,
-    pub command: String,
-    pub width: String,
-    pub height: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DashboardConfig {
     pub refresh_ms: u32,
     pub theme: String,
@@ -315,7 +283,6 @@ impl Default for Config {
             state_db: ".zjj/state.db".to_string(),
             watch: WatchConfig::default(),
             hooks: HooksConfig::default(),
-            zellij: ZellijConfig::default(),
             dashboard: DashboardConfig::default(),
             agent: AgentConfig::default(),
             session: SessionConfig::default(),
@@ -342,51 +309,6 @@ impl Default for HooksConfig {
             post_create: Vec::new(),
             pre_remove: Vec::new(),
             post_merge: Vec::new(),
-        }
-    }
-}
-
-impl Default for ZellijConfig {
-    fn default() -> Self {
-        Self {
-            session_prefix: "zjj".to_string(),
-            use_tabs: ValidatedBool(true),
-            layout_dir: ".zjj/layouts".to_string(),
-            panes: PanesConfig::default(),
-        }
-    }
-}
-
-impl Default for PanesConfig {
-    fn default() -> Self {
-        Self {
-            main: PaneConfig {
-                command: "claude".to_string(),
-                args: Vec::new(),
-                size: "70%".to_string(),
-            },
-            beads: PaneConfig {
-                command: "bv".to_string(),
-                args: Vec::new(),
-                size: "50%".to_string(),
-            },
-            status: PaneConfig {
-                command: "zjj".to_string(),
-                args: vec!["status".to_string(), "--watch".to_string()],
-                size: "50%".to_string(),
-            },
-            float: FloatPaneConfig::default(),
-        }
-    }
-}
-
-impl Default for FloatPaneConfig {
-    fn default() -> Self {
-        Self {
-            enabled: ValidatedBool(true),
-            command: String::new(),
-            width: "80%".to_string(),
-            height: "60%".to_string(),
         }
     }
 }
@@ -462,8 +384,6 @@ pub struct PartialConfig {
     #[serde(default)]
     pub hooks: Option<PartialHooksConfig>,
     #[serde(default)]
-    pub zellij: Option<PartialZellijConfig>,
-    #[serde(default)]
     pub dashboard: Option<PartialDashboardConfig>,
     #[serde(default)]
     pub agent: Option<PartialAgentConfig>,
@@ -493,52 +413,6 @@ pub struct PartialHooksConfig {
     pub pre_remove: Option<Vec<String>>,
     #[serde(default)]
     pub post_merge: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PartialZellijConfig {
-    #[serde(default)]
-    pub session_prefix: Option<String>,
-    #[serde(default)]
-    pub use_tabs: Option<ValidatedBool>,
-    #[serde(default)]
-    pub layout_dir: Option<String>,
-    #[serde(default)]
-    pub panes: Option<PartialPanesConfig>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PartialPanesConfig {
-    #[serde(default)]
-    pub main: Option<PartialPaneConfig>,
-    #[serde(default)]
-    pub beads: Option<PartialPaneConfig>,
-    #[serde(default)]
-    pub status: Option<PartialPaneConfig>,
-    #[serde(default)]
-    pub float: Option<PartialFloatPaneConfig>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PartialPaneConfig {
-    #[serde(default)]
-    pub command: Option<String>,
-    #[serde(default)]
-    pub args: Option<Vec<String>>,
-    #[serde(default)]
-    pub size: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PartialFloatPaneConfig {
-    #[serde(default)]
-    pub enabled: Option<ValidatedBool>,
-    #[serde(default)]
-    pub command: Option<String>,
-    #[serde(default)]
-    pub width: Option<String>,
-    #[serde(default)]
-    pub height: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -753,61 +627,35 @@ impl ConfigManager {
 /// This list defines the complete schema of supported configuration keys.
 /// Any key not in this list will be rejected with a helpful error message.
 const VALID_KEYS: &[&str] = &[
-    // Top-level keys
     "workspace_dir",
     "main_branch",
     "default_template",
     "state_db",
     "watch",
     "hooks",
-    "zellij",
     "dashboard",
     "agent",
     "session",
     "recovery",
     "conflict_resolution",
-    // Watch config
     "watch.enabled",
     "watch.debounce_ms",
     "watch.paths",
-    // Hooks config
     "hooks.post_create",
     "hooks.pre_remove",
     "hooks.post_merge",
-    // Zellij config
-    "zellij.session_prefix",
-    "zellij.use_tabs",
-    "zellij.layout_dir",
-    "zellij.panes.main.command",
-    "zellij.panes.main.args",
-    "zellij.panes.main.size",
-    "zellij.panes.beads.command",
-    "zellij.panes.beads.args",
-    "zellij.panes.beads.size",
-    "zellij.panes.status.command",
-    "zellij.panes.status.args",
-    "zellij.panes.status.size",
-    "zellij.panes.float.enabled",
-    "zellij.panes.float.command",
-    "zellij.panes.float.width",
-    "zellij.panes.float.height",
-    // Dashboard config
     "dashboard.refresh_ms",
     "dashboard.theme",
     "dashboard.columns",
     "dashboard.vim_keys",
-    // Agent config
     "agent.command",
     "agent.env",
-    // Session config
     "session.auto_commit",
     "session.commit_prefix",
-    // Recovery config
     "recovery.policy",
     "recovery.log_recovered",
     "recovery.auto_recover_corrupted_wal",
     "recovery.delete_corrupted_database",
-    // Conflict resolution config
     "conflict_resolution.mode",
     "conflict_resolution.autonomy",
     "conflict_resolution.security_keywords",
@@ -830,7 +678,7 @@ const VALID_KEYS: &[&str] = &[
 /// use zjj_core::config::validate_key;
 ///
 /// assert!(validate_key("workspace_dir").is_ok());
-/// assert!(validate_key("zellij.use_tabs").is_ok());
+/// assert!(validate_key("watch.enabled").is_ok());
 /// assert!(validate_key("invalid_key").is_err());
 /// ```
 pub fn validate_key(key: &str) -> Result<()> {
@@ -849,14 +697,9 @@ pub fn validate_key(key: &str) -> Result<()> {
         // Build a helpful error message with valid keys grouped by category
         let mut error_msg = format!("Unknown configuration key: '{key}'\n\n");
 
-        error_msg.push_str("Valid keys:\n");
         error_msg.push_str("  workspace_dir, main_branch, default_template, state_db\n");
         error_msg.push_str("  watch.enabled, watch.debounce_ms, watch.paths\n");
         error_msg.push_str("  hooks.post_create, hooks.pre_remove, hooks.post_merge\n");
-        error_msg.push_str("  zellij.session_prefix, zellij.use_tabs, zellij.layout_dir\n");
-        error_msg.push_str(
-            "  zellij.panes.{main,beads,status,float}.{command,args,size,width,height,enabled}\n",
-        );
         error_msg.push_str(
             "  dashboard.refresh_ms, dashboard.theme, dashboard.columns, dashboard.vim_keys\n",
         );
@@ -1117,49 +960,9 @@ impl WatchConfig {
 impl HooksConfig {
     #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
-        // Replace (not append) for hooks
         self.post_create = other.post_create;
         self.pre_remove = other.pre_remove;
         self.post_merge = other.post_merge;
-    }
-}
-
-impl ZellijConfig {
-    #[allow(dead_code)]
-    fn merge(&mut self, other: Self) {
-        self.session_prefix = other.session_prefix;
-        self.use_tabs = other.use_tabs;
-        self.layout_dir = other.layout_dir;
-        self.panes.merge(other.panes);
-    }
-}
-
-impl PanesConfig {
-    #[allow(dead_code)]
-    fn merge(&mut self, other: Self) {
-        self.main.merge(other.main);
-        self.beads.merge(other.beads);
-        self.status.merge(other.status);
-        self.float.merge(other.float);
-    }
-}
-
-impl PaneConfig {
-    #[allow(dead_code)]
-    fn merge(&mut self, other: Self) {
-        self.command = other.command;
-        self.args = other.args;
-        self.size = other.size;
-    }
-}
-
-impl FloatPaneConfig {
-    #[allow(dead_code)]
-    fn merge(&mut self, other: Self) {
-        self.enabled = other.enabled;
-        self.command = other.command;
-        self.width = other.width;
-        self.height = other.height;
     }
 }
 
@@ -1221,7 +1024,6 @@ impl WatchConfig {
 }
 
 impl HooksConfig {
-    /// Merge partial config, only updating fields that are `Some(value)`.
     fn merge_partial(&mut self, partial: PartialHooksConfig) {
         if let Some(post_create) = partial.post_create {
             self.post_create = post_create;
@@ -1231,75 +1033,6 @@ impl HooksConfig {
         }
         if let Some(post_merge) = partial.post_merge {
             self.post_merge = post_merge;
-        }
-    }
-}
-
-impl ZellijConfig {
-    /// Merge partial config, only updating fields that are `Some(value)`.
-    fn merge_partial(&mut self, partial: PartialZellijConfig) {
-        if let Some(session_prefix) = partial.session_prefix {
-            self.session_prefix = session_prefix;
-        }
-        if let Some(use_tabs) = partial.use_tabs {
-            self.use_tabs = use_tabs;
-        }
-        if let Some(layout_dir) = partial.layout_dir {
-            self.layout_dir = layout_dir;
-        }
-        if let Some(panes) = partial.panes {
-            self.panes.merge_partial(panes);
-        }
-    }
-}
-
-impl PanesConfig {
-    /// Merge partial config, only updating fields that are `Some(value)`.
-    fn merge_partial(&mut self, partial: PartialPanesConfig) {
-        if let Some(main) = partial.main {
-            self.main.merge_partial(main);
-        }
-        if let Some(beads) = partial.beads {
-            self.beads.merge_partial(beads);
-        }
-        if let Some(status) = partial.status {
-            self.status.merge_partial(status);
-        }
-        if let Some(float) = partial.float {
-            self.float.merge_partial(float);
-        }
-    }
-}
-
-impl PaneConfig {
-    /// Merge partial config, only updating fields that are `Some(value)`.
-    fn merge_partial(&mut self, partial: PartialPaneConfig) {
-        if let Some(command) = partial.command {
-            self.command = command;
-        }
-        if let Some(args) = partial.args {
-            self.args = args;
-        }
-        if let Some(size) = partial.size {
-            self.size = size;
-        }
-    }
-}
-
-impl FloatPaneConfig {
-    /// Merge partial config, only updating fields that are `Some(value)`.
-    fn merge_partial(&mut self, partial: PartialFloatPaneConfig) {
-        if let Some(enabled) = partial.enabled {
-            self.enabled = enabled;
-        }
-        if let Some(command) = partial.command {
-            self.command = command;
-        }
-        if let Some(width) = partial.width {
-            self.width = width;
-        }
-        if let Some(height) = partial.height {
-            self.height = height;
         }
     }
 }
@@ -1392,7 +1125,6 @@ impl Config {
         // Merge nested configs
         self.watch.merge(other.watch);
         self.hooks.merge(other.hooks);
-        self.zellij.merge(other.zellij);
         self.dashboard.merge(other.dashboard);
         self.agent.merge(other.agent);
         self.session.merge(other.session);
@@ -1429,9 +1161,6 @@ impl Config {
         }
         if let Some(hooks) = partial.hooks {
             self.hooks.merge_partial(hooks);
-        }
-        if let Some(zellij) = partial.zellij {
-            self.zellij.merge_partial(zellij);
         }
         if let Some(dashboard) = partial.dashboard {
             self.dashboard.merge_partial(dashboard);
@@ -1482,13 +1211,6 @@ impl Config {
         if let Ok(value) = std::env::var("ZJJ_WATCH_DEBOUNCE_MS") {
             self.watch.debounce_ms = value.parse().map_err(|e| {
                 Error::InvalidConfig(format!("Invalid ZJJ_WATCH_DEBOUNCE_MS value: {e}"))
-            })?;
-        }
-
-        // ZJJ_ZELLIJ_USE_TABS
-        if let Ok(value) = std::env::var("ZJJ_ZELLIJ_USE_TABS") {
-            self.zellij.use_tabs = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid ZJJ_ZELLIJ_USE_TABS value: {e}"))
             })?;
         }
 
@@ -1836,8 +1558,7 @@ typo_nested = "invalid""#;
             .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
         let config_path = temp_dir.path().join("bad_bool_config.toml");
 
-        // Write a config with an invalid boolean string value
-        tokio::fs::write(&config_path, b"[zellij]\nuse_tabs = \"not_a_bool\"")
+        tokio::fs::write(&config_path, b"[watch]\nenabled = \"not_a_bool\"")
             .await
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
@@ -1889,7 +1610,6 @@ typo_nested = "invalid""#;
             .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
         let config_path = temp_dir.path().join("valid_bool.toml");
 
-        // Test both true and false values
         for bool_val in [true, false] {
             let bool_str = if bool_val { "true" } else { "false" };
             let content = format!(
@@ -1908,32 +1628,6 @@ paths = [".beads/beads.db"]
 post_create = []
 pre_remove = []
 post_merge = []
-
-[zellij]
-session_prefix = "zjj"
-use_tabs = {}
-layout_dir = ".zjj/layouts"
-
-[zellij.panes.main]
-command = "claude"
-args = []
-size = "70%"
-
-[zellij.panes.beads]
-command = "bv"
-args = []
-size = "50%"
-
-[zellij.panes.status]
-command = "zjj"
-args = ["status", "--watch"]
-size = "50%"
-
-[zellij.panes.float]
-enabled = {}
-command = ""
-width = "80%"
-height = "60%"
 
 [dashboard]
 refresh_ms = 1000
@@ -1962,7 +1656,7 @@ autonomy = 80
 security_keywords = ["api-key", "secret", "password"]
 log_resolutions = true
 "#,
-                bool_str, bool_str, bool_str, bool_str, bool_str
+                bool_str, bool_str, bool_str
             );
             tokio::fs::write(&config_path, &content)
                 .await
@@ -1986,7 +1680,6 @@ log_resolutions = true
             .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
         let config_path = temp_dir.path().join("valid_bool_config.toml");
 
-        // Write a minimal valid config with boolean values
         let toml_content = r#"
 workspace_dir = "../test"
 main_branch = "main"
@@ -2002,32 +1695,6 @@ paths = [".beads/beads.db"]
 post_create = []
 pre_remove = []
 post_merge = []
-
-[zellij]
-session_prefix = "zjj"
-use_tabs = true
-layout_dir = ".zjj/layouts"
-
-[zellij.panes.main]
-command = "claude"
-args = []
-size = "70%"
-
-[zellij.panes.beads]
-command = "bv"
-args = []
-size = "50%"
-
-[zellij.panes.status]
-command = "zjj"
-args = ["status", "--watch"]
-size = "50%"
-
-[zellij.panes.float]
-enabled = true
-command = ""
-width = "80%"
-height = "60%"
 
 [dashboard]
 refresh_ms = 1000
@@ -2128,10 +1795,9 @@ log_resolutions = true
         assert_eq!(config.main_branch, "");
         assert_eq!(config.default_template, "standard");
         assert_eq!(config.state_db, ".zjj/state.db");
-        assert!(config.watch.enabled);
+        assert!(config.watch.enabled.as_bool());
         assert_eq!(config.watch.debounce_ms, 100);
         assert_eq!(config.dashboard.refresh_ms, 1000);
-        assert_eq!(config.zellij.session_prefix, "zjj");
     }
 
     #[test]
@@ -2210,7 +1876,6 @@ log_resolutions = true
             "state_db",
             "watch",
             "hooks",
-            "zellij",
             "dashboard",
             "agent",
             "session",
@@ -2232,22 +1897,6 @@ log_resolutions = true
             "hooks.post_create",
             "hooks.pre_remove",
             "hooks.post_merge",
-            "zellij.session_prefix",
-            "zellij.use_tabs",
-            "zellij.layout_dir",
-            "zellij.panes.main.command",
-            "zellij.panes.main.args",
-            "zellij.panes.main.size",
-            "zellij.panes.beads.command",
-            "zellij.panes.beads.args",
-            "zellij.panes.beads.size",
-            "zellij.panes.status.command",
-            "zellij.panes.status.args",
-            "zellij.panes.status.size",
-            "zellij.panes.float.enabled",
-            "zellij.panes.float.command",
-            "zellij.panes.float.width",
-            "zellij.panes.float.height",
             "dashboard.refresh_ms",
             "dashboard.theme",
             "dashboard.columns",
@@ -2271,10 +1920,9 @@ log_resolutions = true
         let invalid_keys = [
             "nonexistent",
             "typo_key",
-            "zjj_agant_id", // Typo: should be zjj_agent_id
+            "zjj_agant_id",
             "invalid.nested",
             "watch.invalid_field",
-            "zellij.panes.invalid_pane",
         ];
 
         for key in invalid_keys {
@@ -2289,10 +1937,6 @@ log_resolutions = true
                 assert!(
                     error_msg.contains("Unknown configuration key"),
                     "Error should mention unknown key for '{key}': {error_msg}"
-                );
-                assert!(
-                    error_msg.contains("Valid keys:"),
-                    "Error should list valid keys for '{key}'"
                 );
             }
         }
@@ -2420,13 +2064,12 @@ log_resolutions = true
     #[test]
     fn test_merge_partial_nested_only_overrides_set_fields() {
         let mut base = Config::default();
-        let original_use_tabs = base.zellij.use_tabs;
-        let original_layout_dir = base.zellij.layout_dir.clone();
+        let original_theme = base.dashboard.theme.clone();
+        let original_refresh_ms = base.dashboard.refresh_ms;
 
-        // Create a partial that only sets zellij.session_prefix
         let partial = PartialConfig {
-            zellij: Some(PartialZellijConfig {
-                session_prefix: Some("custom".to_string()),
+            dashboard: Some(PartialDashboardConfig {
+                columns: Some(vec!["name".to_string(), "status".to_string()]),
                 ..Default::default()
             }),
             ..Default::default()
@@ -2434,17 +2077,18 @@ log_resolutions = true
 
         base.merge_partial(partial);
 
-        // session_prefix should be updated
-        assert_eq!(base.zellij.session_prefix, "custom");
-
-        // Other zellij fields should remain unchanged
         assert_eq!(
-            base.zellij.use_tabs, original_use_tabs,
-            "use_tabs should not be changed"
+            base.dashboard.columns,
+            vec!["name".to_string(), "status".to_string()]
+        );
+
+        assert_eq!(
+            base.dashboard.theme, original_theme,
+            "theme should not be changed"
         );
         assert_eq!(
-            base.zellij.layout_dir, original_layout_dir,
-            "layout_dir should not be changed"
+            base.dashboard.refresh_ms, original_refresh_ms,
+            "refresh_ms should not be changed"
         );
     }
 

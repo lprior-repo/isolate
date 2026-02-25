@@ -888,7 +888,7 @@ mod tests {
         harness.assert_success(&["init"]);
 
         // Create a session to trigger workspace creation
-        let result = harness.zjj(&["add", "test-workspace-path", "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", "test-workspace-path", "--no-hooks"]);
 
         // The command should succeed
         assert!(
@@ -927,7 +927,7 @@ mod tests {
 
         // Create a session
         let session_name = "test-workspace-containment";
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
 
         assert!(result.success, "zjj add failed: {}", result.stderr);
 
@@ -968,7 +968,7 @@ mod tests {
 
         // Add a session with custom workspace dir
         let result = harness.zjj_with_env(
-            &["add", "test-custom-workspace", "--no-zellij", "--no-hooks"],
+            &["add", "test-custom-workspace", "--no-hooks"],
             &[("ZJJ_WORKSPACE_DIR", custom_workspace)],
         );
 

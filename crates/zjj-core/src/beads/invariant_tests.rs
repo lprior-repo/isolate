@@ -41,7 +41,9 @@ fn issue_id_strategy() -> impl Strategy<Value = String> {
         // Mixed separators
         "[a-z0-9]{1,5}[-_][a-z0-9]{1,5}[-_][a-z0-9]{1,5}",
     ]
-    .prop_filter("valid ID", |s| !s.is_empty() && s.len() <= IssueId::MAX_LENGTH)
+    .prop_filter("valid ID", |s| {
+        !s.is_empty() && s.len() <= IssueId::MAX_LENGTH
+    })
 }
 
 /// Generate valid issue IDs for vector contexts (simpler)
@@ -104,7 +106,10 @@ fn labels_strategy() -> impl Strategy<Value = Vec<String>> {
 
 /// Generate too many labels (exceeds limit)
 fn too_many_labels_strategy() -> impl Strategy<Value = Vec<String>> {
-    prop::collection::vec(label_strategy(), Labels::MAX_COUNT + 1..=Labels::MAX_COUNT + 5)
+    prop::collection::vec(
+        label_strategy(),
+        Labels::MAX_COUNT + 1..=Labels::MAX_COUNT + 5,
+    )
 }
 
 /// Generate valid issue states
@@ -212,7 +217,10 @@ fn prop_too_long_description_fails() {
     let too_long = "a".repeat(Description::MAX_LENGTH + 1);
     let result = Description::new(&too_long);
     assert!(result.is_err());
-    assert!(matches!(result, Err(DomainError::DescriptionTooLong { .. })));
+    assert!(matches!(
+        result,
+        Err(DomainError::DescriptionTooLong { .. })
+    ));
 }
 
 #[test]

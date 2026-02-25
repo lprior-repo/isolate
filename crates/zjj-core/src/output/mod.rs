@@ -207,9 +207,10 @@ mod types;
 mod writer;
 
 pub use domain_types::{
-    ActionTarget, ActionResult, ActionVerb, AgentAssignment, BaseRef, BeadAttachment, BeadId, Command,
-    ExecutionMode, IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription, PlanTitle,
-    QueueEntryId, RecoveryCapability, RecoveryExecution, TrainId, ValidatedMetadata, WarningCode,
+    ActionResult, ActionTarget, ActionVerb, AgentAssignment, BaseRef, BeadAttachment, BeadId,
+    Command, ExecutionMode, IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription,
+    PlanTitle, QueueEntryId, RecoveryCapability, RecoveryExecution, TrainId, ValidatedMetadata,
+    WarningCode,
 };
 pub use test_utils::{OutputEmitter, StdoutEmitter, VecEmitter};
 pub use types::{

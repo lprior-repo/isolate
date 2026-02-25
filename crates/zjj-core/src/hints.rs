@@ -159,7 +159,7 @@ fn next_after_add(context: &CommandContext) -> Vec<NextAction> {
             action: "Switch to new session".to_string(),
             commands: vec![format!("zjj focus {name}")],
             risk: ActionRisk::Safe,
-            description: Some("Open the session's Zellij tab".to_string()),
+            description: Some("Switch to the new session workspace".to_string()),
         });
         actions.push(NextAction {
             action: "Check session status".to_string(),
@@ -590,16 +590,7 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
                     .with_rationale("Clean up old session before creating new one"),
             ]
         }
-        "ZELLIJ_NOT_RUNNING" => {
-            vec![
-                Hint::suggestion("Start Zellij first")
-                    .with_command("zellij")
-                    .with_rationale("zjj requires Zellij to be running"),
-                Hint::tip("You can attach to existing Zellij session")
-                    .with_command("zellij attach")
-                    .with_rationale("Reuse existing session instead of creating new one"),
-            ]
-        }
+
         "NOT_INITIALIZED" => {
             vec![
                 Hint::suggestion("Initialize zjj in this repository")
@@ -806,8 +797,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        domain::{AbsolutePath, SessionId},
         domain::session::{BranchState, ParentState},
+        domain::{AbsolutePath, SessionId},
         output::ValidatedMetadata,
         types::SessionName,
         WorkspaceState,
@@ -914,17 +905,6 @@ mod tests {
             assert!(hints[0].message.contains("different name"));
             assert!(hints[1].message.contains("Switch"));
             assert!(hints[2].message.contains("Remove"));
-        }
-    }
-
-    #[test]
-    fn test_hints_for_error_zellij_not_running() {
-        let hints = hints_for_error("ZELLIJ_NOT_RUNNING", "Zellij is not running");
-        assert!(!hints.is_empty());
-
-        #[allow(clippy::indexing_slicing)]
-        {
-            assert!(hints[0].message.contains("Start Zellij"));
         }
     }
 

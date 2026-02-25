@@ -4,7 +4,6 @@
 //! - `workspace`: Session/workspace management (init, add, remove, focus, etc.)
 //! - `sync`: Sync, diff, submit, done, abort
 //! - `bookmark`: Bookmark operations
-//! - `template`: Template operations
 //! - `integrity`: Integrity, doctor, clean, prune
 //! - `queue`: Queue operations
 //! - `checkpoint`: Checkpoint, undo, revert, recover, retry, rollback
@@ -12,7 +11,7 @@
 //! - `introspection`: AI, introspect, context, whereami, whoami, etc.
 //! - `batch`: Batch and events operations
 //! - `backup`: Backup, export, import
-//! - `utility`: Config, query, schema, completions, wait, pane
+//! - `utility`: Config, query, schema, completions, wait
 //! - `json_format`: Shared JSON format extraction helper
 
 use std::process;
@@ -42,7 +41,6 @@ pub mod queue;
 pub mod session;
 pub mod stack;
 pub mod sync;
-pub mod template;
 pub mod utility;
 pub mod workspace;
 
@@ -66,14 +64,11 @@ pub use self::{
     session::handle_session,
     stack::handle_stack,
     sync::{handle_abort, handle_diff, handle_done, handle_submit, handle_sync},
-    template::handle_template,
-    utility::{
-        handle_completions, handle_config, handle_pane, handle_query, handle_schema, handle_wait,
-    },
+    utility::{handle_completions, handle_config, handle_query, handle_schema, handle_wait},
     workspace::{
-        handle_add, handle_attach, handle_clone, handle_focus, handle_init, handle_list,
-        handle_pause, handle_remove, handle_rename, handle_resume, handle_spawn, handle_status,
-        handle_switch, handle_work,
+        handle_add, handle_clone, handle_focus, handle_init, handle_list, handle_pause,
+        handle_remove, handle_rename, handle_resume, handle_spawn, handle_status, handle_switch,
+        handle_work,
     },
 };
 
@@ -184,7 +179,6 @@ pub async fn run_cli() -> Result<()> {
     let result = command_context::with_command_context(base_command_id, async {
         match matches.subcommand() {
             Some(("init", sub_m)) => handle_init(sub_m).await,
-            Some(("attach", sub_m)) => handle_attach(sub_m).await,
             Some(("add", sub_m)) => {
                 alias_handler::ALIAS_ADD.warn();
                 handle_add(sub_m).await
@@ -197,7 +191,6 @@ pub async fn run_cli() -> Result<()> {
             }
             Some(("broadcast", sub_m)) => handle_broadcast(sub_m).await,
             Some(("bookmark", sub_m)) => handle_bookmark(sub_m).await,
-            Some(("pane", sub_m)) => handle_pane(sub_m).await,
             Some(("remove", sub_m)) => handle_remove(sub_m).await,
             Some(("focus", sub_m)) => handle_focus(sub_m).await,
             Some(("switch", sub_m)) => handle_switch(sub_m).await,
@@ -210,7 +203,6 @@ pub async fn run_cli() -> Result<()> {
             Some(("config", sub_m)) => handle_config(sub_m).await,
             Some(("clean", sub_m)) => handle_clean(sub_m).await,
             Some(("prune-invalid", sub_m)) => handle_prune_invalid(sub_m).await,
-            Some(("template", sub_m)) => handle_template(sub_m).await,
             Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
             Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m).await,
             Some(("integrity", sub_m)) => handle_integrity(sub_m).await,

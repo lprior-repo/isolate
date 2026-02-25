@@ -124,9 +124,7 @@ impl StatusTestContext {
 
     /// Create a session and track it
     pub fn create_session(&mut self, name: &str) -> Result<()> {
-        let result = self
-            .harness
-            .zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let result = self.harness.zjj(&["add", name, "--no-hooks"]);
         if result.success {
             self.session_names.push(name.to_string());
         }
@@ -335,7 +333,6 @@ async fn scenario_status_shows_stack_context() {
     let child_result = ctx.harness.zjj(&[
         "add",
         "child-feature",
-        "--no-zellij",
         "--no-hooks",
         "--parent",
         "parent-feature",

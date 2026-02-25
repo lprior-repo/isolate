@@ -22,7 +22,7 @@ use clap::{Arg, Command as ClapCommand};
 pub enum ZjjObject {
     /// Task management (beads, work items)
     Task,
-    /// Session management (workspaces, zellij tabs)
+    /// Session management (workspaces)
     Session,
     /// Merge queue operations
     Queue,
@@ -71,7 +71,7 @@ impl ZjjObject {
     pub const fn about(&self) -> &'static str {
         match self {
             Self::Task => "Manage tasks and work items (beads)",
-            Self::Session => "Manage workspaces and Zellij sessions",
+            Self::Session => "Manage workspaces and sessions",
             Self::Queue => "Manage merge queue operations",
             Self::Stack => "Manage stacked session relationships",
             Self::Agent => "Manage agent coordination and tracking",
@@ -323,7 +323,7 @@ pub fn cmd_task() -> ClapCommand {
 /// Build the Session object command with all subcommands
 pub fn cmd_session() -> ClapCommand {
     ClapCommand::new("session")
-        .about("Manage workspaces and Zellij sessions")
+        .about("Manage workspaces and sessions")
         .subcommand_required(true)
         .arg(json_arg())
         .arg(verbose_arg())

@@ -44,15 +44,15 @@ use crate::output::domain_types::{
     AgentAssignment, BaseRef, BeadAttachment, IssueId, IssueScope, IssueTitle, Message,
     PlanDescription, PlanTitle, QueueEntryId, TrainId,
 };
-use crate::types::SessionStatus as TypesSessionStatus;
-use crate::WorkspaceState as TypesWorkspaceState;
 use crate::output::{
     Action, ActionResult as OutputActionResult, ActionStatus, ActionTarget,
     ActionVerb as OutputActionVerb, ConflictDetail, Issue, IssueKind as OutputIssueKind,
-    IssueSeverity, Plan, PlanStep, QueueEntry, QueueEntryStatus, SessionOutput, Stack,
-    StackEntry, StackEntryStatus, Summary, SummaryType as OutputSummaryType, Train,
-    TrainAction, TrainStep, TrainStepStatus, TrainStatus,
+    IssueSeverity, Plan, PlanStep, QueueEntry, QueueEntryStatus, SessionOutput, Stack, StackEntry,
+    StackEntryStatus, Summary, SummaryType as OutputSummaryType, Train, TrainAction, TrainStatus,
+    TrainStep, TrainStepStatus,
 };
+use crate::types::SessionStatus as TypesSessionStatus;
+use crate::WorkspaceState as TypesWorkspaceState;
 
 // ==============================================================================
 // BUILDER ERROR TYPES
@@ -68,7 +68,10 @@ pub enum BuilderError {
     InvalidValue { field: &'static str, reason: String },
 
     /// Collection overflow
-    Overflow { field: &'static str, capacity: usize },
+    Overflow {
+        field: &'static str,
+        capacity: usize,
+    },
 
     /// Invalid state transition
     InvalidTransition {
@@ -227,14 +230,18 @@ impl SessionOutputBuilder {
     /// Returns `BuilderError::InvalidValue` if validation fails.
     pub fn build(self) -> Result<SessionOutput, BuilderError> {
         // Validate required fields
-        let name = self.name.ok_or(BuilderError::MissingRequired { field: "name" })?;
-        let status = self.status.ok_or(BuilderError::MissingRequired { field: "status" })?;
-        let state = self.state.ok_or(BuilderError::MissingRequired { field: "state" })?;
-        let workspace_path = self
-            .workspace_path
-            .ok_or(BuilderError::MissingRequired {
-                field: "workspace_path",
-            })?;
+        let name = self
+            .name
+            .ok_or(BuilderError::MissingRequired { field: "name" })?;
+        let status = self
+            .status
+            .ok_or(BuilderError::MissingRequired { field: "status" })?;
+        let state = self
+            .state
+            .ok_or(BuilderError::MissingRequired { field: "state" })?;
+        let workspace_path = self.workspace_path.ok_or(BuilderError::MissingRequired {
+            field: "workspace_path",
+        })?;
 
         // Convert status to the output type
         let output_status = convert_session_status(status);
@@ -380,11 +387,15 @@ impl IssueBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<Issue, BuilderError> {
-        let id = self.id.ok_or(BuilderError::MissingRequired { field: "id" })?;
+        let id = self
+            .id
+            .ok_or(BuilderError::MissingRequired { field: "id" })?;
         let title = self
             .title
             .ok_or(BuilderError::MissingRequired { field: "title" })?;
-        let kind = self.kind.ok_or(BuilderError::MissingRequired { field: "kind" })?;
+        let kind = self
+            .kind
+            .ok_or(BuilderError::MissingRequired { field: "kind" })?;
         let severity = self
             .severity
             .ok_or(BuilderError::MissingRequired { field: "severity" })?;
@@ -512,11 +523,9 @@ impl PlanBuilder {
         let title = self
             .title
             .ok_or(BuilderError::MissingRequired { field: "title" })?;
-        let description = self
-            .description
-            .ok_or(BuilderError::MissingRequired {
-                field: "description",
-            })?;
+        let description = self.description.ok_or(BuilderError::MissingRequired {
+            field: "description",
+        })?;
 
         let steps = self
             .steps
@@ -660,7 +669,9 @@ impl QueueEntryBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<QueueEntry, BuilderError> {
-        let id = self.id.ok_or(BuilderError::MissingRequired { field: "id" })?;
+        let id = self
+            .id
+            .ok_or(BuilderError::MissingRequired { field: "id" })?;
         let session = self
             .session
             .ok_or(BuilderError::MissingRequired { field: "session" })?;
@@ -787,7 +798,9 @@ impl StackBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<Stack, BuilderError> {
-        let name = self.name.ok_or(BuilderError::MissingRequired { field: "name" })?;
+        let name = self
+            .name
+            .ok_or(BuilderError::MissingRequired { field: "name" })?;
         let base_ref = self
             .base_ref
             .ok_or(BuilderError::MissingRequired { field: "base_ref" })?;
@@ -968,8 +981,12 @@ impl TrainBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<Train, BuilderError> {
-        let id = self.id.ok_or(BuilderError::MissingRequired { field: "id" })?;
-        let name = self.name.ok_or(BuilderError::MissingRequired { field: "name" })?;
+        let id = self
+            .id
+            .ok_or(BuilderError::MissingRequired { field: "id" })?;
+        let name = self
+            .name
+            .ok_or(BuilderError::MissingRequired { field: "name" })?;
 
         let steps = self
             .steps
@@ -1079,7 +1096,9 @@ impl AgentInfoBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<crate::domain::agent::AgentInfo, BuilderError> {
-        let id = self.id.ok_or(BuilderError::MissingRequired { field: "id" })?;
+        let id = self
+            .id
+            .ok_or(BuilderError::MissingRequired { field: "id" })?;
         let state = self
             .state
             .ok_or(BuilderError::MissingRequired { field: "state" })?;
@@ -1163,7 +1182,9 @@ impl WorkspaceInfoBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<crate::domain::workspace::WorkspaceInfo, BuilderError> {
-        let path = self.path.ok_or(BuilderError::MissingRequired { field: "path" })?;
+        let path = self
+            .path
+            .ok_or(BuilderError::MissingRequired { field: "path" })?;
         let state = self
             .state
             .ok_or(BuilderError::MissingRequired { field: "state" })?;
@@ -1263,11 +1284,9 @@ impl SummaryBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<Summary, BuilderError> {
-        let type_field = self
-            .type_field
-            .ok_or(BuilderError::MissingRequired {
-                field: "type_field",
-            })?;
+        let type_field = self.type_field.ok_or(BuilderError::MissingRequired {
+            field: "type_field",
+        })?;
         let message = self
             .message
             .ok_or(BuilderError::MissingRequired { field: "message" })?;
@@ -1376,7 +1395,9 @@ impl ActionBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<Action, BuilderError> {
-        let verb = self.verb.ok_or(BuilderError::MissingRequired { field: "verb" })?;
+        let verb = self
+            .verb
+            .ok_or(BuilderError::MissingRequired { field: "verb" })?;
         let target = self
             .target
             .ok_or(BuilderError::MissingRequired { field: "target" })?;
@@ -1518,7 +1539,9 @@ impl ConflictDetailBuilder {
     ///
     /// Returns `BuilderError::MissingRequired` if any required field is not set.
     pub fn build(self) -> Result<ConflictDetail, BuilderError> {
-        let file = self.file.ok_or(BuilderError::MissingRequired { field: "file" })?;
+        let file = self
+            .file
+            .ok_or(BuilderError::MissingRequired { field: "file" })?;
 
         let conflict_type = self.conflict_type.unwrap_or(ConflictType::Overlapping);
         let recommended = self.recommended.unwrap_or(ResolutionStrategy::JjResolve);
@@ -1781,7 +1804,10 @@ mod tests {
 
         assert!(result.is_ok());
         let action = result.unwrap();
-        assert!(matches!(action.result, OutputActionResult::Completed { .. }));
+        assert!(matches!(
+            action.result,
+            OutputActionResult::Completed { .. }
+        ));
     }
 
     #[test]

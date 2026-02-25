@@ -11,7 +11,6 @@ pub const fn add() -> &'static str {
     "success": true,
     "name": "<session_name>",
     "workspace_path": "<absolute_path>",
-    "zellij_tab": "zjj:<session_name>",
     "message": "Created session '<name>'"
   }"#
 }
@@ -34,7 +33,6 @@ pub const fn list() -> &'static str {
         "status": "<creating|active|paused|completed|failed>",
         "state": "<created|working|ready|merged|abandoned|conflict>",
         "workspace_path": "<absolute_path>",
-        "zellij_tab": "zjj:<session_name>",
         "branch": "<branch_name or null>",
         "created_at": <unix_timestamp>,
         "updated_at": <unix_timestamp>,
@@ -70,7 +68,6 @@ pub const fn focus() -> &'static str {
     "schema_type": "single",
     "success": true,
     "name": "<session_name>",
-    "zellij_tab": "zjj:<session_name>",
     "message": "Switched to session '<name>'"
   }"#
 }
@@ -358,12 +355,11 @@ pub mod ai_contracts {
   "intent": "Create isolated workspace for manual interactive development",
   "prerequisites": [
     "zjj init must have been run",
-    "JJ repository must be initialized",
-    "Zellij must be available (unless --no-open)"
+    "JJ repository must be initialized"
   ],
   "side_effects": {
-    "creates": ["JJ workspace", "Zellij tab", "Database session record"],
-    "modifies": ["Zellij session layout"],
+    "creates": ["JJ workspace", "Database session record"],
+    "modifies": [],
     "state_transition": "none → active"
   },
   "inputs": {
@@ -383,7 +379,7 @@ pub mod ai_contracts {
       "type": "boolean",
       "required": false,
       "flag": "--no-open",
-      "description": "Skip opening Zellij tab"
+      "description": "Skip opening workspace after creation"
     },
     "no_hooks": {
       "type": "boolean",
@@ -396,14 +392,12 @@ pub mod ai_contracts {
     "success": {
       "name": "string",
       "workspace_path": "string",
-      "zellij_tab": "string",
       "status": "active"
     },
     "errors": [
       "SessionAlreadyExists",
       "InvalidSessionName",
       "JJInitFailed",
-      "ZellijNotRunning",
       "DatabaseError"
     ]
   },
@@ -461,12 +455,6 @@ pub mod ai_contracts {
       "flag": "--no-agent",
       "description": "Skip agent registration"
     },
-    "no_zellij": {
-      "type": "boolean",
-      "required": false,
-      "flag": "--no-zellij",
-      "description": "Skip opening a Zellij tab"
-    },
     "idempotent": {
       "type": "boolean",
       "required": false,
@@ -484,7 +472,6 @@ pub mod ai_contracts {
     "success": {
       "name": "string",
       "workspace_path": "string",
-      "zellij_tab": "string",
       "created": "boolean",
       "agent_id": "string|null",
       "bead_id": "string|null",
@@ -502,7 +489,6 @@ pub mod ai_contracts {
     "zjj work feature-auth",
     "zjj work bug-fix --bead zjj-123",
     "zjj work feature-auth --agent-id agent-1 --idempotent",
-    "zjj work quick --no-agent --no-zellij",
     "zjj work feature-auth --dry-run"
   ],
   "next_commands": [
@@ -577,7 +563,7 @@ pub mod ai_contracts {
     "Agent system must be configured"
   ],
   "side_effects": {
-    "creates": ["JJ workspace", "Zellij tab", "Agent process", "Database records"],
+    "creates": ["JJ workspace", "Agent process", "Database records"],
     "modifies": ["Bead status", "Agent registry"],
     "state_transition": "open → in_progress"
   },
@@ -624,7 +610,7 @@ pub mod ai_contracts {
   ],
   "side_effects": {
     "creates": ["Merge commit on main"],
-    "deletes": ["JJ workspace", "Session record", "Zellij tab"],
+    "deletes": ["JJ workspace", "Session record"],
     "modifies": ["Main branch", "Bead status"],
     "state_transition": "active → completed"
   },
@@ -811,7 +797,7 @@ pub mod ai_contracts {
   ],
   "side_effects": {
     "creates": [],
-    "deletes": ["JJ workspace", "Session record", "Workspace directory", "Zellij tab (if exists)"],
+    "deletes": ["JJ workspace", "Session record", "Workspace directory"],
     "modifies": ["Session database", "Main branch (if --merge)"],
     "state_transition": "active → removed"
   },
@@ -1291,7 +1277,6 @@ pub mod ai_contracts {
           "changes": "string (count)",
           "beads": "string (open/in_progress/blocked)",
           "workspace_path": "string",
-          "zellij_tab": "string",
           "metadata": "object|null"
         }
       ]
@@ -1323,14 +1308,13 @@ pub mod ai_contracts {
         r#"AI CONTRACT for zjj focus:
 {
   "command": "zjj focus",
-  "intent": "Switch to a session's Zellij tab to work on that session",
+  "intent": "Switch to a session to work on it",
   "prerequisites": [
-    "Session must exist in database",
-    "Zellij must be running (unless --no-zellij)"
+    "Session must exist in database"
   ],
   "side_effects": {
     "creates": [],
-    "modifies": ["Active Zellij tab"],
+    "modifies": [],
     "state_transition": "none"
   },
   "inputs": {
@@ -1342,12 +1326,6 @@ pub mod ai_contracts {
       "description": "Name of the session to focus",
       "examples": ["feature-auth", "bugfix-123"]
     },
-    "no_zellij": {
-      "type": "boolean",
-      "flag": "--no-zellij",
-      "required": false,
-      "description": "Skip Zellij integration (for non-TTY environments)"
-    },
     "json": {
       "type": "boolean",
       "flag": "--json",
@@ -1358,20 +1336,17 @@ pub mod ai_contracts {
   "outputs": {
     "success": {
       "name": "string",
-      "zellij_tab": "string",
       "message": "string"
     },
     "errors": [
       "SessionNotFound",
-      "ZellijNotRunning",
       "NoSessionsAvailable"
     ]
   },
   "examples": [
     "zjj focus feature-auth",
     "zjj focus",
-    "zjj focus bugfix-123 --json",
-    "zjj focus --no-zellij"
+    "zjj focus bugfix-123 --json"
   ],
   "next_commands": [
     "zjj status",
@@ -1541,8 +1516,7 @@ pub mod ai_contracts {
         }
       ],
       "dependencies": {
-        "jj": "object|null",
-        "zellij": "object|null"
+        "jj": "object|null"
       },
       "system_state": {
         "initialized": "boolean",

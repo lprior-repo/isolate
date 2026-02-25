@@ -127,12 +127,12 @@ fn test_session_switching_workflow() {
         assert!(result.success);
     }
 
-    // Focus on different sessions (with --no-zellij to avoid Zellij deps)
-    let result = harness.zjj(&["focus", "bugfix-123", "--no-zellij"]);
+    // Focus on different sessions
+    let result = harness.zjj(&["focus", "bugfix-123"]);
     assert!(result.success);
     result.assert_output_contains("bugfix-123");
 
-    let result = harness.zjj(&["focus", "feature-456", "--no-zellij"]);
+    let result = harness.zjj(&["focus", "feature-456"]);
     assert!(result.success);
     result.assert_output_contains("feature-456");
 }

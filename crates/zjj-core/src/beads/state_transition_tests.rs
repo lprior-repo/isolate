@@ -184,11 +184,7 @@ fn test_all_state_transitions_from_open() {
     for new_state in states {
         let mut test_issue = Issue::new("test-1", "Test Issue").unwrap();
         let result = test_issue.transition_to(new_state.clone());
-        assert!(
-            result.is_ok(),
-            "Open -> {:?} should succeed",
-            new_state
-        );
+        assert!(result.is_ok(), "Open -> {:?} should succeed", new_state);
         assert_eq!(test_issue.state, new_state);
     }
 }
@@ -236,11 +232,7 @@ fn test_all_state_transitions_from_blocked() {
         issue.transition_to(IssueState::Blocked).unwrap();
 
         let result = issue.transition_to(new_state.clone());
-        assert!(
-            result.is_ok(),
-            "Blocked -> {:?} should succeed",
-            new_state
-        );
+        assert!(result.is_ok(), "Blocked -> {:?} should succeed", new_state);
         assert_eq!(issue.state, new_state);
     }
 }
@@ -262,11 +254,7 @@ fn test_all_state_transitions_from_deferred() {
         issue.transition_to(IssueState::Deferred).unwrap();
 
         let result = issue.transition_to(new_state.clone());
-        assert!(
-            result.is_ok(),
-            "Deferred -> {:?} should succeed",
-            new_state
-        );
+        assert!(result.is_ok(), "Deferred -> {:?} should succeed", new_state);
         assert_eq!(issue.state, new_state);
     }
 }
@@ -288,11 +276,7 @@ fn test_all_state_transitions_from_closed() {
         issue.close();
 
         let result = issue.transition_to(new_state.clone());
-        assert!(
-            result.is_ok(),
-            "Closed -> {:?} should succeed",
-            new_state
-        );
+        assert!(result.is_ok(), "Closed -> {:?} should succeed", new_state);
         assert_eq!(issue.state, new_state);
     }
 }

@@ -200,17 +200,6 @@ async fn diagnose_issues() -> Vec<Issue> {
         });
     }
 
-    // Check Zellij
-    if !is_command_available("zellij").await {
-        issues.push(Issue {
-            code: "ZELLIJ_NOT_INSTALLED".to_string(),
-            description: "Zellij is not installed".to_string(),
-            severity: "critical".to_string(),
-            fix_command: Some("cargo install zellij".to_string()),
-            fixed: false,
-        });
-    }
-
     // Check database
     let db_res = get_session_db().await;
     let db_ok = db_res.is_ok();

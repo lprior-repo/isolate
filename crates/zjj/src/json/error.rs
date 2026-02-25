@@ -231,8 +231,6 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
         || lower.contains("not in a jj repo")
     {
         ErrorCode::NotJjRepository
-    } else if lower.contains("zellij") {
-        ErrorCode::ZellijCommandFailed
     } else if lower.contains("workspace") && lower.contains("not found") {
         ErrorCode::WorkspaceNotFound
     } else if lower.contains("not in workspace") || lower.contains("not in a workspace") {
@@ -313,9 +311,6 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
             Some("Install JJ: cargo install jj-cli or brew install jj or visit https://martinvonz.github.io/jj/latest/install-and-setup/")
         }
         ErrorCode::NotJjRepository => Some("Run 'zjj init' to initialize a JJ repository in this directory"),
-        ErrorCode::ZellijCommandFailed => {
-            Some("Check that Zellij is installed: zellij --version, or start with: zellij attach -c new-session")
-        }
         ErrorCode::WorkspaceNotFound => Some("Run 'zjj list' to see available workspaces, or 'zjj doctor' to check system health"),
         ErrorCode::WorkspaceCreationFailed => {
             Some("Check JJ is working: jj status, or try: zjj doctor")
@@ -353,6 +348,7 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
         | ErrorCode::ConfigParseError
         | ErrorCode::ConfigKeyNotFound
         | ErrorCode::ZellijNotRunning
+        | ErrorCode::ZellijCommandFailed
         | ErrorCode::ReadUndoLogFailed
         | ErrorCode::WriteUndoLogFailed
         | ErrorCode::HookExecutionError => None,

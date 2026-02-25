@@ -1,4 +1,4 @@
-//! Switch to a session's Zellij tab - JSONL output for AI-first control plane
+//! Switch to a session - JSONL output for AI-first control plane
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -20,11 +20,7 @@ use zjj_core::{
     OutputFormat,
 };
 
-use crate::{
-    cli::{attach_to_zellij_session, is_inside_zellij, run_command},
-    commands::get_session_db,
-    session::SessionStatus,
-};
+use crate::{commands::get_session_db, session::SessionStatus};
 
 const fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus {
     match status {
@@ -39,7 +35,6 @@ const fn to_core_status(status: SessionStatus) -> zjj_core::types::SessionStatus
 #[derive(Debug, Clone, Default)]
 pub struct FocusOptions {
     pub format: OutputFormat,
-    pub no_zellij: bool,
 }
 
 fn emit_session_and_result(session: &crate::session::Session) -> Result<()> {
@@ -89,7 +84,8 @@ fn emit_issue(
     .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if let Some(s) = session {
-        issue = issue.with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
+        issue = issue
+            .with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
     }
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());
@@ -99,7 +95,7 @@ fn emit_issue(
     Ok(())
 }
 
-pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()> {
+pub async fn run_with_options(name: Option<&str>, _options: &FocusOptions) -> Result<()> {
     let db = get_session_db().await?;
 
     let Some(name) = name.filter(|n| !n.trim().is_empty()) else {
@@ -130,41 +126,13 @@ pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Res
         ))));
     };
 
-    if options.no_zellij {
-        let action = Action::new(
-            ActionVerb::new("focus").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-            ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
-            ActionStatus::Completed,
-        );
-        emit_stdout(&OutputLine::Action(action))?;
-        emit_session_and_result(&session)?;
-        return Ok(());
-    }
-
-    let zellij_tab = session.zellij_tab.clone();
-
-    if is_inside_zellij() {
-        run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
-
-        let action = Action::new(
-            ActionVerb::new("switch-tab").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-            ActionTarget::new(&zellij_tab).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
-            ActionStatus::Completed,
-        )
-        .with_result(format!("Switched to session '{name}'"));
-        emit_stdout(&OutputLine::Action(action))?;
-        emit_session_and_result(&session)?;
-    } else {
-        let action = Action::new(
-            ActionVerb::new("attach").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-            ActionTarget::new(zellij_tab.clone()).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
-            ActionStatus::Completed,
-        )
-        .with_result(format!("Attaching to Zellij session for '{name}'"));
-        emit_stdout(&OutputLine::Action(action))?;
-        emit_session_and_result(&session)?;
-        attach_to_zellij_session(None).await?;
-    }
+    let action = Action::new(
+        ActionVerb::new("focus").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+        ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+        ActionStatus::Completed,
+    );
+    emit_stdout(&OutputLine::Action(action))?;
+    emit_session_and_result(&session)?;
 
     Ok(())
 }
@@ -223,7 +191,6 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, session.name);
-        assert_eq!(retrieved_session.zellij_tab, "zjj:test-session");
 
         Ok(())
     }
@@ -239,7 +206,6 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, "my-test-session");
-        assert_eq!(retrieved_session.zellij_tab, "zjj:my-test-session");
 
         Ok(())
     }
@@ -255,7 +221,6 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, "my_test_session");
-        assert_eq!(retrieved_session.zellij_tab, "zjj:my_test_session");
 
         Ok(())
     }
@@ -271,42 +236,8 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, "my-test_123");
-        assert_eq!(retrieved_session.zellij_tab, "zjj:my-test_123");
 
         Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_zellij_tab_format() -> Result<()> {
-        let (db, _dir) = setup_test_db().await?;
-
-        let session1 = db.create("session1", "/tmp/s1").await?;
-        assert_eq!(session1.zellij_tab, "zjj:session1");
-
-        let session2 = db.create("my-session", "/tmp/s2").await?;
-        assert_eq!(session2.zellij_tab, "zjj:my-session");
-
-        let session3 = db.create("test_session_123", "/tmp/s3").await?;
-        assert_eq!(session3.zellij_tab, "zjj:test_session_123");
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_is_inside_zellij_detection() {
-        let original = std::env::var("ZELLIJ").ok();
-
-        std::env::remove_var("ZELLIJ");
-        assert!(!is_inside_zellij());
-
-        std::env::set_var("ZELLIJ", "1");
-        assert!(is_inside_zellij());
-
-        if let Some(val) = original {
-            std::env::set_var("ZELLIJ", val);
-        } else {
-            std::env::remove_var("ZELLIJ");
-        }
     }
 
     #[tokio::test]
@@ -322,7 +253,6 @@ mod tests {
             workspace_path: "/tmp/test".to_string(),
             status: SessionStatus::Active,
             state: zjj_core::WorkspaceState::Created,
-            zellij_tab: "zjj:test-session".to_string(),
             branch: None,
             metadata: None,
             created_at: now,
@@ -401,10 +331,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_result_output_is_valid_jsonl() -> Result<()> {
-        let result = ResultOutput::success(
-            ResultKind::Command,
-            Message::new("Focused on session")?,
-        )?;
+        let result =
+            ResultOutput::success(ResultKind::Command, Message::new("Focused on session")?)?;
 
         let output_line = OutputLine::Result(result);
         let json_str = serde_json::to_string(&output_line)?;

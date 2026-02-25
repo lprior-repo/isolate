@@ -13,11 +13,7 @@ use std::path::Path;
 use anyhow::Result;
 use thiserror::Error;
 
-use crate::{
-    cli::{is_inside_zellij, run_command},
-    db::SessionDb,
-    session::Session,
-};
+use crate::{db::SessionDb, session::Session};
 
 /// Errors that can occur during session removal
 #[derive(Debug, Error)]
@@ -41,14 +37,6 @@ pub enum RemoveError {
         #[source]
         source: zjj_core::Error,
     },
-
-    /// Zellij tab closure failed (non-critical)
-    #[error("Failed to close Zellij tab '{tab}': {source}")]
-    ZellijTabCloseFailed {
-        tab: String,
-        #[source]
-        source: anyhow::Error,
-    },
 }
 
 /// Result of successful removal operation
@@ -65,13 +53,12 @@ pub struct RemoveResult {
 ///
 /// # Phases
 /// 1. **Validation**: Verify session exists and workspace is accessible
-/// 2. **Zellij Cleanup**: Close Zellij tab (non-critical, warnings only)
-/// 3. **JJ Forget**: Remove from JJ tracking (non-critical, warnings only)
-/// 4. **Workspace Removal**: Delete workspace directory (critical, marks failed on error)
-/// 5. **Database Deletion**: Remove session record (critical, but workspace already deleted)
+/// 2. **JJ Forget**: Remove from JJ tracking (non-critical, warnings only)
+/// 3. **Workspace Removal**: Delete workspace directory (critical, marks failed on error)
+/// 4. **Database Deletion**: Remove session record (critical, but workspace already deleted)
 ///
 /// # Error Handling
-/// - Zellij/JJ failures: Log warning, continue (local cleanup more important)
+/// - JJ failures: Log warning, continue (local cleanup more important)
 /// - Workspace removal failures: Mark session as `"removal_failed"` in database
 /// - Database deletion failures: Log critical error (workspace deleted, manual cleanup needed)
 ///
@@ -96,17 +83,7 @@ pub async fn cleanup_session_atomically(
         });
     }
 
-    // Phase 2: Close Zellij tab (non-critical)
-    // Skip tab operations when not running inside a Zellij session to avoid
-    // blocking on `zellij action` calls in non-interactive contexts (tests/CI).
-    if is_inside_zellij() {
-        if let Err(e) = close_zellij_tab(&session.zellij_tab).await {
-            tracing::warn!("Failed to close Zellij tab '{}': {}", session.zellij_tab, e);
-            // Continue - tab closure is UI cleanup, not data integrity
-        }
-    }
-
-    // Phase 3: Forget from JJ (critical for preventing orphans)
+    // Phase 2: Forget from JJ (critical for preventing orphans)
     //
     // We MUST successfully forget from JJ before deleting the workspace directory.
     // If JJ forget fails, we should NOT delete the workspace to avoid orphaned JJ workspaces.
@@ -114,7 +91,7 @@ pub async fn cleanup_session_atomically(
     // However, if the error is "No such workspace" or "not found", that's OK - it means
     // JJ doesn't know about this workspace, which is idempotent and safe to continue.
     if jj_forget {
-        match run_command("jj", &["workspace", "forget", &session.name]).await {
+        match crate::cli::run_command("jj", &["workspace", "forget", &session.name]).await {
             Ok(_) => {
                 // Successfully forgotten from JJ, continue with cleanup
             }
@@ -146,7 +123,7 @@ pub async fn cleanup_session_atomically(
         }
     }
 
-    // Phase 4: Remove workspace directory (critical, with idempotent ENOENT handling)
+    // Phase 3: Remove workspace directory (critical, with idempotent ENOENT handling)
     match tokio::fs::remove_dir_all(workspace_path).await {
         Ok(()) => {
             // Successfully removed, continue to database deletion
@@ -170,7 +147,7 @@ pub async fn cleanup_session_atomically(
         }
     }
 
-    // Phase 5: Delete from database (critical, but workspace already deleted)
+    // Phase 4: Delete from database (critical, but workspace already deleted)
     db.delete(&session.name)
         .await
         .map_err(|e| RemoveError::DatabaseDeletionFailed {
@@ -179,29 +156,6 @@ pub async fn cleanup_session_atomically(
         })?;
 
     Ok(RemoveResult { removed: true })
-}
-
-/// Close a Zellij tab by name
-///
-/// This is a non-critical operation - failures are logged but don't prevent removal.
-async fn close_zellij_tab(tab_name: &str) -> Result<(), RemoveError> {
-    // First, go to the tab
-    run_command("zellij", &["action", "go-to-tab-name", tab_name])
-        .await
-        .map_err(|e| RemoveError::ZellijTabCloseFailed {
-            tab: tab_name.to_string(),
-            source: e,
-        })?;
-
-    // Then close it
-    run_command("zellij", &["action", "close-tab"])
-        .await
-        .map_err(|e| RemoveError::ZellijTabCloseFailed {
-            tab: tab_name.to_string(),
-            source: e,
-        })?;
-
-    Ok(())
 }
 
 #[cfg(test)]

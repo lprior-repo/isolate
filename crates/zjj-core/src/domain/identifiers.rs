@@ -307,9 +307,9 @@ fn validate_session_name(s: &str) -> Result<(), IdentifierError> {
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
-        return Err(IdentifierError::invalid_characters(
-            format!("session name '{s}' must contain only letters, numbers, hyphens, or underscores"),
-        ));
+        return Err(IdentifierError::invalid_characters(format!(
+            "session name '{s}' must contain only letters, numbers, hyphens, or underscores"
+        )));
     }
 
     Ok(())
@@ -402,7 +402,9 @@ fn validate_session_id(s: &str) -> Result<(), IdentifierError> {
     }
 
     if !s.is_ascii() {
-        return Err(IdentifierError::NotAscii { value: s.to_string() });
+        return Err(IdentifierError::NotAscii {
+            value: s.to_string(),
+        });
     }
 
     Ok(())
@@ -484,7 +486,6 @@ impl SessionName {
     /// Get the session name as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -572,7 +573,6 @@ impl AgentId {
     /// Get the agent ID as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -651,7 +651,6 @@ impl WorkspaceName {
     /// Get the workspace name as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -724,7 +723,6 @@ impl TaskId {
     /// Get the task ID as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -802,7 +800,6 @@ impl SessionId {
     /// Get the session ID as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -875,7 +872,6 @@ impl AbsolutePath {
     /// Get the path as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -998,9 +994,11 @@ impl std::str::FromStr for QueueEntryId {
     type Err = IdentifierError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let value = s.parse::<i64>().map_err(|_| IdentifierError::InvalidFormat {
-            details: format!("cannot parse queue entry ID from '{s}'"),
-        })?;
+        let value = s
+            .parse::<i64>()
+            .map_err(|_| IdentifierError::InvalidFormat {
+                details: format!("cannot parse queue entry ID from '{s}'"),
+            })?;
         Self::new(value)
     }
 }
@@ -1068,7 +1066,10 @@ mod tests {
         let long_name = "a".repeat(64);
         let result = SessionName::parse(&long_name);
         assert!(result.is_err());
-        assert!(matches!(result, Err(IdentifierError::TooLong { max: 63, .. })));
+        assert!(matches!(
+            result,
+            Err(IdentifierError::TooLong { max: 63, .. })
+        ));
     }
 
     #[test]
@@ -1255,86 +1256,89 @@ mod tests {
     }
 }
 
-    // ===== SessionId Tests =====
+// ===== SessionId Tests =====
 
-    #[test]
-    fn test_valid_session_id() {
-        assert!(SessionId::parse("session-abc123").is_ok());
-        assert!(SessionId::parse("sess-123").is_ok());
-        assert!(SessionId::parse("SESSION_ABC").is_ok());
-    }
+#[test]
+fn test_valid_session_id() {
+    assert!(SessionId::parse("session-abc123").is_ok());
+    assert!(SessionId::parse("sess-123").is_ok());
+    assert!(SessionId::parse("SESSION_ABC").is_ok());
+}
 
-    #[test]
-    fn test_invalid_session_id_empty() {
-        let result = SessionId::parse("");
-        assert!(result.is_err());
-        assert!(matches!(result, Err(IdentifierError::Empty)));
-    }
+#[test]
+fn test_invalid_session_id_empty() {
+    let result = SessionId::parse("");
+    assert!(result.is_err());
+    assert!(matches!(result, Err(IdentifierError::Empty)));
+}
 
-    #[test]
-    fn test_invalid_session_id_non_ascii() {
-        let result = SessionId::parse("session-abc-日本語");
-        assert!(result.is_err());
-    }
+#[test]
+fn test_invalid_session_id_non_ascii() {
+    let result = SessionId::parse("session-abc-日本語");
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_session_id_display() {
-        match SessionId::parse("session-abc123") {
-            Ok(id) => {
-                assert_eq!(id.to_string(), "session-abc123");
-                assert_eq!(id.as_str(), "session-abc123");
-            }
-            Err(e) => panic!("Failed to parse valid session ID: {e}"),
+#[test]
+fn test_session_id_display() {
+    match SessionId::parse("session-abc123") {
+        Ok(id) => {
+            assert_eq!(id.to_string(), "session-abc123");
+            assert_eq!(id.as_str(), "session-abc123");
         }
+        Err(e) => panic!("Failed to parse valid session ID: {e}"),
     }
+}
 
-    // ===== AbsolutePath Tests =====
+// ===== AbsolutePath Tests =====
 
-    #[test]
-    fn test_valid_absolute_path() {
-        assert!(AbsolutePath::parse("/home/user").is_ok());
-        assert!(AbsolutePath::parse("/tmp/workspace").is_ok());
-        assert!(AbsolutePath::parse("/").is_ok());
-    }
+#[test]
+fn test_valid_absolute_path() {
+    assert!(AbsolutePath::parse("/home/user").is_ok());
+    assert!(AbsolutePath::parse("/tmp/workspace").is_ok());
+    assert!(AbsolutePath::parse("/").is_ok());
+}
 
-    #[test]
-    fn test_invalid_absolute_path_empty() {
-        let result = AbsolutePath::parse("");
-        assert!(result.is_err());
-    }
+#[test]
+fn test_invalid_absolute_path_empty() {
+    let result = AbsolutePath::parse("");
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_invalid_absolute_path_relative() {
-        let result = AbsolutePath::parse("relative/path");
-        assert!(result.is_err());
-        assert!(matches!(result, Err(IdentifierError::NotAbsolutePath { .. })));
-    }
+#[test]
+fn test_invalid_absolute_path_relative() {
+    let result = AbsolutePath::parse("relative/path");
+    assert!(result.is_err());
+    assert!(matches!(
+        result,
+        Err(IdentifierError::NotAbsolutePath { .. })
+    ));
+}
 
-    #[test]
-    fn test_invalid_absolute_path_null_bytes() {
-        let result = AbsolutePath::parse("/path\0with\0nulls");
-        assert!(result.is_err());
-        assert!(matches!(result, Err(IdentifierError::NullBytesInPath)));
-    }
+#[test]
+fn test_invalid_absolute_path_null_bytes() {
+    let result = AbsolutePath::parse("/path\0with\0nulls");
+    assert!(result.is_err());
+    assert!(matches!(result, Err(IdentifierError::NullBytesInPath)));
+}
 
-    #[test]
-    fn test_absolute_path_display() {
-        match AbsolutePath::parse("/home/user/workspace") {
-            Ok(path) => {
-                assert_eq!(path.to_string(), "/home/user/workspace");
-                assert_eq!(path.as_str(), "/home/user/workspace");
-            }
-            Err(e) => panic!("Failed to parse valid absolute path: {e}"),
+#[test]
+fn test_absolute_path_display() {
+    match AbsolutePath::parse("/home/user/workspace") {
+        Ok(path) => {
+            assert_eq!(path.to_string(), "/home/user/workspace");
+            assert_eq!(path.as_str(), "/home/user/workspace");
         }
+        Err(e) => panic!("Failed to parse valid absolute path: {e}"),
     }
+}
 
-    #[test]
-    fn test_absolute_path_to_path_buf() {
-        match AbsolutePath::parse("/home/user/workspace") {
-            Ok(path) => {
-                let path_buf = path.to_path_buf();
-                assert_eq!(path_buf, std::path::PathBuf::from("/home/user/workspace"));
-            }
-            Err(e) => panic!("Failed to parse valid absolute path: {e}"),
+#[test]
+fn test_absolute_path_to_path_buf() {
+    match AbsolutePath::parse("/home/user/workspace") {
+        Ok(path) => {
+            let path_buf = path.to_path_buf();
+            assert_eq!(path_buf, std::path::PathBuf::from("/home/user/workspace"));
         }
+        Err(e) => panic!("Failed to parse valid absolute path: {e}"),
     }
+}

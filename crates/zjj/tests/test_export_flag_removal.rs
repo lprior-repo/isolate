@@ -284,7 +284,7 @@ async fn cli_accepts_valid_session_names() {
     harness.assert_success(&["init"]);
 
     // Create a session first
-    harness.assert_success(&["add", "feature-branch", "--no-zellij"]);
+    harness.assert_success(&["add", "feature-branch", "--no-hooks"]);
 
     // Export the session (to stdout) - should work with valid session name
     let output = Command::new(&harness.zjj_bin)

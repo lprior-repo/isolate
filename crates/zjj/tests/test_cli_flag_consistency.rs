@@ -30,7 +30,7 @@
 //!
 //! # Test Coverage
 //!
-//! Phase 1: Quick wins (--json, --idempotent, --no-zellij)
+//! Phase 1: Quick wins (--json, --idempotent)
 //! Phase 2: Mutating commands (--dry-run)
 //! Phase 3: AI integration (--contract, --ai-hints)
 
@@ -70,37 +70,6 @@ fn test_spawn_help_shows_idempotent_flag() {
 }
 
 // ============================================================================
-// Phase 1: Switch --no-zellij flag
-// ============================================================================
-
-#[test]
-fn test_switch_accepts_no_zellij_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-    harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test-session", "--no-zellij", "--no-hooks"]);
-
-    // Test: switch should accept --no-zellij flag
-    let result = harness.zjj(&["switch", "test-session", "--no-zellij"]);
-    assert!(
-        !result.stderr.contains("unexpected argument"),
-        "Should recognize --no-zellij flag (stderr: {})",
-        result.stderr
-    );
-}
-
-#[test]
-fn test_switch_help_shows_no_zellij_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    let result = harness.zjj(&["switch", "--help"]);
-    result.assert_output_contains("--no-zellij");
-}
-
-// ============================================================================
 // Phase 2: --dry-run on remove command
 // ============================================================================
 
@@ -110,7 +79,7 @@ fn test_remove_accepts_dry_run_flag() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test", "--no-hooks"]);
 
     // Test: remove should accept --dry-run flag
     let result = harness.zjj(&["remove", "test", "--dry-run"]);
@@ -127,7 +96,7 @@ fn test_remove_dry_run_does_not_delete_session() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test", "--no-hooks"]);
 
     // Test: --dry-run should not actually remove the session
     let _result = harness.zjj(&["remove", "test", "--dry-run"]);
@@ -143,7 +112,7 @@ fn test_remove_dry_run_json_preview() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test", "--no-hooks"]);
 
     let result = harness.zjj(&["remove", "test", "--dry-run", "--json"]);
     assert!(
@@ -213,7 +182,7 @@ fn test_sync_accepts_dry_run_flag() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test", "--no-hooks"]);
 
     // Test: sync should accept --dry-run flag
     let result = harness.zjj(&["sync", "test", "--dry-run"]);
@@ -444,7 +413,7 @@ fn test_list_contract_and_json_combined() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test", "--no-hooks"]);
 
     // Test: Should be able to combine --contract and --json
     let result = harness.zjj(&["list", "--contract", "--json"]);
@@ -479,7 +448,7 @@ fn test_list_json_alone_is_jsonl() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test", "--no-hooks"]);
 
     // Test: --json alone should produce JSONL output
     let result = harness.zjj(&["list", "--json"]);
@@ -522,7 +491,7 @@ fn test_remove_dry_run_and_force_combined() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test", "--no-hooks"]);
 
     // Test: Should be able to combine --dry-run and --force
     let result = harness.zjj(&["remove", "test", "--dry-run", "--force"]);
@@ -565,7 +534,7 @@ fn test_existing_flags_not_broken_by_new_flags() {
     harness.assert_success(&["init"]);
 
     // Test: Existing functionality should still work
-    harness.assert_success(&["add", "test1", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test1", "--no-hooks"]);
     harness.assert_success(&["add", "test2", "--no-open"]);
     harness.assert_success(&["list", "--all", "--json"]);
     harness.assert_success(&["remove", "test1", "--force"]);

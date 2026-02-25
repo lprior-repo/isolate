@@ -71,7 +71,6 @@ pub struct StackCreatePayload {
     pub name: String,
     pub parent: String,
     pub workspace_path: String,
-    pub zellij_tab: String,
     pub status: String,
     pub created: bool,
 }
@@ -235,9 +234,7 @@ pub async fn handle_stack_create(sub_m: &ArgMatches) -> Result<()> {
         bead_id: sub_m.get_one::<String>("bead").cloned(),
         parent: Some(parent.clone()),
         no_hooks: sub_m.get_flag("no-hooks"),
-        template: sub_m.get_one::<String>("template").cloned(),
-        no_open: sub_m.get_flag("no-zellij"),
-        no_zellij: sub_m.get_flag("no-zellij"),
+        no_open: false,
         format,
         idempotent: false,
         dry_run: false,
@@ -409,9 +406,7 @@ fn stack_node_to_output_stack(node: &StackNode) -> Result<OutputStack> {
         .map_err(|e| anyhow::anyhow!("Failed to add stack entry: {e}"))?;
 
     // Add children using fold
-    node.children
-        .iter()
-        .try_fold(stack, add_node_to_stack)
+    node.children.iter().try_fold(stack, add_node_to_stack)
 }
 
 /// Add a node and all its descendants to the stack.
@@ -441,9 +436,7 @@ fn add_node_to_stack(stack: OutputStack, node: &StackNode) -> Result<OutputStack
         .map_err(|e| anyhow::anyhow!("Failed to add stack entry: {e}"))?;
 
     // Recursively add children using try_fold
-    node.children
-        .iter()
-        .try_fold(stack, add_node_to_stack)
+    node.children.iter().try_fold(stack, add_node_to_stack)
 }
 
 /// Convert `QueueStatus` to `StackEntryStatus`.
@@ -800,12 +793,18 @@ mod tests {
         let stack = result.unwrap();
         assert_eq!(stack.name, SessionName::parse("root").expect("valid"));
         assert_eq!(stack.entries.len(), 2);
-        assert_eq!(stack.entries[0].session, SessionName::parse("root").expect("valid"));
+        assert_eq!(
+            stack.entries[0].session,
+            SessionName::parse("root").expect("valid")
+        );
         assert!(matches!(
             stack.entries[0].bead,
             BeadAttachment::Attached { .. }
         ));
-        assert_eq!(stack.entries[1].session, SessionName::parse("child").expect("valid"));
+        assert_eq!(
+            stack.entries[1].session,
+            SessionName::parse("child").expect("valid")
+        );
     }
 
     #[test]
@@ -825,7 +824,6 @@ mod tests {
                 name: "feature-auth".to_string(),
                 parent: "main".to_string(),
                 workspace_path: "/path/to/workspace".to_string(),
-                zellij_tab: "zjj:feature-auth".to_string(),
                 status: "active".to_string(),
                 created: true,
             };
@@ -846,7 +844,6 @@ mod tests {
                 name: "test".to_string(),
                 parent: "parent".to_string(),
                 workspace_path: "/path".to_string(),
-                zellij_tab: "zjj:test".to_string(),
                 status: "active".to_string(),
                 created: true,
             };

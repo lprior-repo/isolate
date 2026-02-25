@@ -6,7 +6,7 @@ mod common;
 use common::TestHarness;
 
 #[tokio::test]
-async fn test_switch_no_zellij_flag() {
+async fn test_switch_basic() {
     let Some(harness) = TestHarness::try_new() else {
         return;
     };
@@ -16,10 +16,9 @@ async fn test_switch_no_zellij_flag() {
     // Create a dummy session so we have something to switch to
     harness.assert_success(&["add", "test-session", "--no-open", "--no-hooks"]);
 
-    // Test switch --no-zellij
-    // This should succeed even if we are not in zellij (TestHarness is not in zellij)
-    let result = harness.zjj(&["switch", "test-session", "--no-zellij"]);
-    assert!(result.success, "switch --no-zellij should succeed");
+    // Test switch
+    let result = harness.zjj(&["switch", "test-session"]);
+    assert!(result.success, "switch should succeed");
 }
 
 #[tokio::test]

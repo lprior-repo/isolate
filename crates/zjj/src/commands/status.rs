@@ -15,8 +15,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use serde::Serialize;
 use zjj_core::output::{
-    emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine, SessionOutput,
-    Summary, SummaryType,
+    emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine,
+    SessionOutput, Summary, SummaryType,
 };
 
 use crate::{commands::get_session_db, session::Session};
@@ -42,7 +42,6 @@ pub struct SessionStatusInfo {
     pub changes: FileChanges,
     pub diff_stats: DiffStats,
     pub beads: BeadStats,
-    pub zellij_status: zjj_core::zellij::TabStatus,
     #[serde(flatten)]
     pub session: Session,
 }
@@ -205,7 +204,8 @@ pub async fn run_watch_mode(name: Option<&str>) -> Result<()> {
             // Emit error as Issue line
             let error_summary = Summary::new(
                 SummaryType::Status,
-                Message::new(format!("Error: {e}")).map_err(|se| anyhow::anyhow!("Invalid message: {se}"))?,
+                Message::new(format!("Error: {e}"))
+                    .map_err(|se| anyhow::anyhow!("Invalid message: {se}"))?,
             )
             .map_err(|se| anyhow::anyhow!("Failed to create error summary: {se}"))?;
             let _ = emit_stdout(&OutputLine::Summary(error_summary));
@@ -242,9 +242,6 @@ pub async fn gather_session_status(session: &Session) -> Result<SessionStatusInf
     // Get beads stats
     let beads = get_beads_stats().await?;
 
-    // Query Zellij for tab status
-    let zellij_status = zjj_core::zellij::check_tab_exists(&session.zellij_tab).await;
-
     // Note: Clones here are necessary because SessionStatusInfo owns its data
     // Future optimization: Consider Arc<Session> or Cow<str> for shared ownership
     Ok(SessionStatusInfo {
@@ -255,7 +252,6 @@ pub async fn gather_session_status(session: &Session) -> Result<SessionStatusInf
         changes,
         diff_stats,
         beads,
-        zellij_status,
         session: session.clone(),
     })
 }
@@ -488,7 +484,6 @@ mod tests {
             status: SessionStatus::Active,
             state: WorkspaceState::Created,
             workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "zjj:test-session".to_string(),
             branch: Some("feature".to_string()),
             created_at: 1_234_567_890,
             updated_at: 1_234_567_890,
@@ -520,7 +515,6 @@ mod tests {
                 blocked: 0,
                 closed: 5,
             },
-            zellij_status: zjj_core::zellij::TabStatus::Unknown,
             session,
         };
 
@@ -557,7 +551,6 @@ mod tests {
             state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             branch: Some("main".to_string()),
             created_at: 1_234_567_890,
             updated_at: 1_234_567_890,
@@ -589,7 +582,6 @@ mod tests {
                 blocked: 0,
                 closed: 5,
             },
-            zellij_status: zjj_core::zellij::TabStatus::Active,
             session,
         };
 

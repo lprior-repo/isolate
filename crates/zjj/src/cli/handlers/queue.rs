@@ -46,14 +46,13 @@ fn parse_queue_action(matches: &ArgMatches) -> Result<QueueAction> {
 
     // Parse ID-based actions
     if let Some(id_str) = matches.get_one::<String>("status-id") {
-        let id = QueueId::from_str(id_str)
-            .map_err(|e| anyhow::anyhow!("Invalid status-id: {e}"))?;
+        let id =
+            QueueId::from_str(id_str).map_err(|e| anyhow::anyhow!("Invalid status-id: {e}"))?;
         return Ok(QueueAction::StatusId { id });
     }
 
     if let Some(id_str) = matches.get_one::<String>("retry") {
-        let id =
-            QueueId::from_str(id_str).map_err(|e| anyhow::anyhow!("Invalid retry ID: {e}"))?;
+        let id = QueueId::from_str(id_str).map_err(|e| anyhow::anyhow!("Invalid retry ID: {e}"))?;
         return Ok(QueueAction::Retry { id });
     }
 
@@ -86,8 +85,8 @@ fn parse_queue_action(matches: &ArgMatches) -> Result<QueueAction> {
 
     // Parse add action with validation
     if let Some(add_str) = matches.get_one::<String>("add") {
-        let session =
-            SessionName::from_str(add_str).map_err(|e| anyhow::anyhow!("Invalid add session: {e}"))?;
+        let session = SessionName::from_str(add_str)
+            .map_err(|e| anyhow::anyhow!("Invalid add session: {e}"))?;
 
         let bead = matches
             .get_one::<String>("bead")
@@ -400,12 +399,9 @@ pub async fn handle_queue_status(sub_m: &ArgMatches) -> Result<()> {
         .transpose()
         .map_err(|e| anyhow::anyhow!("Invalid session name: {e}"))?;
 
-    let action = session_opt.map_or(
-        QueueAction::Stats,
-        |session| QueueAction::Status {
-            session: Some(session),
-        },
-    );
+    let action = session_opt.map_or(QueueAction::Stats, |session| QueueAction::Status {
+        session: Some(session),
+    });
     let options = queue_action_to_options(&action, format);
     queue::run_with_options(&options).await
 }

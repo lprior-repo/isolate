@@ -118,7 +118,6 @@ impl IssueId {
     /// Get the inner string value.
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -192,7 +191,6 @@ impl Title {
     /// Get the inner string value.
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -255,7 +253,6 @@ impl Description {
     /// Get the inner string value.
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -327,7 +324,6 @@ impl Assignee {
     /// Get the inner string value.
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -775,8 +771,9 @@ mod tests {
         assert!(Labels::new(vec!["label1".to_string(), "label2".to_string()]).is_ok());
 
         // Test exceeding max count
-        let too_many_labels: Vec<String> =
-            (0..=Labels::MAX_COUNT).map(|i| format!("label{i}")).collect();
+        let too_many_labels: Vec<String> = (0..=Labels::MAX_COUNT)
+            .map(|i| format!("label{i}"))
+            .collect();
         assert!(Labels::new(too_many_labels).is_err());
     }
 }

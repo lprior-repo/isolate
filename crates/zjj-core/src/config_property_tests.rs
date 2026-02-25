@@ -205,7 +205,7 @@ mod validation_tests {
         let valid_keys = vec![
             "workspace_dir",
             "main_branch",
-            "zellij.use_tabs",
+            "dashboard.theme",
             "watch.enabled",
             "hooks.post_create",
         ];
@@ -242,12 +242,8 @@ mod validation_tests {
 
         let error_msg = result.err().map_or(String::new(), |e| e.to_string());
         assert!(
-            error_msg.contains("Valid keys"),
-            "Error should list valid keys"
-        );
-        assert!(
-            error_msg.contains("workspace_dir"),
-            "Error should mention workspace_dir"
+            error_msg.contains("Unknown configuration key"),
+            "Error should mention unknown key"
         );
     }
 }

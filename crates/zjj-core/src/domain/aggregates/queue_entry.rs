@@ -60,10 +60,7 @@ impl QueueEntryMetadata {
 pub enum QueueEntryError {
     /// Invalid claim transition
     #[error("invalid claim transition: {from:?} -> {to:?}")]
-    InvalidClaimTransition {
-        from: ClaimState,
-        to: ClaimState,
-    },
+    InvalidClaimTransition { from: ClaimState, to: ClaimState },
 
     /// Entry is not claimed
     #[error("entry is not claimed")]
@@ -227,11 +224,7 @@ impl QueueEntry {
     ///
     /// Returns `QueueEntryError::AlreadyClaimed` if entry is already claimed.
     /// Returns `QueueEntryError::InvalidExpiration` if duration is invalid.
-    pub fn claim(
-        &self,
-        agent: AgentId,
-        claim_duration_secs: i64,
-    ) -> Result<Self, QueueEntryError> {
+    pub fn claim(&self, agent: AgentId, claim_duration_secs: i64) -> Result<Self, QueueEntryError> {
         if !self.is_unclaimed() {
             // Get the holder if it exists
             if let Some(holder) = self.claim_holder() {
@@ -426,7 +419,8 @@ impl QueueEntry {
                 return Err(QueueEntryError::AlreadyClaimed(holder.clone()));
             }
             // Fallback - should not happen in practice
-            let fallback = AgentId::parse("unknown").map_err(|_| QueueEntryError::InvalidExpiration)?;
+            let fallback =
+                AgentId::parse("unknown").map_err(|_| QueueEntryError::InvalidExpiration)?;
             return Err(QueueEntryError::AlreadyClaimed(fallback));
         }
         Ok(())
@@ -603,10 +597,7 @@ mod tests {
         let claimed = entry.claim(agent, 300).expect("claim valid");
 
         let result = claimed.update_priority(10);
-        assert!(matches!(
-            result,
-            Err(QueueEntryError::CannotModify(_))
-        ));
+        assert!(matches!(result, Err(QueueEntryError::CannotModify(_))));
     }
 
     #[test]

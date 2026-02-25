@@ -365,12 +365,16 @@ impl WorkspaceBuilder {
     /// - Required fields are missing
     /// - Path doesn't exist
     pub fn build(self) -> Result<Workspace, WorkspaceError> {
-        let name = self.name.ok_or_else(|| WorkspaceError::CannotUse(
-            WorkspaceState::Creating, // Using existing error for missing name
-        ))?;
-        let path = self.path.ok_or_else(|| WorkspaceError::CannotUse(
-            WorkspaceState::Creating, // Using existing error for missing path
-        ))?;
+        let name = self.name.ok_or_else(|| {
+            WorkspaceError::CannotUse(
+                WorkspaceState::Creating, // Using existing error for missing name
+            )
+        })?;
+        let path = self.path.ok_or_else(|| {
+            WorkspaceError::CannotUse(
+                WorkspaceState::Creating, // Using existing error for missing path
+            )
+        })?;
 
         match self.state {
             Some(state) => Workspace::reconstruct(name, path, state),
@@ -543,7 +547,9 @@ mod tests {
         let workspace = create_test_workspace();
         let new_path = PathBuf::from("/var/tmp");
 
-        let changed = workspace.change_path(new_path.clone()).expect("path changed");
+        let changed = workspace
+            .change_path(new_path.clone())
+            .expect("path changed");
         assert_eq!(changed.path, new_path);
     }
 

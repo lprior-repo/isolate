@@ -16,7 +16,7 @@ cd zjj
 ```
 
 The script:
-- Checks prerequisites (Rust 1.80+, Moon, JJ, Zellij)
+- Checks prerequisites (Rust 1.80+, Moon, JJ)
 - Installs missing dependencies
 - Runs initial build and tests
 - Prints next steps
@@ -33,7 +33,6 @@ If automation fails, install manually:
 # 1. Install dependencies
 # - Moon: https://moonrepo.dev/docs/install
 # - JJ: https://github.com/martinvonz/jj#installation
-# - Zellij: https://zellij.dev/download
 # - Rust 1.80+: https://rustup.rs/
 
 # 2. Verify setup

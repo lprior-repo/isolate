@@ -143,14 +143,12 @@ async fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<Stri
         WaitCondition::Healthy => {
             // Check if system is healthy
             let jj_ok = crate::cli::is_command_available("jj").await;
-            let zellij_ok = crate::cli::is_command_available("zellij").await;
             let db_ok = get_session_db().await.is_ok();
 
-            let healthy = jj_ok && zellij_ok && db_ok;
+            let healthy = jj_ok && db_ok;
             let state = format!(
-                "jj:{},zellij:{},db:{}",
+                "jj:{},db:{}",
                 if jj_ok { "ok" } else { "missing" },
-                if zellij_ok { "ok" } else { "missing" },
                 if db_ok { "ok" } else { "error" }
             );
 
@@ -237,7 +235,7 @@ mod tests {
             condition: "healthy".to_string(),
             elapsed_ms: 100,
             timed_out: false,
-            final_state: Some("jj:ok,zellij:ok".to_string()),
+            final_state: Some("jj:ok,db:ok".to_string()),
         };
 
         let json = serde_json::to_string(&output);
@@ -431,7 +429,7 @@ mod tests {
                 condition: "healthy".to_string(),
                 elapsed_ms: 100,
                 timed_out: false,
-                final_state: Some("zellij:missing".to_string()),
+                final_state: Some("jj:missing".to_string()),
             };
             assert!(
                 failure_output
@@ -452,7 +450,7 @@ mod tests {
                 condition: "healthy".to_string(),
                 elapsed_ms: 1,
                 timed_out: false,
-                final_state: Some("jj:ok,zellij:ok,db:ok".to_string()),
+                final_state: Some("jj:ok,db:ok".to_string()),
             };
 
             let code = output_result(&output, zjj_core::OutputFormat::Json)
@@ -517,7 +515,7 @@ mod tests {
                     condition: "healthy".to_string(),
                     elapsed_ms: 12,
                     timed_out: case.timed_out,
-                    final_state: Some("jj:ok,zellij:ok,db:error".to_string()),
+                    final_state: Some("jj:ok,db:error".to_string()),
                 };
 
                 let code = output_result(&output, zjj_core::OutputFormat::Json)
@@ -706,7 +704,7 @@ mod tests {
                 condition: "healthy".to_string(),
                 elapsed_ms: 4,
                 timed_out: false,
-                final_state: Some("jj:ok,zellij:ok,db:ok".to_string()),
+                final_state: Some("jj:ok,db:ok".to_string()),
             };
 
             let envelope = SchemaEnvelope::new("wait-response", "single", &output);

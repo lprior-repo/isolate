@@ -133,7 +133,6 @@ impl DedupeKey {
     /// Get the underlying string value.
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -222,13 +221,19 @@ mod tests {
     #[test]
     fn test_queue_entry_id_zero_is_invalid() {
         let id = QueueEntryId::new(0);
-        assert!(matches!(id, Err(crate::domain::identifiers::IdentifierError::InvalidFormat { .. })));
+        assert!(matches!(
+            id,
+            Err(crate::domain::identifiers::IdentifierError::InvalidFormat { .. })
+        ));
     }
 
     #[test]
     fn test_queue_entry_id_negative_is_invalid() {
         let id = QueueEntryId::new(-1);
-        assert!(matches!(id, Err(crate::domain::identifiers::IdentifierError::InvalidFormat { .. })));
+        assert!(matches!(
+            id,
+            Err(crate::domain::identifiers::IdentifierError::InvalidFormat { .. })
+        ));
     }
 
     #[test]
@@ -244,7 +249,10 @@ mod tests {
     #[test]
     fn test_queue_entry_id_from_str_invalid() {
         let id = "abc".parse::<QueueEntryId>();
-        assert!(matches!(id, Err(crate::domain::identifiers::IdentifierError::InvalidFormat { .. })));
+        assert!(matches!(
+            id,
+            Err(crate::domain::identifiers::IdentifierError::InvalidFormat { .. })
+        ));
     }
 
     // --- WorkspaceName Tests ---
@@ -265,7 +273,10 @@ mod tests {
     #[test]
     fn test_workspace_name_empty_is_invalid() {
         let name = WorkspaceName::parse("");
-        assert!(matches!(name, Err(crate::domain::identifiers::IdError::Empty)));
+        assert!(matches!(
+            name,
+            Err(crate::domain::identifiers::IdError::Empty)
+        ));
     }
 
     #[test]

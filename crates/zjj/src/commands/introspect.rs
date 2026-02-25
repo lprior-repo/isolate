@@ -108,7 +108,6 @@ fn print_command_human_readable(cmd: &CommandIntrospection) {
     println!("Prerequisites:");
     println!("  Initialized: {}", cmd.prerequisites.initialized);
     println!("  JJ Installed: {}", cmd.prerequisites.jj_installed);
-    println!("  Zellij Running: {}", cmd.prerequisites.zellij_running);
 }
 
 /// Print flags grouped by category with deterministic ordering
@@ -405,11 +404,6 @@ fn create_add_error_conditions() -> Vec<ErrorCondition> {
             "Session name contains invalid characters or does not match naming rules",
             "Use only alphanumeric characters, hyphens, and underscores; must start with a letter",
         ),
-        create_error_condition(
-            "ZELLIJ_NOT_RUNNING",
-            "Zellij terminal multiplexer is not currently running",
-            "Start Zellij first with 'zellij' command, then retry session creation",
-        ),
     ]
 }
 
@@ -435,13 +429,10 @@ fn get_add_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: true,
-            zellij_running: true,
             custom: vec!["Session name must be unique".to_string()],
         },
         side_effects: vec![
             "Creates JJ workspace".to_string(),
-            "Generates Zellij layout file".to_string(),
-            "Opens Zellij tab".to_string(),
             "Executes post_create hooks".to_string(),
             "Records session in state.db".to_string(),
         ],
@@ -523,13 +514,10 @@ fn get_remove_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: true,
-            zellij_running: false,
             custom: vec!["Session must exist".to_string()],
         },
         side_effects: vec![
-            "Closes Zellij tab".to_string(),
             "Removes JJ workspace".to_string(),
-            "Deletes layout file".to_string(),
             "Removes session from state.db".to_string(),
         ],
         error_conditions: create_remove_error_conditions(),
@@ -547,7 +535,6 @@ fn get_list_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: false,
-            zellij_running: false,
             custom: vec![],
         },
         side_effects: vec![],
@@ -569,7 +556,6 @@ fn get_init_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: false,
             jj_installed: true,
-            zellij_running: false,
             custom: vec![],
         },
         side_effects: vec![
@@ -606,10 +592,9 @@ fn get_focus_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: false,
-            zellij_running: true,
             custom: vec!["Session must exist".to_string()],
         },
-        side_effects: vec!["Switches Zellij tab".to_string()],
+        side_effects: vec![],
         error_conditions: vec![ErrorCondition {
             code: "SESSION_NOT_FOUND".to_string(),
             description: "Session does not exist".to_string(),
@@ -664,7 +649,6 @@ fn get_status_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: true,
-            zellij_running: false,
             custom: vec![],
         },
         side_effects: vec![],
@@ -693,7 +677,6 @@ fn get_sync_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: true,
-            zellij_running: false,
             custom: vec![],
         },
         side_effects: vec![
@@ -743,7 +726,6 @@ fn get_diff_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: true,
-            zellij_running: false,
             custom: vec!["Session must exist".to_string()],
         },
         side_effects: vec![],
@@ -786,7 +768,6 @@ fn get_introspect_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: false,
             jj_installed: false,
-            zellij_running: false,
             custom: vec![],
         },
         side_effects: vec![],
@@ -833,7 +814,6 @@ fn get_doctor_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: false,
             jj_installed: false,
-            zellij_running: false,
             custom: vec![],
         },
         side_effects: vec!["May fix issues with --fix flag".to_string()],
@@ -895,7 +875,6 @@ fn get_query_introspection() -> CommandIntrospection {
         prerequisites: Prerequisites {
             initialized: false,
             jj_installed: false,
-            zellij_running: false,
             custom: vec![],
         },
         side_effects: vec![],
@@ -1219,8 +1198,6 @@ pub struct AiSystemInfo {
 pub struct AiDependencies {
     /// JJ installed and version
     pub jj: Option<String>,
-    /// Zellij installed and version
-    pub zellij: Option<String>,
     /// Missing required dependencies
     pub missing: Vec<String>,
 }
@@ -1292,15 +1269,11 @@ pub async fn run_ai() -> Result<()> {
 
     // Check readiness
     let jj_ok = dependencies.get("jj").is_some_and(|d| d.installed);
-    let zellij_ok = dependencies.get("zellij").is_some_and(|d| d.installed);
-    let ready = jj_ok && zellij_ok && system_state.initialized;
+    let ready = jj_ok && system_state.initialized;
 
     let mut blockers = Vec::new();
     if !jj_ok {
         blockers.push("JJ not installed".to_string());
-    }
-    if !zellij_ok {
-        blockers.push("Zellij not installed".to_string());
     }
     if !system_state.initialized {
         blockers.push("ZJJ not initialized (run 'zjj init')".to_string());
@@ -1311,14 +1284,10 @@ pub async fn run_ai() -> Result<()> {
 
     // Build dependency info
     let jj_version = dependencies.get("jj").and_then(|d| d.version.clone());
-    let zellij_version = dependencies.get("zellij").and_then(|d| d.version.clone());
 
     let mut missing_deps = Vec::new();
     if !jj_ok {
         missing_deps.push("jj".to_string());
-    }
-    if !zellij_ok {
-        missing_deps.push("zellij".to_string());
     }
 
     // Build recommendations
@@ -1432,7 +1401,6 @@ pub async fn run_ai() -> Result<()> {
             jj_repo: system_state.jj_repo,
             dependencies: AiDependencies {
                 jj: jj_version,
-                zellij: zellij_version,
                 missing: missing_deps,
             },
         },

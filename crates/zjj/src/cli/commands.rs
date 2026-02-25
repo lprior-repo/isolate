@@ -61,38 +61,6 @@ pub fn cmd_init() -> ClapCommand {
         ))
 }
 
-pub fn cmd_attach() -> ClapCommand {
-    ClapCommand::new("attach")
-        .about("Enter Zellij session from outside (shell → Zellij)")
-        .long_about(
-            "Use this when you are in a regular shell and want to enter the Zellij session.
-
-            This replaces your current process with Zellij.
-
-
-            If already inside Zellij, use 'zjj focus' to switch tabs instead.",
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj attach feature-auth         Attach to session from shell",
-                "zjj attach my-session           Replace shell with Zellij session",
-                "zjj attach work --json          Show errors in JSON format",
-            ],
-            None,
-        ))
-        .arg(
-            Arg::new("name")
-                .required(true)
-                .help("Name of the session to attach to"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON (only for errors)"),
-        )
-}
-
 #[allow(clippy::too_many_lines)]
 pub fn cmd_add() -> ClapCommand {
     ClapCommand::new("add")
@@ -144,13 +112,6 @@ pub fn cmd_add() -> ClapCommand {
                 .help("Skip executing post_create hooks"),
         )
         .arg(
-            Arg::new("template")
-                .short('t')
-                .long("template")
-                .value_name("TEMPLATE")
-                .help("Zellij layout template to use (minimal, standard, full)"),
-        )
-        .arg(
             Arg::new("no-open")
                 .long("no-open")
                 .action(clap::ArgAction::SetTrue)
@@ -180,12 +141,6 @@ pub fn cmd_add() -> ClapCommand {
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
                 .help("Preview without creating"),
-        )
-        .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
         )
         .arg(
             Arg::new("contract")
@@ -640,12 +595,6 @@ pub fn cmd_focus() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
-        )
-        .arg(
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
@@ -735,12 +684,6 @@ pub fn cmd_switch() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
         )
 }
 
@@ -907,7 +850,7 @@ pub fn cmd_config() -> ClapCommand {
             ],
             Some(json_docs::config()),
         ))
-        .arg(Arg::new("key").help("Config key to view/set (dot notation: 'zellij.use_tabs')"))
+        .arg(Arg::new("key").help("Config key to view/set (dot notation)"))
         .arg(Arg::new("value").help("Value to set (omit to view)"))
         .arg(
             Arg::new("global")
@@ -1011,91 +954,6 @@ Use --yes to skip confirmation for scripting/CI use.",
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-}
-
-pub fn cmd_template() -> ClapCommand {
-    ClapCommand::new("template")
-        .about("Manage Zellij layout templates")
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List all available templates")
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("create")
-                .about("Create a new template")
-                .arg(Arg::new("name").required(true).help("Template name"))
-                .arg(
-                    Arg::new("description")
-                        .long("description")
-                        .short('d')
-                        .help("Template description"),
-                )
-                .arg(
-                    Arg::new("from-file")
-                        .long("from-file")
-                        .short('f')
-                        .help("Import from KDL file"),
-                )
-                .arg(
-                    Arg::new("builtin")
-                        .long("builtin")
-                        .short('b')
-                        .value_parser(["minimal", "standard", "full", "split", "review"])
-                        .help("Use builtin template as base"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("show")
-                .about("Show template details")
-                .arg(Arg::new("name").required(true).help("Template name"))
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("delete")
-                .about("Delete a template")
-                .arg(Arg::new("name").required(true).help("Template name"))
-                .arg(
-                    Arg::new("force")
-                        .long("force")
-                        .short('f')
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Skip confirmation prompt"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj template list                List all available templates",
-                "zjj template create custom       Create a new template",
-                "zjj template create -d 'My layout' custom  Create with description",
-                "zjj template create -b minimal custom  Based on builtin template",
-                "zjj template show custom         Show template details",
-                "zjj template delete -f custom    Delete without confirmation",
-            ],
-            None,
-        ))
 }
 
 pub fn cmd_introspect() -> ClapCommand {
@@ -2146,7 +2004,6 @@ pub fn cmd_work() -> ClapCommand {
                 "zjj work feature-auth              Start working on feature-auth",
                 "zjj work bug-fix --bead zjj-123    Start work on bead",
                 "zjj work test --idempotent         Reuse existing session if exists",
-                "zjj work quick --no-zellij         Create workspace without Zellij tab",
                 "zjj work --dry-run feature         Preview what would be created",
             ],
             None,
@@ -2168,12 +2025,6 @@ pub fn cmd_work() -> ClapCommand {
                 .long("agent-id")
                 .value_name("ID")
                 .help("Agent ID to register (auto-generated if not provided)"),
-        )
-        .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Don't create Zellij tab"),
         )
         .arg(
             Arg::new("no-agent")
@@ -2830,12 +2681,6 @@ pub fn cmd_rename() -> ClapCommand {
         )
         .arg(Arg::new("new_name").required(true).help("New session name"))
         .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
-        )
-        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -2854,10 +2699,7 @@ pub fn cmd_rename() -> ClapCommand {
                 .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
-            &[
-                "zjj rename old-name new-name        Rename a session",
-                "zjj rename --no-zellij old new      Rename without Zellij",
-            ],
+            &["zjj rename old-name new-name        Rename a session"],
             None,
         ))
 }
@@ -2932,12 +2774,6 @@ pub fn cmd_clone() -> ClapCommand {
                 .help("Destination session name"),
         )
         .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
-        )
-        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -2956,10 +2792,7 @@ pub fn cmd_clone() -> ClapCommand {
                 .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
-            &[
-                "zjj clone feature-x feature-y     Clone session",
-                "zjj clone --no-zellij src dest   Clone without Zellij",
-            ],
+            &["zjj clone feature-x feature-y     Clone session"],
             None,
         ))
 }
@@ -3320,77 +3153,6 @@ pub fn cmd_rollback() -> ClapCommand {
         ))
 }
 
-pub fn cmd_pane() -> ClapCommand {
-    ClapCommand::new("pane")
-        .about("Manage Zellij panes")
-        .subcommand(
-            ClapCommand::new("focus")
-                .about("Focus a specific pane")
-                .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(
-                    Arg::new("pane")
-                        .conflicts_with("direction")
-                        .help("Pane identifier"),
-                )
-                .arg(
-                    Arg::new("direction")
-                        .long("direction")
-                        .short('d')
-                        .value_parser(["up", "down", "left", "right"])
-                        .help("Focus pane in direction"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                )
-                .arg(
-                    Arg::new("contract")
-                        .long("contract")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-                )
-                .arg(
-                    Arg::new("ai-hints")
-                        .long("ai-hints")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("AI: Show execution hints and common patterns"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List panes in a session")
-                .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("next")
-                .about("Focus next pane")
-                .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .after_help(after_help_text(
-            &[
-                "zjj pane focus feature-x         Focus pane in session",
-                "zjj pane focus -d left feat     Focus pane to the left",
-                "zjj pane list feature-x         List all panes in session",
-                "zjj pane next feature-x         Focus next pane",
-            ],
-            None,
-        ))
-}
-
 pub fn cmd_abort() -> ClapCommand {
     ClapCommand::new("abort")
         .about("Abort work and abandon workspace changes")
@@ -3561,7 +3323,6 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_init())
         .subcommand(cmd_add())
         .subcommand(cmd_agents())
-        .subcommand(cmd_attach())
         .subcommand(cmd_broadcast())
         .subcommand(cmd_list())
         .subcommand(cmd_bookmark())
@@ -3574,7 +3335,6 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_config())
         .subcommand(cmd_clean())
         .subcommand(cmd_prune_invalid())
-        .subcommand(cmd_template())
         .subcommand(cmd_introspect())
         .subcommand(cmd_doctor())
         .subcommand(cmd_integrity())
@@ -3610,8 +3370,6 @@ pub fn build_cli() -> ClapCommand {
          .subcommand(cmd_pause())
         .subcommand(cmd_resume())
         .subcommand(cmd_clone())
-        // Pane management
-        .subcommand(cmd_pane())
         // Export/Import
         .subcommand(cmd_export())
         .subcommand(cmd_import())

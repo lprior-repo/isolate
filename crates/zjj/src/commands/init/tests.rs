@@ -99,7 +99,6 @@ async fn test_init_creates_config_toml() -> Result<()> {
     let content = tokio::fs::read_to_string(&config_path).await?;
     assert!(content.contains("workspace_dir"));
     assert!(content.contains("[watch]"));
-    assert!(content.contains("[zellij]"));
     assert!(content.contains("[dashboard]"));
 
     Ok(())
@@ -243,7 +242,6 @@ fn test_default_config_is_valid_toml() -> Result<()> {
 
     // Verify key sections exist
     assert!(parsed.get("watch").is_some());
-    assert!(parsed.get("zellij").is_some());
     assert!(parsed.get("dashboard").is_some());
     assert!(parsed.get("agent").is_some());
     assert!(parsed.get("session").is_some());
@@ -279,22 +277,6 @@ fn test_default_config_has_correct_values() -> Result<()> {
             .and_then(|w| w.get("debounce_ms"))
             .and_then(toml::Value::as_integer),
         Some(100)
-    );
-
-    // Check zellij config
-    let zellij = parsed.get("zellij").and_then(|v| v.as_table());
-    assert!(zellij.is_some());
-    assert_eq!(
-        zellij
-            .and_then(|z| z.get("session_prefix"))
-            .and_then(|v| v.as_str()),
-        Some("zjj")
-    );
-    assert_eq!(
-        zellij
-            .and_then(|z| z.get("use_tabs"))
-            .and_then(toml::Value::as_bool),
-        Some(true)
     );
 
     Ok(())

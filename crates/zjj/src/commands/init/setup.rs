@@ -65,32 +65,6 @@ post_create = []
 pre_remove = []
 post_merge = []
 
-[zellij]
-session_prefix = "zjj"
-use_tabs = true
-layout_dir = ".zjj/layouts"
-
-[zellij.panes.main]
-command = "claude"
-args = []
-size = "70%"
-
-[zellij.panes.beads]
-command = "bv"
-args = []
-size = "50%"
-
-[zellij.panes.status]
-command = "zjj"
-args = ["status", "--watch"]
-size = "50%"
-
-[zellij.panes.float]
-enabled = true
-command = ""
-width = "80%"
-height = "60%"
-
 [dashboard]
 refresh_ms = 1000
 theme = "default"

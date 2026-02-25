@@ -30,7 +30,10 @@ enum ValidationError {
 impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ValidationError::TimestampOrdering { created_at, updated_at } => {
+            ValidationError::TimestampOrdering {
+                created_at,
+                updated_at,
+            } => {
                 write!(
                     f,
                     "Timestamp ordering violated: updated_at ({updated_at}) < created_at ({created_at})"
@@ -110,10 +113,7 @@ fn validate_bead_state(
     );
 
     // Check state is not empty
-    crate::invariant!(
-        !state.is_empty(),
-        ValidationError::EmptyState
-    );
+    crate::invariant!(!state.is_empty(), ValidationError::EmptyState);
 
     // Check timestamp ordering
     crate::invariant!(
@@ -141,10 +141,7 @@ mod test_example_2 {
     fn test_empty_title() {
         let now = Utc::now();
         let result = validate_bead_state("", "open", now, now);
-        assert!(matches!(
-            result,
-            Err(ValidationError::InvariantViolated(_))
-        ));
+        assert!(matches!(result, Err(ValidationError::InvariantViolated(_))));
     }
 
     #[test]
@@ -312,7 +309,10 @@ mod test_example_5 {
     fn test_non_integer_division() {
         let result = validate_division(10, 3);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("non-integer result"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("non-integer result"));
     }
 }
 

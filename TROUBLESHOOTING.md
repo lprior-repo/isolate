@@ -876,28 +876,6 @@ Proptest shrinks failing cases and saves them to `.proptest-regressions` files. 
 
 ---
 
-### Issue: Zellij session not found
-
-**Symptom:**
-`zjj focus` fails with "Zellij session not found".
-
-**Workaround:**
-```bash
-# List Zellij sessions
-zellij list-sessions
-
-# Attach manually
-zellij attach zjj-session-name
-
-# Or create without Zellij
-zjj add feature-session --no-zellij
-```
-
-**Root Cause:**
-Zellij not running, or session was created outside ZJJ.
-
----
-
 ### Issue: Dedupe key conflicts
 
 **Symptom:**

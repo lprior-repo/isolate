@@ -265,7 +265,7 @@ fn test_focus_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "focus-test", "--no-open"]);
 
-    let result = harness.zjj(&["focus", "focus-test", "--json", "--no-zellij"]);
+    let result = harness.zjj(&["focus", "focus-test", "--json"]);
 
     if !result.success {
         eprintln!("stdout: {}", result.stdout);

@@ -68,7 +68,7 @@ fn test_lock_ttl() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "lock-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "lock-test", "--no-hooks"]);
 
     // Lock with 100ms TTL
     harness.assert_success(&["lock", "lock-test", "--ttl", "0.1", "--agent-id", "agent1"]);
@@ -93,7 +93,7 @@ fn test_lock_agent_id_enforcement() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "agent-lock", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "agent-lock", "--no-hooks"]);
 
     // Lock as agent1
     harness.assert_success(&["lock", "agent-lock", "--agent-id", "agent1"]);
@@ -115,8 +115,8 @@ fn test_queue_priority_ordering() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "ws-low", "--no-zellij", "--no-hooks"]);
-    harness.assert_success(&["add", "ws-high", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "ws-low", "--no-hooks"]);
+    harness.assert_success(&["add", "ws-high", "--no-hooks"]);
 
     // Add ws-low with low priority (10)
     harness.assert_success(&["queue", "--add", "ws-low", "--priority", "10"]);
@@ -143,7 +143,7 @@ fn test_done_with_keep_workspace() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "done-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "done-test", "--no-hooks"]);
 
     // Run done with --keep-workspace
     harness.assert_success(&[
@@ -165,7 +165,7 @@ fn test_done_squash() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "squash-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "squash-test", "--no-hooks"]);
 
     let ws_path = harness.workspace_path("squash-test");
 
@@ -226,7 +226,7 @@ fn test_done_detect_conflicts() {
         .assert_success();
 
     // 2. Create workspace from previous state (or just change same file)
-    harness.assert_success(&["add", "conflict-ws", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "conflict-ws", "--no-hooks"]);
     let ws_path = harness.workspace_path("conflict-ws");
     std::fs::write(ws_path.join("conflict.txt"), "workspace version").unwrap();
     harness
@@ -256,7 +256,7 @@ fn test_remove_force_and_keep_branch() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "remove-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "remove-test", "--no-hooks"]);
 
     // Manually create a bookmark in the workspace
     let ws_path = harness.workspace_path("remove-test");
@@ -288,7 +288,7 @@ fn test_remove_merge() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "merge-remove", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "merge-remove", "--no-hooks"]);
 
     let ws_path = harness.workspace_path("merge-remove");
     std::fs::write(ws_path.join("merged_file.txt"), "content").unwrap();

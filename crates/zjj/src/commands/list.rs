@@ -184,8 +184,7 @@ pub async fn run(
         );
         let summary = match Summary::new(
             SummaryType::Count,
-            Message::new(summary_text)
-                .map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
+            Message::new(summary_text).map_err(|e| anyhow::anyhow!("Invalid message: {e}"))?,
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -450,8 +449,11 @@ mod tests {
 
     #[test]
     fn test_output_line_summary_serializes_with_type() {
-        let summary = Summary::new(SummaryType::Count, Message::new("Listed 5 session(s)").expect("summary should be valid"))
-            .expect("summary should be valid");
+        let summary = Summary::new(
+            SummaryType::Count,
+            Message::new("Listed 5 session(s)").expect("summary should be valid"),
+        )
+        .expect("summary should be valid");
         let line = OutputLine::Summary(summary);
         let json = serde_json::to_string(&line);
         assert!(json.is_ok());

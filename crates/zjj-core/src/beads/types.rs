@@ -162,10 +162,7 @@ impl BeadIssue {
     #[must_use]
     pub fn is_blocked(&self) -> bool {
         matches!(self.status, IssueStatus::Blocked)
-            || self
-                .blocked_by
-                .as_ref()
-                .is_some_and(|v| !v.is_empty())
+            || self.blocked_by.as_ref().is_some_and(|v| !v.is_empty())
     }
 
     #[must_use]

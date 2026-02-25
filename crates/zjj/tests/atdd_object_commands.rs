@@ -6,7 +6,7 @@
 //! # Objects Under Test
 //!
 //! - task: Task management (beads, work items)
-//! - session: Session management (workspaces, zellij tabs)
+//! - session: Session management (workspaces)
 //! - queue: Merge queue operations
 //! - stack: Stack operations (parent-child session relationships)
 //! - agent: Agent coordination and tracking
@@ -103,9 +103,7 @@ impl AtddTestContext {
 
     /// Create a session and track it
     pub async fn create_session(&self, name: &str) -> Result<()> {
-        let result = self
-            .harness
-            .zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let result = self.harness.zjj(&["add", name, "--no-hooks"]);
         if result.success {
             self.track_session(name).await;
             return Ok(());

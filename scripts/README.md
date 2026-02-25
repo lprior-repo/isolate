@@ -82,7 +82,7 @@ Checking Prerequisites
 ✓ Moon installed
 ℹ Found JJ version: jj 0.38.0
 ✓ JJ installed
-ℹ Found Zellij version: zellij 0.43.1
+ℹ Found JJ version: jj 0.25.0
 ✓ Zellij installed
 ✓ All required prerequisites installed
 

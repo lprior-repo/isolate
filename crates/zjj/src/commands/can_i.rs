@@ -389,40 +389,13 @@ async fn check_can_spawn(resource: Option<&str>) -> CanIResult {
         },
     });
 
-    // Check if Zellij is available
-    let zellij_available = match tokio::process::Command::new("zellij")
-        .arg("--version")
-        .output()
-        .await
-    {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
-    };
-    prerequisites.push(Prerequisite {
-        check: "zellij_available".to_string(),
-        passed: zellij_available,
-        description: if zellij_available {
-            "Zellij is available".to_string()
-        } else {
-            "Zellij not found".to_string()
-        },
-    });
-
-    let allowed = zjj_initialized && bead_provided && zellij_available;
+    let allowed = zjj_initialized && bead_provided;
     let reason = if allowed {
         "Can spawn agent session".to_string()
     } else if !zjj_initialized {
         "ZJJ not initialized".to_string()
-    } else if !bead_provided {
+    } else {
         "Bead ID required".to_string()
-    } else {
-        "Zellij not available".to_string()
-    };
-
-    let fix_commands = if zellij_available {
-        vec![]
-    } else {
-        vec!["cargo install zellij".to_string()]
     };
 
     CanIResult {
@@ -431,7 +404,7 @@ async fn check_can_spawn(resource: Option<&str>) -> CanIResult {
         resource: resource.map(String::from),
         reason,
         prerequisites,
-        fix_commands,
+        fix_commands: vec![],
     }
 }
 
@@ -549,7 +522,7 @@ mod tests {
             allowed: false,
             action: "spawn".to_string(),
             resource: Some("zjj-abc12".to_string()),
-            reason: "Zellij not available".to_string(),
+            reason: "Bead ID required".to_string(),
             prerequisites: vec![
                 Prerequisite {
                     check: "zjj_initialized".to_string(),
@@ -557,17 +530,17 @@ mod tests {
                     description: "ZJJ is initialized".to_string(),
                 },
                 Prerequisite {
-                    check: "zellij_available".to_string(),
+                    check: "bead_provided".to_string(),
                     passed: false,
-                    description: "Zellij not found".to_string(),
+                    description: "No bead ID specified".to_string(),
                 },
             ],
-            fix_commands: vec!["cargo install zellij".to_string()],
+            fix_commands: vec![],
         };
 
         let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"allowed\":false"));
-        assert!(json.contains("\"fix_commands\""));
+        assert!(json.contains("\"prerequisites\""));
         Ok(())
     }
 

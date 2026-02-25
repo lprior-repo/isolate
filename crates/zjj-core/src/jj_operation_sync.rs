@@ -601,7 +601,10 @@ mod tests {
             .map_err(|e| Error::IoError(e.to_string()))?;
 
         let second_lock_attempt = second_file.try_lock_exclusive();
-        assert!(second_lock_attempt.is_ok(), "Should be able to acquire lock after first is dropped");
+        assert!(
+            second_lock_attempt.is_ok(),
+            "Should be able to acquire lock after first is dropped"
+        );
 
         Ok(())
     }

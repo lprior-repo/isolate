@@ -23,7 +23,6 @@ ActionVerb::new("fix")        // Fix an issue
 ActionVerb::new("check")      // Check status
 ActionVerb::new("focus")      // Focus on a target
 ActionVerb::new("attach")     // Attach to a session
-ActionVerb::new("switch-tab") // Switch zellij tabs
 ActionVerb::new("remove")     // Remove a resource
 
 // Queue operations

@@ -50,7 +50,11 @@ pub struct ClaimTimestamps {
 impl ClaimTimestamps {
     /// Create new claim timestamps.
     #[must_use]
-    pub const fn new(claimed_at: DateTime<Utc>, expires_at: DateTime<Utc>, timestamp: DateTime<Utc>) -> Self {
+    pub const fn new(
+        claimed_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+        timestamp: DateTime<Utc>,
+    ) -> Self {
         Self {
             claimed_at,
             expires_at,

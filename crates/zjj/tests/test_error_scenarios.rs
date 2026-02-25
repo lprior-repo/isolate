@@ -62,14 +62,14 @@ fn max_valid_session_name() -> String {
 // ============================================================================
 
 #[test]
-fn test_init_succeeds_with_jj_and_zellij_installed() {
+fn test_init_succeeds_with_jj_installed() {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
         return;
     };
 
-    // This test assumes jj and zellij are installed
-    // If they're not, init should fail with helpful error
+    // This test assumes jj is installed
+    // If it's not, init should fail with helpful error
     let result = harness.zjj(&["init"]);
 
     // Either succeeds (if deps available) or fails with helpful message

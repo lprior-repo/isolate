@@ -21,7 +21,6 @@ pub struct InitOutput {
 pub struct AddOutput {
     pub name: String,
     pub workspace_path: String,
-    pub zellij_tab: String,
     pub status: String,
     pub created: bool,
 }
@@ -39,7 +38,6 @@ pub struct RemoveOutput {
 #[allow(dead_code)]
 pub struct FocusOutput {
     pub name: String,
-    pub zellij_tab: String,
     pub message: String,
 }
 
@@ -155,7 +153,6 @@ mod tests {
         let output = AddOutput {
             name: "test-session".to_string(),
             workspace_path: "/path/to/workspace".to_string(),
-            zellij_tab: "zjj:test-session".to_string(),
             status: "active".to_string(),
             created: true,
         };
@@ -182,7 +179,6 @@ mod tests {
         let output = AddOutput {
             name: session_name.to_string(),
             workspace_path: format!("/workspaces/{session_name}"),
-            zellij_tab: format!("zjj:{session_name}"),
             status: "creating".to_string(),
             created: true,
         };
@@ -203,7 +199,6 @@ mod tests {
         let output = AddOutput {
             name: "test".to_string(),
             workspace_path: "/path".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             status: "failed".to_string(),
             created: false,
         };
@@ -229,7 +224,6 @@ mod tests {
         let output = AddOutput {
             name: "test".to_string(),
             workspace_path: "/workspace/test".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             status: "active".to_string(),
             created: true,
         };
@@ -240,10 +234,6 @@ mod tests {
         assert_eq!(
             json.get("workspace_path").and_then(|v| v.as_str()),
             Some("/workspace/test")
-        );
-        assert_eq!(
-            json.get("zellij_tab").and_then(|v| v.as_str()),
-            Some("zjj:test")
         );
         assert_eq!(json.get("status").and_then(|v| v.as_str()), Some("active"));
         assert_eq!(
@@ -282,7 +272,6 @@ mod tests {
         let add_output = AddOutput {
             name: "my-session".to_string(),
             workspace_path: "/workspace".to_string(),
-            zellij_tab: "zjj:my-session".to_string(),
             status: "active".to_string(),
             created: true,
         };
@@ -312,7 +301,6 @@ mod tests {
     fn test_focus_output_json_uses_name_field() -> Result<(), serde_json::Error> {
         let output = FocusOutput {
             name: "test-session".to_string(),
-            zellij_tab: "zjj:test-session".to_string(),
             message: "Focused on session".to_string(),
         };
 
@@ -337,14 +325,12 @@ mod tests {
         // All output structs should use 'name' field consistently
         let focus = FocusOutput {
             name: "my-session".to_string(),
-            zellij_tab: "zjj:my-session".to_string(),
             message: "Focused".to_string(),
         };
 
         let add = AddOutput {
             name: "my-session".to_string(),
             workspace_path: "/workspace".to_string(),
-            zellij_tab: "zjj:my-session".to_string(),
             status: "active".to_string(),
             created: true,
         };

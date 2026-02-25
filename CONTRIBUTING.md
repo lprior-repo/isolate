@@ -29,7 +29,7 @@ cd zjj
 ```
 
 The setup script will:
-- Check and install prerequisites (Rust, Moon, JJ, Zellij)
+- Check and install prerequisites (Rust, Moon, JJ)
 - Set up the development database
 - Run initial build and tests
 - Provide clear next steps
@@ -52,7 +52,6 @@ If you prefer manual setup or the script fails:
 # 1. Install dependencies
 # - Moon (build tooling): https://moonrepo.dev/docs/install
 # - JJ (Jujutsu): https://github.com/martinvonz/jj#installation
-# - Zellij: https://zellij.dev/download
 # - Rust 1.80+: https://rustup.rs/
 
 # 2. Install Moon
@@ -81,10 +80,7 @@ moon run :test
 3. **JJ (Jujutsu)** - Version control system
    - Install from https://github.com/martinvonz/jj#installation
 
-4. **Zellij** - Terminal multiplexer (optional for testing)
-   - Install from https://zellij.dev/download
-
-5. **bazel-remote** - Local build cache (optional but recommended)
+4. **bazel-remote** - Local build cache (optional but recommended)
    - Improves build performance by ~98.5%
 
 ### Workspace Structure

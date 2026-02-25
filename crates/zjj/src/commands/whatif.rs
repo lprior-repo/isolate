@@ -207,13 +207,6 @@ fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatI
             },
             WhatIfStep {
                 order: 3,
-                description: "Create Zellij tab".to_string(),
-                action: format!("zellij action new-tab --name zjj:{name}"),
-                can_fail: true,
-                on_failure: Some("Rollback: remove JJ workspace".to_string()),
-            },
-            WhatIfStep {
-                order: 4,
                 description: "Save to database".to_string(),
                 action: "INSERT session into .zjj/state.db".to_string(),
                 can_fail: false,
@@ -227,11 +220,6 @@ fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatI
                 description: "JJ workspace directory".to_string(),
             },
             ResourceChange {
-                resource_type: "zellij_tab".to_string(),
-                resource: format!("zjj:{name}"),
-                description: "Zellij terminal tab".to_string(),
-            },
-            ResourceChange {
                 resource_type: "database_record".to_string(),
                 resource: format!("session:{name}"),
                 description: "Session tracking record".to_string(),
@@ -239,10 +227,7 @@ fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatI
         ],
         modifies: vec![],
         deletes: vec![],
-        side_effects: vec![
-            "Switches Zellij focus to new tab".to_string(),
-            "Changes working directory in new tab".to_string(),
-        ],
+        side_effects: vec!["Changes working directory to workspace".to_string()],
         reversible: true,
         undo_command: Some(format!("zjj remove {name}")),
         warnings: vec![],
@@ -260,11 +245,6 @@ fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatI
                 check: "jj_installed".to_string(),
                 status: PrerequisiteStatus::Unknown,
                 description: "JJ is installed".to_string(),
-            },
-            PrerequisiteCheck {
-                check: "zellij_installed".to_string(),
-                status: PrerequisiteStatus::Unknown,
-                description: "Zellij is installed".to_string(),
             },
         ],
     };
@@ -349,27 +329,20 @@ fn preview_remove_with_flags(args: &[String], has_keep_flag: bool) -> Result<Wha
             },
             WhatIfStep {
                 order: 2,
-                description: "Close Zellij tab".to_string(),
-                action: format!("Close zjj:{name} tab"),
-                can_fail: true,
-                on_failure: Some("Continue anyway".to_string()),
-            },
-            WhatIfStep {
-                order: 3,
                 description: "Remove JJ workspace".to_string(),
                 action: format!("jj workspace forget {name}"),
                 can_fail: true,
                 on_failure: Some("Log warning, continue".to_string()),
             },
             WhatIfStep {
-                order: 4,
+                order: 3,
                 description: "Delete workspace files".to_string(),
                 action: format!("rm -rf .zjj/workspaces/{name}"),
                 can_fail: false,
                 on_failure: None,
             },
             WhatIfStep {
-                order: 5,
+                order: 4,
                 description: "Remove from database".to_string(),
                 action: "DELETE session from .zjj/state.db".to_string(),
                 can_fail: false,
@@ -383,11 +356,6 @@ fn preview_remove_with_flags(args: &[String], has_keep_flag: bool) -> Result<Wha
                 resource_type: "workspace".to_string(),
                 resource: format!(".zjj/workspaces/{name}"),
                 description: "JJ workspace directory".to_string(),
-            },
-            ResourceChange {
-                resource_type: "zellij_tab".to_string(),
-                resource: format!("zjj:{name}"),
-                description: "Zellij terminal tab".to_string(),
             },
             ResourceChange {
                 resource_type: "database_record".to_string(),
@@ -411,9 +379,9 @@ fn preview_remove_with_flags(args: &[String], has_keep_flag: bool) -> Result<Wha
     };
 
     if has_keep_flag {
-        result.steps[3].description = "Keep workspace files".to_string();
-        result.steps[3].action = format!("Preserve .zjj/workspaces/{name}");
-        result.steps[3].can_fail = false;
+        result.steps[2].description = "Keep workspace files".to_string();
+        result.steps[2].action = format!("Preserve .zjj/workspaces/{name}");
+        result.steps[2].can_fail = false;
         result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
         result
             .warnings
@@ -514,7 +482,6 @@ fn preview_done_with_flags(
         }],
         side_effects: vec![
             "Changes working directory to main".to_string(),
-            "Closes Zellij tab".to_string(),
             "Updates bead status to closed".to_string(),
         ],
         reversible: true,
@@ -597,27 +564,20 @@ fn preview_abort_with_flags(args: &[String], has_workspace_flag: bool) -> Result
             },
             WhatIfStep {
                 order: 2,
-                description: "Close Zellij tab".to_string(),
-                action: format!("Close zjj:{workspace} tab"),
-                can_fail: true,
-                on_failure: Some("Continue anyway".to_string()),
-            },
-            WhatIfStep {
-                order: 3,
                 description: "Remove JJ workspace".to_string(),
                 action: format!("jj workspace forget {workspace}"),
                 can_fail: true,
                 on_failure: Some("Log warning, continue".to_string()),
             },
             WhatIfStep {
-                order: 4,
+                order: 3,
                 description: "Delete workspace files".to_string(),
                 action: format!("rm -rf .zjj/workspaces/{workspace}"),
                 can_fail: false,
                 on_failure: None,
             },
             WhatIfStep {
-                order: 5,
+                order: 4,
                 description: "Remove from database".to_string(),
                 action: "DELETE session from .zjj/state.db".to_string(),
                 can_fail: false,
@@ -631,11 +591,6 @@ fn preview_abort_with_flags(args: &[String], has_workspace_flag: bool) -> Result
                 resource_type: "workspace".to_string(),
                 resource: format!(".zjj/workspaces/{workspace}"),
                 description: "JJ workspace directory".to_string(),
-            },
-            ResourceChange {
-                resource_type: "zellij_tab".to_string(),
-                resource: format!("zjj:{workspace}"),
-                description: "Zellij terminal tab".to_string(),
             },
             ResourceChange {
                 resource_type: "database_record".to_string(),
@@ -689,7 +644,7 @@ fn preview_sync_with_flags(args: &[String]) -> WhatIfResult {
             WhatIfStep {
                 order: 1,
                 description: "Check prerequisites".to_string(),
-                action: "Verify JJ and Zellij installed".to_string(),
+                action: "Verify JJ installed".to_string(),
                 can_fail: true,
                 on_failure: Some("Error if prerequisites not met".to_string()),
             },
@@ -722,18 +677,11 @@ fn preview_sync_with_flags(args: &[String]) -> WhatIfResult {
         reversible: false,
         undo_command: None,
         warnings: vec![],
-        prerequisites: vec![
-            PrerequisiteCheck {
-                check: "jj_installed".to_string(),
-                status: PrerequisiteStatus::Unknown,
-                description: "JJ is installed".to_string(),
-            },
-            PrerequisiteCheck {
-                check: "zellij_installed".to_string(),
-                status: PrerequisiteStatus::Unknown,
-                description: "Zellij is installed".to_string(),
-            },
-        ],
+        prerequisites: vec![PrerequisiteCheck {
+            check: "jj_installed".to_string(),
+            status: PrerequisiteStatus::Unknown,
+            description: "JJ is installed".to_string(),
+        }],
     }
 }
 

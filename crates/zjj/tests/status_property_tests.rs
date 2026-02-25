@@ -47,7 +47,7 @@ fn prop_status_output_is_valid_jsonl() {
     harness.assert_success(&["init"]);
 
     // Create a session
-    let result = harness.zjj(&["add", "prop-test", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "prop-test", "--no-hooks"]);
     if !result.success {
         // Skip if can't create session
         println!("SKIP: could not create session");
@@ -94,7 +94,7 @@ fn prop_status_lines_have_type_discriminator() {
 
     harness.assert_success(&["init"]);
 
-    let result = harness.zjj(&["add", "prop-type-test", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "prop-type-test", "--no-hooks"]);
     if !result.success {
         println!("SKIP: could not create session");
         return;
@@ -142,7 +142,7 @@ fn prop_session_lines_have_required_fields() {
 
     harness.assert_success(&["init"]);
 
-    let result = harness.zjj(&["add", "prop-fields-test", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "prop-fields-test", "--no-hooks"]);
     if !result.success {
         println!("SKIP: could not create session");
         return;
@@ -203,7 +203,7 @@ fn prop_status_has_valid_summary() {
 
     // Create some sessions
     for name in ["prop-summary-1", "prop-summary-2", "prop-summary-3"] {
-        let _ = harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let _ = harness.zjj(&["add", name, "--no-hooks"]);
     }
 
     let status_result = harness.zjj(&["status"]);
@@ -262,7 +262,7 @@ fn prop_session_count_matches_summary() {
     // Create a known number of sessions
     let session_names = ["prop-count-1", "prop-count-2", "prop-count-3"];
     for name in &session_names {
-        let result = harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", name, "--no-hooks"]);
         if !result.success {
             // If we can't create all sessions, skip this test run
             println!("SKIP: could not create all sessions");
@@ -319,7 +319,7 @@ fn prop_no_duplicate_sessions() {
 
     // Create sessions
     for name in ["prop-dup-1", "prop-dup-2"] {
-        let _ = harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let _ = harness.zjj(&["add", name, "--no-hooks"]);
     }
 
     let status_result = harness.zjj(&["status"]);
@@ -370,21 +370,14 @@ fn prop_stack_depth_consistent() {
     harness.assert_success(&["init"]);
 
     // Create parent session
-    let parent_result = harness.zjj(&["add", "prop-parent", "--no-zellij", "--no-hooks"]);
+    let parent_result = harness.zjj(&["add", "prop-parent", "--no-hooks"]);
     if !parent_result.success {
         println!("SKIP: could not create parent session");
         return;
     }
 
     // Create child session with parent reference
-    let child_result = harness.zjj(&[
-        "add",
-        "prop-child",
-        "--no-zellij",
-        "--no-hooks",
-        "--parent",
-        "prop-parent",
-    ]);
+    let child_result = harness.zjj(&["add", "prop-child", "--no-hooks", "--parent", "prop-parent"]);
 
     if child_result.success {
         // Query status for child
@@ -433,7 +426,7 @@ fn prop_queue_status_is_valid() {
 
     harness.assert_success(&["init"]);
 
-    let result = harness.zjj(&["add", "prop-queue-test", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "prop-queue-test", "--no-hooks"]);
     if !result.success {
         println!("SKIP: could not create session");
         return;
@@ -489,7 +482,7 @@ fn test_json_validity_invariant() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "json-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "json-test", "--no-hooks"]);
 
     let result = harness.zjj(&["status"]);
 
@@ -516,7 +509,7 @@ fn test_field_completeness_session_name() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "completeness-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "completeness-test", "--no-hooks"]);
 
     let result = harness.zjj(&["status"]);
 
@@ -547,7 +540,7 @@ fn test_summary_line_present() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "summary-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "summary-test", "--no-hooks"]);
 
     let result = harness.zjj(&["status"]);
 

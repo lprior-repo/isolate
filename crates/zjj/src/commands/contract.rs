@@ -343,12 +343,6 @@ fn build_add_contract() -> CommandContract {
                 global: false,
             },
             FlagContract {
-                name: "no-zellij".to_string(),
-                short: None,
-                description: "Skip Zellij integration".to_string(),
-                global: false,
-            },
-            FlagContract {
                 name: "example-json".to_string(),
                 short: None,
                 description: "Show example JSON output without executing".to_string(),
@@ -420,7 +414,7 @@ fn build_attach_contract() -> CommandContract {
         ],
         reversible: true,
         undo_command: Some("exit".to_string()),
-        prerequisites: vec!["zellij must be installed".to_string()],
+        prerequisites: vec![],
     }
 }
 
@@ -785,12 +779,6 @@ fn build_work_contract() -> CommandContract {
             },
         ],
         flags: vec![
-            FlagContract {
-                name: "no-zellij".to_string(),
-                short: None,
-                description: "Don't create Zellij tab".to_string(),
-                global: false,
-            },
             FlagContract {
                 name: "no-agent".to_string(),
                 short: None,

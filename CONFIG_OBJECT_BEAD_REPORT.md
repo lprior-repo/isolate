@@ -250,14 +250,12 @@ zjj config --global           # Global config only
 ### Get specific value
 ```bash
 zjj config workspace_dir
-zjj config zellij.use_tabs
 zjj config watch.paths --json
 ```
 
 ### Set values
 ```bash
 zjj config workspace_dir ../custom
-zjj config zellij.use_tabs false
 zjj config max_sessions 10
 zjj config watch.paths '[".beads/beads.db", "src/"]'
 ```

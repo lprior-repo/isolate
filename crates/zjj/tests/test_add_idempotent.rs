@@ -157,7 +157,6 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     assert_eq!(data["name"], "new-session");
     assert_eq!(data["created"], true);
     assert!(data["workspace_path"].is_string());
-    assert!(data["zellij_tab"].is_string());
 
     // WHEN: Run again with --idempotent
     let result2 = harness.zjj(&["add", "new-session", "--idempotent", "--json", "--no-open"]);
@@ -511,10 +510,6 @@ fn test_add_idempotent_json_output_schema_validation() {
     assert!(
         data.get("workspace_path").is_some(),
         "Should have 'workspace_path' field"
-    );
-    assert!(
-        data.get("zellij_tab").is_some(),
-        "Should have 'zellij_tab' field"
     );
     assert!(data.get("status").is_some(), "Should have 'status' field");
 }

@@ -8,7 +8,6 @@
 //! - Session name uniqueness
 //! - State machine validity
 //! - One workspace per session
-//! - One Zellij tab per session
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -337,7 +336,6 @@ fn workspace_path_strategy() -> impl Strategy<Value = String> {
 struct TestSession {
     name: String,
     workspace_path: String,
-    zellij_tab: String,
     state: SessionState,
 }
 
@@ -356,7 +354,6 @@ proptest! {
         let session = TestSession {
             name: name.clone(),
             workspace_path: path.clone(),
-            zellij_tab: format!("zjj:{}", name),
             state: SessionState::Created,
         };
 
@@ -394,7 +391,6 @@ proptest! {
             .map(|(name, path)| TestSession {
                 name: name.clone(),
                 workspace_path: path,
-                zellij_tab: format!("zjj:{}", name),
                 state: SessionState::Created,
             })
             .collect();
@@ -445,133 +441,16 @@ fn enforce_workspace_exclusivity(sessions: &[TestSession]) -> bool {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PROPERTY: One Zellij Tab Per Session
-// ═════════════════════════════════════════════════════════════════════════
-
-/// Strategy for generating Zellij tab names
-fn zellij_tab_strategy() -> impl Strategy<Value = String> {
-    valid_session_name_strategy().prop_map(|name| format!("zjj:{}", name))
-}
-
-proptest! {
-    /// Property: Each session has exactly one Zellij tab.
-    ///
-    /// INVARIANT: A session cannot have multiple Zellij tabs.
-    /// RED PHASE: This test FAILS because the invariant is not enforced.
-    #[test]
-    fn prop_one_zellij_tab_per_session(
-        name in valid_session_name_strategy()
-    ) {
-        let expected_tab = format!("zjj:{}", name);
-        let session = TestSession {
-            name: name.clone(),
-            workspace_path: "/workspace/test".to_string(),
-            zellij_tab: expected_tab.clone(),
-            state: SessionState::Created,
-        };
-
-        // INVARIANT: Tab name follows the zjj:NAME convention
-        prop_assert!(
-            session.zellij_tab.starts_with("zjj:"),
-            "Tab name must start with 'zjj:' prefix"
-        );
-
-        prop_assert!(
-            session.zellij_tab == expected_tab,
-            "Tab name must be 'zjj:{}', got '{}'",
-            name,
-            session.zellij_tab
-        );
-    }
-
-    /// Property: Zellij tabs are unique across sessions.
-    ///
-    /// INVARIANT: Two sessions cannot have the same Zellij tab.
-    /// RED PHASE: This test FAILS because uniqueness isn't enforced.
-    #[test]
-    fn prop_zellij_tabs_are_unique(
-        sessions in proptest::collection::vec(
-            (valid_session_name_strategy(), zellij_tab_strategy()),
-            1..10
-        )
-    ) {
-        // Build session list
-        let test_sessions: Vec<TestSession> = sessions
-            .into_iter()
-            .map(|(name, tab)| TestSession {
-                name: name.clone(),
-                workspace_path: format!("/workspace/{}", name),
-                zellij_tab: tab,
-                state: SessionState::Created,
-            })
-            .collect();
-
-        // Collect all tab names
-        let tabs: Vec<&str> = test_sessions.iter().map(|s| s.zellij_tab.as_str()).collect();
-        let unique_tabs: HashSet<&str> = tabs.iter().copied().collect();
-
-        // GREEN PHASE: Check that tab uniqueness enforcement is correct
-        // When test data has duplicate tabs, enforcement should return false
-        let all_unique = tabs.len() == unique_tabs.len();
-        let enforced = enforce_tab_uniqueness(&test_sessions);
-
-        // The assertion passes when:
-        // - Tabs are unique AND enforcement returns true, OR
-        // - Tabs are NOT unique AND enforcement returns false (correctly reports violation)
-        prop_assert!(
-            all_unique == enforced,
-            "Zellij tabs should be unique across sessions. Found {} tabs, {} unique",
-            tabs.len(),
-            unique_tabs.len()
-        );
-    }
-
-    /// Property: Tab name derives deterministically from session name.
-    ///
-    /// INVARIANT: zellij_tab = "zjj:" + session_name always.
-    #[test]
-    fn prop_tab_name_derives_from_session_name(
-        name in valid_session_name_strategy()
-    ) {
-        let expected_tab = format!("zjj:{}", name);
-        let derived_tab = derive_zellij_tab(&name);
-
-        prop_assert_eq!(
-            derived_tab,
-            expected_tab,
-            "Tab name should be derived from session name"
-        );
-    }
-}
-
-/// Enforce Zellij tab uniqueness across sessions.
-///
-/// Returns `true` if all tabs are unique, `false` otherwise.
-fn enforce_tab_uniqueness(sessions: &[TestSession]) -> bool {
-    let tabs: Vec<&str> = sessions.iter().map(|s| s.zellij_tab.as_str()).collect();
-    let unique_tabs: HashSet<&str> = tabs.iter().copied().collect();
-    tabs.len() == unique_tabs.len()
-}
-
-/// Derive Zellij tab name from session name.
-///
-/// Returns the tab name in the format `zjj:{name}`.
-fn derive_zellij_tab(name: &str) -> String {
-    format!("zjj:{}", name)
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // INTEGRATION TESTS: Combined Invariants
 // ═════════════════════════════════════════════════════════════════════════
 
 proptest! {
-    /// Property: All four invariants hold together.
+    /// Property: All three invariants hold together.
     ///
     /// INVARIANTS:
     /// 1. Session names are unique
     /// 2. State transitions are valid
     /// 3. One workspace per session
-    /// 4. One Zellij tab per session
     ///
     /// RED PHASE: This test FAILS because invariants aren't enforced.
     #[test]
@@ -586,7 +465,6 @@ proptest! {
             .map(|(name, path)| TestSession {
                 name: name.clone(),
                 workspace_path: path,
-                zellij_tab: format!("zjj:{}", name),
                 state: SessionState::Created,
             })
             .collect();
@@ -601,11 +479,6 @@ proptest! {
         let unique_paths: HashSet<&str> = paths.iter().copied().collect();
         let paths_unique = paths.len() == unique_paths.len();
 
-        // Check invariant 4: Tab uniqueness
-        let tabs: Vec<&str> = test_sessions.iter().map(|s| s.zellij_tab.as_str()).collect();
-        let unique_tabs: HashSet<&str> = tabs.iter().copied().collect();
-        let tabs_unique = tabs.len() == unique_tabs.len();
-
         // Check invariant 2: State machine validity (all start in Created)
         let all_created = test_sessions
             .iter()
@@ -614,19 +487,18 @@ proptest! {
         // GREEN PHASE: Check that enforcement functions correctly report violations
         // invariants_enforced is true when no violations exist
         let invariants_enforced = check_name_uniqueness(&test_sessions.iter().map(|s| s.name.clone()).collect::<Vec<_>>())
-            && enforce_workspace_exclusivity(&test_sessions)
-            && enforce_tab_uniqueness(&test_sessions);
+            && enforce_workspace_exclusivity(&test_sessions);
 
         // The assertion passes when:
-        // - All generated invariants are unique (names_unique && paths_unique && tabs_unique)
+        // - All generated invariants are unique (names_unique && paths_unique)
         // - All sessions start in Created state
         // - Enforcement functions correctly report the state (true when unique, false when not)
         // When test data has violations (e.g., duplicate paths), enforcement should be false
-        let all_generated_unique = names_unique && paths_unique && tabs_unique;
+        let all_generated_unique = names_unique && paths_unique;
         prop_assert!(
             all_created && (all_generated_unique == invariants_enforced),
-            "All invariants should hold: names_unique={}, paths_unique={}, tabs_unique={}, all_created={}, enforced={}",
-            names_unique, paths_unique, tabs_unique, all_created, invariants_enforced
+            "All invariants should hold: names_unique={}, paths_unique={}, all_created={}, enforced={}",
+            names_unique, paths_unique, all_created, invariants_enforced
         );
     }
 }

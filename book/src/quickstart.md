@@ -11,7 +11,6 @@ Before you start, ensure you have these installed:
 | Tool | Version | Install |
 |------|---------|---------|
 | **JJ (Jujutsu)** | 0.20+ | [Install guide](https://github.com/martinvonz/jj#installation) |
-| **Zellij** | 0.39+ | [Install guide](https://zellij.dev/download) |
 | **Rust** | 1.80+ | [Install via rustup](https://rustup.rs/) |
 
 ---
@@ -62,7 +61,6 @@ zjj add feature-auth --bead BD-123
 
 This creates:
 - An isolated JJ workspace
-- A Zellij tab for quick switching
 - Association with bead `BD-123` for tracking
 
 ### 3. Jump into it
@@ -152,21 +150,6 @@ zjj queue --status
 
 ---
 
-## Keyboard shortcuts
-
-When using Zellij:
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+p` then `t` | New tab |
-| `Ctrl+p` then `n` | Next tab |
-| `Ctrl+p` then `h/l` | Navigate tabs |
-| `Ctrl+p` then `w` | Close tab |
-
-Use `zjj focus <name>` to jump directly to a workspace tab.
-
----
-
 ## Configuration
 
 ZJJ stores configuration in `.zjj/config.toml`.
@@ -207,18 +190,6 @@ Run diagnostics:
 
 ```bash
 zjj doctor
-```
-
-### "Zellij not found"
-
-Install Zellij:
-
-```bash
-# macOS
-brew install zellij
-
-# Linux
-cargo install zellij
 ```
 
 ---

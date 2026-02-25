@@ -117,12 +117,12 @@ pub struct InitOptions {
 /// Run the init command
 ///
 /// This command:
-/// 1. Checks that required dependencies (jj, zellij) are installed
+/// 1. Checks that required dependencies (jj) are installed
 /// 2. Initializes a JJ repository if not already present
 /// 3. Creates the .zjj directory structure:
 ///    - .zjj/config.toml (default configuration)
 ///    - .zjj/state.db (sessions database)
-///    - .zjj/layouts/ (Zellij layouts directory)
+///    - .zjj/layouts/ (layouts directory)
 #[allow(dead_code)] // Convenience wrapper, currently unused but part of public API
 pub async fn run() -> Result<()> {
     run_with_options(InitOptions::default()).await

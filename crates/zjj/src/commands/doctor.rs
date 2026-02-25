@@ -40,11 +40,8 @@ use zjj_core::{
 };
 
 use crate::{
-    cli::{is_command_available, is_inside_zellij, is_jj_repo, jj_root},
-    commands::{
-        add::{pending_add_operation_count, replay_pending_add_operations},
-        get_session_db, workspace_utils,
-    },
+    cli::{is_command_available, is_jj_repo, jj_root},
+    commands::{add::pending_add_operation_count, get_session_db, workspace_utils},
     session::SessionStatus,
 };
 
@@ -135,8 +132,6 @@ pub async fn run(_format: bool, fix: bool, dry_run: bool, verbose: bool) -> Resu
 async fn run_all_checks() -> Vec<DoctorCheck> {
     vec![
         check_jj_installed().await,
-        check_zellij_installed().await,
-        check_zellij_running(),
         check_jj_repo().await,
         check_workspace_context(),
         check_initialized().await,
@@ -434,58 +429,6 @@ async fn check_jj_installed() -> DoctorCheck {
             None
         } else {
             Some("Install JJ: https://github.com/martinvonz/jj#installation".to_string())
-        },
-        auto_fixable: false,
-        details: None,
-    }
-}
-
-/// Check if Zellij is installed
-async fn check_zellij_installed() -> DoctorCheck {
-    let installed = is_command_available("zellij").await;
-
-    DoctorCheck {
-        name: "Zellij Installation".to_string(),
-        status: if installed {
-            CheckStatus::Pass
-        } else {
-            CheckStatus::Fail
-        },
-        message: if installed {
-            "Zellij is installed".to_string()
-        } else {
-            "Zellij is not installed".to_string()
-        },
-        suggestion: if installed {
-            None
-        } else {
-            Some("Install Zellij: https://zellij.dev/documentation/installation".to_string())
-        },
-        auto_fixable: false,
-        details: None,
-    }
-}
-
-/// Check if Zellij is running
-fn check_zellij_running() -> DoctorCheck {
-    let running = is_inside_zellij();
-
-    DoctorCheck {
-        name: "Zellij Running".to_string(),
-        status: if running {
-            CheckStatus::Pass
-        } else {
-            CheckStatus::Warn
-        },
-        message: if running {
-            "Inside Zellij session".to_string()
-        } else {
-            "Not running inside Zellij".to_string()
-        },
-        suggestion: if running {
-            None
-        } else {
-            Some("Start Zellij: zellij".to_string())
         },
         auto_fixable: false,
         details: None,
@@ -1231,7 +1174,9 @@ fn show_health_report(checks: &[DoctorCheck]) -> Result<()> {
     // Emit summary
     let summary = Summary::new(
         SummaryType::Count,
-        Message::new(format!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)"))?,
+        Message::new(format!(
+            "Health: {passed} passed, {warnings} warning(s), {errors} error(s)"
+        ))?,
     )?;
     emit_stdout(&OutputLine::Summary(summary))?;
 
@@ -1271,8 +1216,10 @@ fn show_dry_run_report(checks: &[DoctorCheck]) -> Result<()> {
         let description =
             describe_fix(check).unwrap_or_else(|| "No fix description available".to_string());
         let action = Action::new(
-            ActionVerb::new("would_fix").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-            ActionTarget::new(&check.name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+            ActionVerb::new("would_fix")
+                .map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+            ActionTarget::new(&check.name)
+                .map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
             ActionStatus::Pending,
         )
         .with_result(description);
@@ -1543,14 +1490,7 @@ async fn fix_pending_add_operations(check: &DoctorCheck, dry_run: bool) -> Resul
         ));
     }
 
-    let db = get_session_db()
-        .await
-        .map_err(|error| format!("Failed to open DB for reconciliation: {error}"))?;
-
-    replay_pending_add_operations(&db)
-        .await
-        .map(|recovered| format!("Reconciled {recovered} pending add operation(s)"))
-        .map_err(|error| format!("Failed to reconcile add operations: {error}"))
+    Err("Pending add operation reconciliation is no longer supported".to_string())
 }
 
 async fn fix_workspace_integrity(check: &DoctorCheck, dry_run: bool) -> Result<String, String> {

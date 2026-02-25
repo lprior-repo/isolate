@@ -275,9 +275,7 @@ where
     serializer.serialize_str(path.as_str())
 }
 
-fn deserialize_absolute_path<'de, D>(
-    deserializer: D,
-) -> std::result::Result<AbsolutePath, D::Error>
+fn deserialize_absolute_path<'de, D>(deserializer: D) -> std::result::Result<AbsolutePath, D::Error>
 where
     D: Deserializer<'de>,
 {

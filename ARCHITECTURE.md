@@ -16,14 +16,13 @@
 
 ## System Overview
 
-ZJJ is a **parallel workspace isolation and queue coordination system** built on top of JJ (Jujutsu) and Zellij. It enables multiple humans or AI agents to work on the same repository concurrently without conflicts.
+ZJJ is a **parallel workspace isolation and queue coordination system** built on top of JJ (Jujutsu). It enables multiple humans or AI agents to work on the same repository concurrently without conflicts.
 
 ### Core Purpose
 
 - **Isolation**: Each workstream gets its own JJ workspace
 - **Coordination**: Queue system manages concurrent access and merge ordering
 - **Recovery**: Database-backed state with corruption recovery
-- **Integration**: Zellij tabs for fast context switching
 
 ### Binary Structure
 
@@ -132,7 +131,7 @@ ZJJ follows the **Functional Core, Imperative Shell** pattern:
 - Parse CLI arguments with `clap`
 - Handle all I/O operations
 - Manage async runtime with `tokio`
-- Execute external commands (JJ, Zellij)
+- Execute external commands (JJ)
 - Write to database with `sqlx`
 - Emit JSONL output
 
@@ -197,7 +196,6 @@ zjj/
         │   ├── output/           # JSONL output types
         │   ├── cli_contracts/    # KIRK contracts
         │   ├── jj/               # JJ integration
-        │   ├── zellij/           # Zellij integration
         │   └── lib.rs            # Public API
         └── Cargo.toml
 ```
@@ -697,9 +695,9 @@ impl Display for MyId {
 │   zjj-core       │   │  External Systems    │
 │  ┌────────────┐  │   │  ┌────────────────┐  │
 │  │  Domain    │  │   │  │  JJ (git)      │  │
-│  │  Types     │  │   │  │  Zellij        │  │
-│  │            │  │   │  │  File System   │  │
-│  └────────────┘  │   │  └────────────────┘  │
+│  │  Types     │  │   │  │  File System   │  │
+│  │            │  │   │  └────────────────┘  │
+│  └────────────┘  │   └──────────────────────┘
 │  ┌────────────┐  │   └──────────────────────┘
 │  │ Business   │  │
 │  │ Logic      │  │

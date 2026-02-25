@@ -243,7 +243,9 @@ pub async fn insert_bead(
     validate_bead_for_insert(issue)?;
 
     // Serialize optional fields
-    let priority_str = issue.priority.map(|priority| format!("P{}", priority.to_u32()));
+    let priority_str = issue
+        .priority
+        .map(|priority| format!("P{}", priority.to_u32()));
     let issue_type_str = issue
         .issue_type
         .as_ref()
@@ -375,7 +377,9 @@ pub async fn update_bead(
     }
 
     // Serialize optional fields
-    let priority_str = issue.priority.map(|priority| format!("P{}", priority.to_u32()));
+    let priority_str = issue
+        .priority
+        .map(|priority| format!("P{}", priority.to_u32()));
     let issue_type_str = issue
         .issue_type
         .as_ref()

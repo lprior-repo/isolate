@@ -16,7 +16,7 @@ use zjj_core::{
 };
 
 use crate::{
-    cli::{is_command_available, is_inside_zellij, is_jj_repo},
+    cli::{is_command_available, is_jj_repo},
     commands::{get_session_db, zjj_data_dir},
 };
 
@@ -428,12 +428,10 @@ async fn query_can_run(command: &str) -> Result<QueryResult> {
     let requires_init_check = requires_init(command);
     let requires_jj_check = requires_jj(command);
     let requires_jj_repo_check = requires_jj_repo(command);
-    let requires_zellij_check = requires_zellij(command);
     let prereqs_total = [
         requires_init_check,
         requires_jj_check,
         requires_jj_repo_check,
-        requires_zellij_check,
     ]
     .into_iter()
     .filter(|required| *required)
@@ -472,18 +470,6 @@ async fn query_can_run(command: &str) -> Result<QueryResult> {
             message: "Not in a JJ repository".to_string(),
         });
     } else if requires_jj_repo_check {
-        prereqs_met += 1;
-    }
-
-    // Check Zellij running
-    let zellij_running = is_inside_zellij();
-    if !zellij_running && requires_zellij_check {
-        blockers.push(Blocker {
-            check: "zellij_running".to_string(),
-            status: false,
-            message: "Zellij is not running".to_string(),
-        });
-    } else if requires_zellij_check {
         prereqs_met += 1;
     }
 
@@ -613,11 +599,6 @@ fn requires_jj(command: &str) -> bool {
 /// Check if command requires being in a JJ repo
 fn requires_jj_repo(command: &str) -> bool {
     matches!(command, "add" | "remove" | "status" | "sync" | "diff")
-}
-
-/// Check if command requires Zellij to be running
-fn requires_zellij(command: &str) -> bool {
-    matches!(command, "add" | "focus")
 }
 
 /// Query lock status for a session

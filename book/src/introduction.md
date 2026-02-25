@@ -44,7 +44,6 @@ ZJJ combines three tools into a unified workflow:
 | Component | What it does |
 |-----------|--------------|
 | **JJ Workspaces** | Hard isolation for each task |
-| **Zellij Tabs** | Fast context switching between workspaces |
 | **SQLite Queue** | Coordination, retries, and recovery |
 
 ### The workflow
@@ -101,7 +100,6 @@ zjj done --message "Add auth"
 |---------|--------------|---------------|-----|
 | Isolation | Shared .git | Separate dirs | Separate dirs |
 | Switching | `git checkout` | `cd ../dir` | `zjj focus name` |
-| State preserved | No | Partial | Yes (Zellij) |
 | Queue coordination | No | No | Yes |
 | AI-ready | No | No | Yes |
 
@@ -170,7 +168,6 @@ zjj done --message "Implement auth refactor" --push
 Before you start, ensure you have:
 
 - **JJ (Jujutsu)** 0.20+ — [Install guide](https://github.com/martinvonz/jj#installation)
-- **Zellij** 0.39+ — [Install guide](https://zellij.dev/download)
 - **Rust** 1.80+ — [Install via rustup](https://rustup.rs/)
 
 ---

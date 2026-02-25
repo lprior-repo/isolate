@@ -182,7 +182,6 @@ impl DoctorContracts {
             ("jj_installed", "Check that jj is installed and accessible"),
             ("jj_version", "Check jj version compatibility"),
             ("git_installed", "Check that git is installed"),
-            ("zellij_installed", "Check that zellij is installed"),
             ("database", "Check database integrity"),
             ("database_locked", "Check for stale database locks"),
             ("workspaces", "Check workspace integrity"),

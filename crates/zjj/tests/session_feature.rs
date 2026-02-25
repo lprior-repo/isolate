@@ -24,8 +24,8 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::bool_assert_comparison)]
 
-mod test_helpers;
 mod steps;
+mod test_helpers;
 
 pub mod common;
 
@@ -55,8 +55,7 @@ mod session_feature_tests {
         // GIVEN
         given_steps::zjj_database_is_initialized(&ctx)
             .expect("GIVEN: database initialization should succeed");
-        given_steps::in_jj_repository(&ctx)
-            .expect("GIVEN: jj repository setup should succeed");
+        given_steps::in_jj_repository(&ctx).expect("GIVEN: jj repository setup should succeed");
         given_steps::no_session_named_exists(&ctx, "feature-auth")
             .await
             .expect("GIVEN: no session should exist initially");
@@ -93,8 +92,7 @@ mod session_feature_tests {
         // GIVEN
         given_steps::zjj_database_is_initialized(&ctx)
             .expect("GIVEN: database initialization should succeed");
-        given_steps::in_jj_repository(&ctx)
-            .expect("GIVEN: jj repository setup should succeed");
+        given_steps::in_jj_repository(&ctx).expect("GIVEN: jj repository setup should succeed");
         given_steps::session_named_exists(&ctx, "feature-auth")
             .await
             .expect("GIVEN: session should exist");
@@ -124,8 +122,7 @@ mod session_feature_tests {
         // GIVEN
         given_steps::zjj_database_is_initialized(&ctx)
             .expect("GIVEN: database initialization should succeed");
-        given_steps::in_jj_repository(&ctx)
-            .expect("GIVEN: jj repository setup should succeed");
+        given_steps::in_jj_repository(&ctx).expect("GIVEN: jj repository setup should succeed");
         given_steps::no_session_exists(&ctx)
             .await
             .expect("GIVEN: no sessions should exist initially");
@@ -156,8 +153,7 @@ mod session_feature_tests {
         // GIVEN
         given_steps::zjj_database_is_initialized(&ctx)
             .expect("GIVEN: database initialization should succeed");
-        given_steps::in_jj_repository(&ctx)
-            .expect("GIVEN: jj repository setup should succeed");
+        given_steps::in_jj_repository(&ctx).expect("GIVEN: jj repository setup should succeed");
         given_steps::session_named_exists_with_status(&ctx, "old-feature", "active")
             .await
             .expect("GIVEN: session should exist with active status");
@@ -184,8 +180,7 @@ mod session_feature_tests {
         // GIVEN
         given_steps::zjj_database_is_initialized(&ctx)
             .expect("GIVEN: database initialization should succeed");
-        given_steps::in_jj_repository(&ctx)
-            .expect("GIVEN: jj repository setup should succeed");
+        given_steps::in_jj_repository(&ctx).expect("GIVEN: jj repository setup should succeed");
         given_steps::no_session_named_exists(&ctx, "nonexistent")
             .await
             .expect("GIVEN: session should not exist");
@@ -216,8 +211,7 @@ mod session_feature_tests {
         // GIVEN
         given_steps::zjj_database_is_initialized(&ctx)
             .expect("GIVEN: database initialization should succeed");
-        given_steps::in_jj_repository(&ctx)
-            .expect("GIVEN: jj repository setup should succeed");
+        given_steps::in_jj_repository(&ctx).expect("GIVEN: jj repository setup should succeed");
         given_steps::session_named_exists_with_status(&ctx, "feature-sync", "active")
             .await
             .expect("GIVEN: session should exist with active status");
@@ -264,7 +258,7 @@ mod session_feature_tests {
     /// Scenario: Focus switches to session
     #[tokio::test]
     async fn scenario_focus_switches_to_session() {
-        let Some(mut ctx) = SessionTestContext::try_new() else {
+        let Some(ctx) = SessionTestContext::try_new() else {
             eprintln!("SKIP: jj not available");
             return;
         };
@@ -275,7 +269,6 @@ mod session_feature_tests {
         given_steps::session_named_exists_with_status(&ctx, "feature-focus", "active")
             .await
             .unwrap();
-        given_steps::inside_zellij(&mut ctx);
 
         // WHEN
         when_steps::focus_session(&ctx, "feature-focus")
@@ -286,10 +279,10 @@ mod session_feature_tests {
         then_steps::session_details_as_json(&ctx).await.unwrap();
     }
 
-    /// Scenario: Focus from outside Zellij attaches
+    /// Scenario: Focus from CLI attaches
     #[tokio::test]
-    async fn scenario_focus_from_outside_zellij() {
-        let Some(mut ctx) = SessionTestContext::try_new() else {
+    async fn scenario_focus_from_cli() {
+        let Some(ctx) = SessionTestContext::try_new() else {
             eprintln!("SKIP: jj not available");
             return;
         };
@@ -300,7 +293,6 @@ mod session_feature_tests {
         given_steps::session_named_exists_with_status(&ctx, "feature-attach", "active")
             .await
             .unwrap();
-        given_steps::not_inside_zellij(&mut ctx);
 
         // WHEN
         when_steps::focus_session(&ctx, "feature-attach")

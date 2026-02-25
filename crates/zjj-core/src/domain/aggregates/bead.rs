@@ -44,10 +44,7 @@ pub enum BeadError {
 
     /// Invalid state transition
     #[error("invalid state transition: {from:?} -> {to:?}")]
-    InvalidStateTransition {
-        from: BeadState,
-        to: BeadState,
-    },
+    InvalidStateTransition { from: BeadState, to: BeadState },
 
     /// Cannot modify closed bead
     #[error("cannot modify closed bead")]
@@ -138,12 +135,10 @@ impl Bead {
         title: impl Into<String>,
         description: Option<impl Into<String>>,
     ) -> Result<Self, BeadError> {
-        let title = Title::new(title.into())
-            .map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
+        let title = Title::new(title.into()).map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
         let description = description
             .map(|d| {
-                Description::new(d.into())
-                    .map_err(|e| BeadError::InvalidDescription(e.to_string()))
+                Description::new(d.into()).map_err(|e| BeadError::InvalidDescription(e.to_string()))
             })
             .transpose()?;
 
@@ -171,12 +166,10 @@ impl Bead {
         state: BeadState,
         timestamps: BeadTimestamps,
     ) -> Result<Self, BeadError> {
-        let title = Title::new(title.into())
-            .map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
+        let title = Title::new(title.into()).map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
         let description = description
             .map(|d| {
-                Description::new(d.into())
-                    .map_err(|e| BeadError::InvalidDescription(e.to_string()))
+                Description::new(d.into()).map_err(|e| BeadError::InvalidDescription(e.to_string()))
             })
             .transpose()?;
 
@@ -325,13 +318,13 @@ impl Bead {
         }
 
         // Validate transition (using domain logic)
-        let _ = self
-            .state
-            .transition_to(new_state)
-            .map_err(|_| BeadError::InvalidStateTransition {
-                from: self.state,
-                to: new_state,
-            })?;
+        let _ =
+            self.state
+                .transition_to(new_state)
+                .map_err(|_| BeadError::InvalidStateTransition {
+                    from: self.state,
+                    to: new_state,
+                })?;
 
         Ok(Self {
             state: new_state,
@@ -355,8 +348,8 @@ impl Bead {
             return Err(BeadError::CannotModifyClosed);
         }
 
-        let title = Title::new(new_title.into())
-            .map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
+        let title =
+            Title::new(new_title.into()).map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
 
         Ok(Self {
             title,
@@ -381,8 +374,7 @@ impl Bead {
 
         let description = new_description
             .map(|d| {
-                Description::new(d.into())
-                    .map_err(|e| BeadError::InvalidDescription(e.to_string()))
+                Description::new(d.into()).map_err(|e| BeadError::InvalidDescription(e.to_string()))
             })
             .transpose()?;
 
@@ -408,12 +400,11 @@ impl Bead {
             return Err(BeadError::CannotModifyClosed);
         }
 
-        let title = Title::new(new_title.into())
-            .map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
+        let title =
+            Title::new(new_title.into()).map_err(|e| BeadError::InvalidTitle(e.to_string()))?;
         let description = new_description
             .map(|d| {
-                Description::new(d.into())
-                    .map_err(|e| BeadError::InvalidDescription(e.to_string()))
+                Description::new(d.into()).map_err(|e| BeadError::InvalidDescription(e.to_string()))
             })
             .transpose()?;
 

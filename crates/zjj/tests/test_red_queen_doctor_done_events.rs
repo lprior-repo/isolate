@@ -402,7 +402,7 @@ fn given_done_conflicting_retention_flags_when_invoked_then_cli_rejects() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "flag-conflict", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "flag-conflict", "--no-hooks"]);
 
     let result = harness.zjj(&[
         "done",
@@ -475,7 +475,7 @@ fn given_done_workspace_short_flag_when_invoked_then_works_like_long_flag() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "short-workspace", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "short-workspace", "--no-hooks"]);
 
     let result = harness.zjj(&[
         "done",
@@ -495,7 +495,7 @@ fn given_done_invalid_matrix_when_json_invoked_then_error_envelope_and_category_
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "matrix-workspace", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "matrix-workspace", "--no-hooks"]);
 
     let cases: [InvalidCase; 12] = [
         InvalidCase {
@@ -1092,7 +1092,7 @@ fn given_done_target_workspace_with_dirty_main_when_completing_then_main_changes
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "target-workspace", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "target-workspace", "--no-hooks"]);
 
     std::fs::write(harness.repo_path.join("main-only.txt"), "dirty main\n")
         .expect("failed to write main dirty file");
@@ -1129,7 +1129,7 @@ fn given_doctor_json_in_workspace_root_when_reporting_context_then_uses_workspac
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "doctor-root", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "doctor-root", "--no-hooks"]);
 
     let workspace_path = harness.workspace_path("doctor-root");
     let result = harness.zjj_in_dir(&workspace_path, &["doctor", "--json"]);

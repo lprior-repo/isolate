@@ -217,7 +217,6 @@ br sync
 
 **Error message examples**:
 ```
-Command error: zellij: command not found
 Command error: jj: command failed with exit code 1
 ```
 
@@ -229,7 +228,6 @@ Command error: jj: command failed with exit code 1
 **How to fix**:
 ```bash
 # Check if command exists
-which zellij
 which jj
 
 # Verify PATH
@@ -237,7 +235,6 @@ echo $PATH
 
 # Test command directly
 jj status
-zellij --version
 ```
 
 ---
@@ -532,10 +529,9 @@ When reporting errors, include:
 
 4. **Your environment**
    ```bash
-   zjj --version
-   jj --version
-   zellij --version
-   uname -a
+    zjj --version
+    jj --version
+    uname -a
    ```
 
 ---
@@ -585,7 +581,7 @@ JSON error structure:
 
 1. **Always validate input** before running commands
 2. **Use `zjj doctor`** to check system health
-3. **Keep dependencies updated** (JJ, Zellij)
+3. **Keep dependencies updated** (JJ)
 4. **Backup regularly**: `br sync`
 5. **Use `--dry-run`** to preview changes
 6. **Read error messages** carefully before acting

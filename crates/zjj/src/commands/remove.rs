@@ -19,12 +19,9 @@ use zjj_core::{
     OutputFormat,
 };
 
-use crate::{
-    cli::is_inside_zellij,
-    commands::{
-        get_session_db,
-        remove::atomic::{cleanup_session_atomically, RemoveError},
-    },
+use crate::commands::{
+    get_session_db,
+    remove::atomic::{cleanup_session_atomically, RemoveError},
 };
 
 /// Options for the remove command
@@ -100,9 +97,8 @@ fn emit_issue(
     .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if let Some(s) = session {
-        issue = issue.with_session(
-            SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?,
-        );
+        issue = issue
+            .with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
     }
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());
@@ -116,8 +112,7 @@ fn emit_issue(
 const fn remove_error_to_issue_kind(error: &RemoveError) -> IssueKind {
     match error {
         RemoveError::WorkspaceInaccessible { .. } => IssueKind::ResourceNotFound,
-        RemoveError::WorkspaceRemovalFailed { .. }
-        | RemoveError::ZellijTabCloseFailed { .. } => IssueKind::External,
+        RemoveError::WorkspaceRemovalFailed { .. } => IssueKind::External,
         RemoveError::DatabaseDeletionFailed { .. } => IssueKind::Configuration,
     }
 }
@@ -178,7 +173,6 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
     }
 
     // Use atomic cleanup to prevent orphaned resources
-    let _inside_zellij = is_inside_zellij();
     match cleanup_session_atomically(&db, &session, true).await {
         Ok(result) => {
             emit_action("remove", name, ActionStatus::Completed)?;
@@ -508,15 +502,6 @@ mod tests {
         assert!(matches!(
             remove_error_to_issue_kind(&db_deletion_failed),
             IssueKind::Configuration
-        ));
-
-        let zellij_failed = RemoveError::ZellijTabCloseFailed {
-            tab: "zjj:test".into(),
-            source: anyhow::anyhow!("failed"),
-        };
-        assert!(matches!(
-            remove_error_to_issue_kind(&zellij_failed),
-            IssueKind::External
         ));
     }
 }

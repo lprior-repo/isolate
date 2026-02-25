@@ -502,8 +502,8 @@ mod tests {
 
     #[test]
     fn test_bead_id_invalid_suffix() {
-        assert!(BeadId::parse("bd-123-456").is_err());  // Hyphens not allowed in hex part
-        assert!(BeadId::parse("bd-abc_def").is_err());  // Underscores not allowed in hex part
+        assert!(BeadId::parse("bd-123-456").is_err()); // Hyphens not allowed in hex part
+        assert!(BeadId::parse("bd-abc_def").is_err()); // Underscores not allowed in hex part
     }
 
     // AgentId tests

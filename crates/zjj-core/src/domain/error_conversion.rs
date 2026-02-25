@@ -93,9 +93,7 @@ impl From<SessionError> for RepositoryError {
                 Self::NotFound(format!("workspace not found: {}", path.display()))
             }
             SessionError::NotActive => Self::InvalidInput("session is not active".into()),
-            SessionError::CannotActivate => {
-                Self::InvalidInput("cannot activate session".into())
-            }
+            SessionError::CannotActivate => Self::InvalidInput("cannot activate session".into()),
             SessionError::CannotModifyRootParent => {
                 Self::InvalidInput("cannot modify parent of root session".into())
             }
@@ -168,9 +166,7 @@ impl From<QueueEntryError> for RepositoryError {
             QueueEntryError::InvalidClaimTransition { from, to } => {
                 Self::InvalidInput(format!("invalid claim transition: {from:?} -> {to:?}"))
             }
-            QueueEntryError::NotClaimed => {
-                Self::InvalidInput("queue entry is not claimed".into())
-            }
+            QueueEntryError::NotClaimed => Self::InvalidInput("queue entry is not claimed".into()),
             QueueEntryError::AlreadyClaimed(agent) => {
                 Self::Conflict(format!("queue entry already claimed by {agent}"))
             }
@@ -201,9 +197,19 @@ impl From<BuilderError> for SessionError {
     fn from(err: BuilderError) -> Self {
         match &err {
             BuilderError::MissingRequired { field: _ }
-            | BuilderError::InvalidValue { field: _, reason: _ }
-            | BuilderError::Overflow { field: _, capacity: _ }
-            | BuilderError::InvalidTransition { from: _, to: _, reason: _ } => Self::CannotActivate,
+            | BuilderError::InvalidValue {
+                field: _,
+                reason: _,
+            }
+            | BuilderError::Overflow {
+                field: _,
+                capacity: _,
+            }
+            | BuilderError::InvalidTransition {
+                from: _,
+                to: _,
+                reason: _,
+            } => Self::CannotActivate,
         }
     }
 }
@@ -258,9 +264,7 @@ impl From<BuilderError> for RepositoryError {
                 Self::InvalidInput(format!("field {field} exceeds capacity of {capacity}"))
             }
             BuilderError::InvalidTransition { from, to, reason } => {
-                Self::InvalidInput(format!(
-                    "invalid transition from {from} to {to}: {reason}",
-                ))
+                Self::InvalidInput(format!("invalid transition from {from} to {to}: {reason}",))
             }
         }
     }
@@ -295,9 +299,9 @@ impl IntoRepositoryError for SessionError {
                 "workspace not found at {} during {operation} of {entity}",
                 path.display(),
             )),
-            other => RepositoryError::InvalidInput(format!(
-                "failed to {operation} {entity}: {other}",
-            )),
+            other => {
+                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}",))
+            }
         }
     }
 }
@@ -312,12 +316,12 @@ impl IntoRepositoryError for WorkspaceError {
                 "path not found at {} during {operation} of {entity}",
                 path.display(),
             )),
-            Self::Removed => RepositoryError::NotFound(format!(
-                "{entity} has been removed during {operation}",
-            )),
-            other => RepositoryError::InvalidInput(format!(
-                "failed to {operation} {entity}: {other}",
-            )),
+            Self::Removed => {
+                RepositoryError::NotFound(format!("{entity} has been removed during {operation}",))
+            }
+            other => {
+                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}",))
+            }
         }
     }
 }
@@ -337,9 +341,9 @@ impl IntoRepositoryError for QueueEntryError {
             Self::NotOwner { actual, expected } => RepositoryError::Conflict(format!(
                 "{entity} claimed by {actual}, not {expected} during {operation}",
             )),
-            other => RepositoryError::InvalidInput(format!(
-                "failed to {operation} {entity}: {other}",
-            )),
+            other => {
+                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}",))
+            }
         }
     }
 }
@@ -436,7 +440,10 @@ mod tests {
         let session_err: SessionError = err.into();
         assert!(matches!(session_err, SessionError::CannotActivate));
 
-        let err = IdentifierError::TooLong { max: 63, actual: 100 };
+        let err = IdentifierError::TooLong {
+            max: 63,
+            actual: 100,
+        };
         let session_err: SessionError = err.into();
         assert!(matches!(session_err, SessionError::CannotActivate));
     }
@@ -472,19 +479,14 @@ mod tests {
 
         let err = IdentifierError::ContainsPathSeparators;
         let workspace_err = err.to_workspace_error();
-        assert!(matches!(
-            workspace_err,
-            WorkspaceError::CannotUse(_)
-        ));
+        assert!(matches!(workspace_err, WorkspaceError::CannotUse(_)));
     }
 
     // ===== AggregateError to RepositoryError conversions =====
 
     #[test]
     fn test_session_error_to_repository_error() {
-        let err = SessionError::NameAlreadyExists(
-            SessionName::parse("test").expect("valid name"),
-        );
+        let err = SessionError::NameAlreadyExists(SessionName::parse("test").expect("valid name"));
         let repo_err: RepositoryError = err.into();
         assert!(matches!(repo_err, RepositoryError::Conflict(_)));
 
@@ -503,9 +505,8 @@ mod tests {
         let repo_err: RepositoryError = err.into();
         assert!(matches!(repo_err, RepositoryError::NotFound(_)));
 
-        let err = WorkspaceError::NameAlreadyExists(
-            WorkspaceName::parse("test").expect("valid name"),
-        );
+        let err =
+            WorkspaceError::NameAlreadyExists(WorkspaceName::parse("test").expect("valid name"));
         let repo_err: RepositoryError = err.into();
         assert!(matches!(repo_err, RepositoryError::Conflict(_)));
     }
@@ -537,9 +538,7 @@ mod tests {
 
     #[test]
     fn test_into_repository_error_with_context() {
-        let err = SessionError::NameAlreadyExists(
-            SessionName::parse("test").expect("valid name"),
-        );
+        let err = SessionError::NameAlreadyExists(SessionName::parse("test").expect("valid name"));
         let repo_err = err.in_context("session", "create");
         assert!(matches!(repo_err, RepositoryError::Conflict(_)));
         assert!(repo_err.to_string().contains("session"));

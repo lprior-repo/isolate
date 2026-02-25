@@ -101,7 +101,7 @@ fn test_wait_with_session_status_condition() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test-session", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test-session", "--no-hooks"]);
 
     // Test: Session status condition with short timeout
     let result = harness.zjj(&[
@@ -129,7 +129,7 @@ fn test_wait_with_session_unlocked_condition() {
         return;
     };
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test-session", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "test-session", "--no-hooks"]);
 
     // Test: Session unlocked condition with short timeout
     let result = harness.zjj(&[
@@ -1243,32 +1243,6 @@ fn test_add_example_json_has_workspace_path_field() {
 }
 
 #[test]
-fn test_add_example_json_has_zellij_tab_field() {
-    let Some(harness) = TestHarness::try_new() else {
-        // Test framework will handle skipping - no output needed
-        return;
-    };
-    harness.assert_success(&["init"]);
-
-    let result = harness.zjj(&["add", "--example-json"]);
-    assert!(result.success, "Should succeed with --example-json");
-
-    let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(parsed_result.is_ok(), "Output should be valid JSON");
-    let Some(parsed) = parsed_result.ok() else {
-        return;
-    };
-    assert!(
-        parsed.get("zellij_tab").is_some(),
-        "JSON should have 'zellij_tab' field"
-    );
-    assert!(
-        parsed["zellij_tab"].is_string(),
-        "zellij_tab field should be a string"
-    );
-}
-
-#[test]
 fn test_add_example_json_has_status_field() {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -1379,7 +1353,7 @@ fn test_add_example_json_has_all_required_fields() {
     };
 
     // Test: All required fields present
-    let required_fields = vec!["name", "workspace_path", "zellij_tab", "status"];
+    let required_fields = vec!["name", "workspace_path", "status"];
     for field in required_fields {
         assert!(
             parsed.get(field).is_some(),
@@ -1450,10 +1424,6 @@ fn test_add_example_json_output_fields_are_strings() {
     assert!(
         parsed["workspace_path"].is_string(),
         "workspace_path should be string"
-    );
-    assert!(
-        parsed["zellij_tab"].is_string(),
-        "zellij_tab should be string"
     );
     assert!(parsed["status"].is_string(), "status should be string");
 }

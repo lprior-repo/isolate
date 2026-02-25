@@ -8,10 +8,10 @@ Everything you need to use ZJJ effectively.
 
 ### Session
 
-A named, isolated workspace with optional Zellij tab and bead association.
+A named, isolated workspace with optional bead association.
 
 ```
-Session = JJ Workspace + Optional Zellij Tab + Optional Bead
+Session = JJ Workspace + Optional Bead
 ```
 
 ### Workspace
@@ -60,8 +60,7 @@ Shows all sessions. Use `--all` for completed/failed, `--verbose` for details.
 ### Focus
 
 ```bash
-zjj focus <name>      # Inside Zellij - switch tabs
-zjj attach <name>     # Outside Zellij - enter session
+zjj focus <name>      # Switch to session workspace
 ```
 
 ### Status
@@ -207,25 +206,6 @@ zjj prune-invalid [--yes]
 
 ---
 
-## Templates
-
-Zellij layout templates for different work styles.
-
-```bash
-zjj template list
-zjj template show <name>
-zjj template create <name> --builtin <minimal|standard|full>
-```
-
-Built-in templates:
-- `minimal` — Single pane
-- `standard` — Two panes (editor + terminal)
-- `full` — Three panes (editor + terminal + output)
-- `split` — Vertical split
-- `review` — Code review layout
-
----
-
 ## Configuration
 
 ```bash
@@ -243,9 +223,6 @@ policy = "warn"               # silent | warn | fail-fast
 [queue]
 default_priority = 5
 stale_timeout_seconds = 3600
-
-[zellij]
-use_tabs = true
 ```
 
 ---
@@ -285,21 +262,6 @@ zjj focus feature-a
 zjj focus feature-b
 zjj focus feature-c
 ```
-
----
-
-## Zellij Integration
-
-ZJJ creates Zellij tabs automatically. Key shortcuts:
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+p t` | New tab |
-| `Ctrl+p n` | Next tab |
-| `Ctrl+p h/l` | Navigate tabs |
-| `Ctrl+p w` | Close tab |
-
-Use `zjj focus <name>` for direct tab switching.
 
 ---
 

@@ -31,19 +31,6 @@ pub(super) async fn check_dependencies() -> HashMap<String, DependencyInfo> {
         command: "jj".to_string(),
     };
 
-    // Zellij (required)
-    let zellij_installed = is_command_available("zellij").await;
-    let zellij_info = DependencyInfo {
-        required: true,
-        installed: zellij_installed,
-        version: if zellij_installed {
-            get_command_version("zellij").await
-        } else {
-            None
-        },
-        command: "zellij".to_string(),
-    };
-
     // Claude (optional)
     let claude_installed = is_command_available("claude").await;
     let claude_info = DependencyInfo {
@@ -72,7 +59,6 @@ pub(super) async fn check_dependencies() -> HashMap<String, DependencyInfo> {
 
     HashMap::new()
         .update("jj".to_string(), jj_info)
-        .update("zellij".to_string(), zellij_info)
         .update("claude".to_string(), claude_info)
         .update("beads".to_string(), beads_info)
 }

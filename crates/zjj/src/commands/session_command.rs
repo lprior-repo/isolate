@@ -554,8 +554,6 @@ impl SessionManager {
 pub struct SessionCommandOptions {
     /// Output format
     pub format: OutputFormat,
-    /// Skip Zellij integration
-    pub no_zellij: bool,
     /// Dry run mode
     pub dry_run: bool,
     /// Agent ID for operations
@@ -921,7 +919,8 @@ fn emit_issue(
     .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if let Some(s) = session {
-        issue = issue.with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
+        issue = issue
+            .with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
     }
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());

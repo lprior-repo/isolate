@@ -158,19 +158,19 @@ pub mod session;
 pub mod workspace;
 
 pub use aggregates::{
-    Bead, BeadError, BeadState, QueueEntry, QueueEntryError, Session, SessionBuilder,
-    SessionError, Workspace, WorkspaceBuilder, WorkspaceError,
+    Bead, BeadError, BeadState, QueueEntry, QueueEntryError, Session, SessionBuilder, SessionError,
+    Workspace, WorkspaceBuilder, WorkspaceError,
 };
-pub use workspace::WorkspaceState;
 pub use events::{
     DomainEvent, EventMetadata, SessionCompletedEvent, SessionCreatedEvent, SessionFailedEvent,
     StoredEvent,
 };
 pub use identifiers::{
-    AbsolutePath, AbsolutePathError, AgentId, AgentIdError, BeadId, BeadIdError, IdentifierError,
-    IdError, QueueEntryId, QueueEntryIdError, SessionId, SessionIdError, SessionName,
+    AbsolutePath, AbsolutePathError, AgentId, AgentIdError, BeadId, BeadIdError, IdError,
+    IdentifierError, QueueEntryId, QueueEntryIdError, SessionId, SessionIdError, SessionName,
     SessionNameError, TaskId, TaskIdError, WorkspaceName, WorkspaceNameError,
 };
+pub use workspace::WorkspaceState;
 
 // Re-export repository traits for convenience
 pub use repository::{
@@ -179,9 +179,7 @@ pub use repository::{
 };
 
 // Re-export error conversion traits for ergonomic error handling
-pub use error_conversion::{
-    AggregateErrorExt, IdentifierErrorExt, IntoRepositoryError,
-};
+pub use error_conversion::{AggregateErrorExt, IdentifierErrorExt, IntoRepositoryError};
 
 // Include examples module for documentation and testing
 #[cfg(test)]

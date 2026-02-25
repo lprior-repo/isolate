@@ -27,9 +27,6 @@ zjj add <name> [options]
 | Option | Description |
 |--------|-------------|
 | `-b, --bead <id>` | Associate with bead/issue |
-| `-t, --template <name>` | Zellij layout (minimal, standard, full) |
-| `--no-open` | Don't open Zellij tab |
-| `--no-zellij` | Skip Zellij entirely |
 | `--no-hooks` | Skip post-create hooks |
 | `--idempotent` | Succeed if exists |
 | `--dry-run` | Preview without creating |
@@ -37,8 +34,7 @@ zjj add <name> [options]
 
 ```bash
 zjj add feature-auth --bead BD-123
-zjj add quick-test --template minimal
-zjj add automation --no-zellij --idempotent
+zjj add quick-test --idempotent
 ```
 
 ---
@@ -103,17 +99,17 @@ zjj status [<name>] [options]
 
 ### zjj focus
 
-Switch to session's Zellij tab (inside Zellij).
+Switch to session's workspace.
 
 ```
-zjj focus [<name>] [--no-zellij] [--json]
+zjj focus [<name>] [--json]
 ```
 
 ---
 
 ### zjj attach
 
-Enter Zellij session from outside.
+Attach to a session.
 
 ```
 zjj attach <name> [--json]
@@ -323,7 +319,6 @@ zjj work <name> [options]
 |--------|-------------|
 | `-b, --bead <id>` | Associate with bead |
 | `--agent-id <id>` | Agent identifier |
-| `--no-zellij` | Skip Zellij |
 | `--no-agent` | Skip agent registration |
 | `--idempotent` | Succeed if exists |
 | `--dry-run` | Preview |
@@ -585,28 +580,6 @@ zjj config recovery.policy warn  # Set key
 
 ---
 
-### zjj template
-
-Manage Zellij layouts.
-
-```
-zjj template <subcommand> [options]
-```
-
-| Subcommand | Description |
-|------------|-------------|
-| `list` | List templates |
-| `show <name>` | Show details |
-| `create <name>` | Create template |
-| `delete <name>` | Delete template |
-
-```bash
-zjj template list
-zjj template create custom --builtin standard
-```
-
----
-
 ### zjj bookmark
 
 Manage JJ bookmarks.
@@ -653,22 +626,6 @@ View event stream.
 ```
 zjj events [--follow] [--limit <n>] [--session <name>] [--type <type>]
 ```
-
----
-
-### zjj pane
-
-Manage Zellij panes.
-
-```
-zjj pane <action> [--direction <dir>] [--session <name>]
-```
-
-| Action | Description |
-|--------|-------------|
-| `list` | List panes |
-| `focus` | Focus pane |
-| `next` | Next pane |
 
 ---
 

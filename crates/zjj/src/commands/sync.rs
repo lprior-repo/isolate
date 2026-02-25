@@ -110,7 +110,8 @@ fn emit_issue(
     )
     .map_err(|e| anyhow::anyhow!("{e}"))?;
     let issue = match session {
-        Some(s) => issue.with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?),
+        Some(s) => issue
+            .with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?),
         None => issue,
     };
     let issue = match suggestion {
@@ -966,7 +967,7 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_action_output_on_success() -> anyhow::Result<()> {
-        use zjj_core::output::{Action, ActionStatus, ActionVerb, ActionTarget, OutputLine};
+        use zjj_core::output::{Action, ActionStatus, ActionTarget, ActionVerb, OutputLine};
 
         let action = Action::new(
             ActionVerb::new("rebase")?,
@@ -1184,7 +1185,10 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_parseable_by_jq() -> anyhow::Result<()> {
-        use zjj_core::output::{Action, ActionStatus, ActionVerb, ActionTarget, Message, OutputLine, ResultKind, ResultOutput};
+        use zjj_core::output::{
+            Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine, ResultKind,
+            ResultOutput,
+        };
 
         // Simulate a sync output: Action + Result
         let action = Action::new(

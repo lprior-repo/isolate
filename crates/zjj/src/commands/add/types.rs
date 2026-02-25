@@ -11,12 +11,8 @@ pub struct AddOptions {
     pub parent: Option<String>,
     /// Skip executing hooks
     pub no_hooks: bool,
-    /// Template name to use for layout
-    pub template: Option<String>,
-    /// Create workspace but don't open Zellij tab
+    /// Create workspace but don't open
     pub no_open: bool,
-    /// Skip Zellij integration entirely (for non-TTY environments)
-    pub no_zellij: bool,
     /// Output format (JSON or Human-readable)
     pub format: OutputFormat,
     /// Succeed if session already exists (safe for retries)
@@ -34,9 +30,7 @@ impl AddOptions {
             bead_id: None,
             parent: None,
             no_hooks: false,
-            template: None,
             no_open: false,
-            no_zellij: false,
             format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,

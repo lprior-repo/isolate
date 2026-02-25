@@ -230,10 +230,7 @@ pub fn validate_is_writable(path: &Path) -> Result<()> {
     // Try to open with write access to check writability
     // Use a read-only open for directories to avoid accidental modification
     if path.is_dir() {
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .open(path)
-        {
+        match std::fs::OpenOptions::new().write(true).open(path) {
             Ok(_) => Ok(()),
             Err(_) => Err(Error::ValidationError {
                 message: format!("Directory '{}' is not writable", path.display()),
@@ -245,12 +242,17 @@ pub fn validate_is_writable(path: &Path) -> Result<()> {
     } else {
         // For files, check parent directory writability
         path.parent().map_or_else(
-            || Err(Error::ValidationError {
-                message: format!("Cannot check writability for path without parent: '{}'", path.display()),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            }),
+            || {
+                Err(Error::ValidationError {
+                    message: format!(
+                        "Cannot check writability for path without parent: '{}'",
+                        path.display()
+                    ),
+                    field: None,
+                    value: None,
+                    constraints: Vec::new(),
+                })
+            },
             validate_is_writable,
         )
     }
@@ -484,9 +486,7 @@ mod tests {
 
     #[test]
     fn test_validate_path_exists_rejects_nonexistent() {
-        let result = validate_path_exists(Path::new(
-            "/nonexistent/path/that/should/not/exist",
-        ));
+        let result = validate_path_exists(Path::new("/nonexistent/path/that/should/not/exist"));
         assert!(result.is_err());
     }
 

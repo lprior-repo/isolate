@@ -424,7 +424,6 @@ mod tests {
                 } else {
                     "/nonexistent/path".to_string()
                 },
-                zellij_tab: format!("zjj:{name}"),
                 branch: None,
                 created_at: 0,
                 updated_at: 0,
@@ -445,7 +444,6 @@ mod tests {
             } else {
                 "/nonexistent/path".to_string()
             },
-            zellij_tab: format!("zjj:{name}"),
             branch: None,
             created_at: created_timestamp,
             updated_at: created_timestamp,

@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
-use super::*;
 use super::domain_types::*;
+use super::*;
 use crate::{types::SessionStatus, WorkspaceState};
 
 // Import domain SessionName for use in tests
@@ -19,7 +19,10 @@ fn test_summary_new_validates_empty_message() {
 
 #[test]
 fn test_summary_new_accepts_valid_message() {
-    let result = Summary::new(SummaryType::Info, Message::new("test message").expect("valid"));
+    let result = Summary::new(
+        SummaryType::Info,
+        Message::new("test message").expect("valid"),
+    );
     assert!(result.is_ok());
 }
 
@@ -264,8 +267,9 @@ fn test_result_output_validates_empty_message() {
 
 #[test]
 fn test_output_line_kind() {
-    let summary =
-        OutputLine::Summary(Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid"));
+    let summary = OutputLine::Summary(
+        Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid"),
+    );
     assert_eq!(summary.kind(), "summary");
 
     let issue = OutputLine::Issue(
@@ -331,7 +335,9 @@ fn test_stack_with_entry() {
         DomainSessionName::parse("session-1").expect("valid"),
         PathBuf::from("/ws/1"),
         StackEntryStatus::Ready,
-        BeadAttachment::Attached { bead_id: BeadId::parse("bd-123").expect("valid") },
+        BeadAttachment::Attached {
+            bead_id: BeadId::parse("bd-123").expect("valid"),
+        },
     )
     .expect("stack entry");
     assert_eq!(stack.entries.len(), 1);
@@ -482,7 +488,8 @@ fn test_jsonl_writer_emit() {
     let mut cursor = Cursor::new(Vec::new());
     let mut writer = JsonlWriter::new(&mut cursor);
 
-    let summary = Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid");
+    let summary =
+        Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid");
     writer.emit(&OutputLine::Summary(summary)).expect("emit");
 
     let output = String::from_utf8(cursor.into_inner()).expect("utf8");
@@ -537,7 +544,8 @@ fn test_jsonl_writer_with_config() {
     let config = JsonlConfig::new().with_flush_on_emit(false);
     let mut writer = JsonlWriter::with_config(&mut cursor, config);
 
-    let summary = Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid");
+    let summary =
+        Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid");
     writer.emit(&OutputLine::Summary(summary)).expect("emit");
 
     let output = String::from_utf8(cursor.into_inner()).expect("utf8");
@@ -549,7 +557,8 @@ fn test_emit_function() {
     use std::io::Cursor;
 
     let mut cursor = Cursor::new(Vec::new());
-    let summary = Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid");
+    let summary =
+        Summary::new(SummaryType::Info, Message::new("test").expect("valid")).expect("valid");
 
     emit(&mut cursor, &OutputLine::Summary(summary)).expect("emit");
 
@@ -559,9 +568,12 @@ fn test_emit_function() {
 
 #[test]
 fn test_summary_round_trip_serialization() {
-    let original = Summary::new(SummaryType::Status, Message::new("test message").expect("valid"))
-        .expect("valid")
-        .with_details("extra info".to_string());
+    let original = Summary::new(
+        SummaryType::Status,
+        Message::new("test message").expect("valid"),
+    )
+    .expect("valid")
+    .with_details("extra info".to_string());
 
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: Summary = serde_json::from_str(&json).expect("deserialize");
@@ -623,7 +635,9 @@ fn test_stack_round_trip() {
         DomainSessionName::parse("session-1").expect("valid"),
         PathBuf::from("/ws/1"),
         StackEntryStatus::Ready,
-        BeadAttachment::Attached { bead_id: BeadId::parse("bd-123").expect("valid") },
+        BeadAttachment::Attached {
+            bead_id: BeadId::parse("bd-123").expect("valid"),
+        },
     )
     .expect("first stack entry")
     .with_entry(
@@ -730,7 +744,11 @@ fn test_output_line_round_trip_all_variants() {
             ActionStatus::Completed,
         )),
         OutputLine::Warning(
-            Warning::new(WarningCode::new("W001").expect("valid warning code"), Message::new("msg").expect("valid")).expect("valid"),
+            Warning::new(
+                WarningCode::new("W001").expect("valid warning code"),
+                Message::new("msg").expect("valid"),
+            )
+            .expect("valid"),
         ),
         OutputLine::Result(
             ResultOutput::success(ResultKind::Command, Message::new("ok").expect("valid"))

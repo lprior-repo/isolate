@@ -29,11 +29,10 @@ mod tests {
     use predicates::prelude::*;
     use tempfile::tempdir;
 
-    /// Scenario: Running 'zjj add' in non-TTY environment without --no-zellij
+    /// Scenario: Running 'zjj add' in non-TTY environment
     ///   Given a non-interactive environment (no TTY)
     ///   When I run 'zjj add my-session'
     ///   Then it should succeed in creating the workspace
-    ///   And it should skip Zellij integration with a warning instead of failing.
     #[test]
     fn test_add_robustness_in_non_tty() {
         let temp_dir = tempdir().unwrap();
@@ -129,7 +128,7 @@ mod tests {
         // Create a session to ensure DB is used
         Command::cargo_bin("zjj")
             .unwrap()
-            .args(["add", "test-session", "--no-zellij"])
+            .args(["add", "test-session"])
             .current_dir(repo_path)
             .assert()
             .success();
@@ -201,8 +200,8 @@ mod tests {
         let batch_file = repo_path.join("batch.txt");
         std::fs::write(
             &batch_file,
-            "zjj add session1 --no-zellij
-add session2 --no-zellij",
+            "zjj add session1
+add session2",
         )
         .unwrap();
 
@@ -262,7 +261,7 @@ add session2 --no-zellij",
             .unwrap();
         Command::cargo_bin("zjj")
             .unwrap()
-            .args(["add", "lock-test", "--no-zellij"])
+            .args(["add", "lock-test"])
             .current_dir(repo_path)
             .status()
             .unwrap();
@@ -352,7 +351,7 @@ add session2 --no-zellij",
 
         Command::cargo_bin("zjj")
             .unwrap()
-            .args(["add", "done-test", "--no-zellij"])
+            .args(["add", "done-test"])
             .current_dir(repo_path)
             .status()
             .unwrap();
@@ -452,7 +451,7 @@ add session2 --no-zellij",
             .unwrap();
         Command::cargo_bin("zjj")
             .unwrap()
-            .args(["add", "pause-test", "--no-zellij"])
+            .args(["add", "pause-test"])
             .current_dir(repo_path)
             .status()
             .unwrap();

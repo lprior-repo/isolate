@@ -91,7 +91,6 @@ pub mod watcher;
 pub mod worker_error;
 pub mod workspace_integrity;
 pub mod workspace_state;
-pub mod zellij;
 
 pub use config::{ConfigManager, RecoveryPolicy};
 pub use coordination::{

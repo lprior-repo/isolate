@@ -66,8 +66,7 @@ fn standard_config() -> ProptestConfig {
 use zjj_core::{
     output::{
         domain_types::{IssueId, IssueTitle, Message},
-        Issue, IssueKind, IssueSeverity, OutputLine, SessionOutput, Summary,
-        SummaryType,
+        Issue, IssueKind, IssueSeverity, OutputLine, SessionOutput, Summary, SummaryType,
     },
     types::SessionStatus,
     WorkspaceState,
@@ -668,7 +667,7 @@ proptest! {
                     prop_assert!(true, "Exit code 3 = state error");
                 }
                 4 => {
-                    // External error (jj, zellij, network, etc.)
+                    // External error (jj, network, etc.)
                     prop_assert!(true, "Exit code 4 = external error");
                 }
                 _ => {
@@ -730,8 +729,11 @@ proptest! {
 fn prop_output_line_kinds_unique() {
     let kinds = vec![
         OutputLine::Summary(
-            Summary::new(SummaryType::Status, Message::new("test").expect("valid message"))
-                .expect("valid summary"),
+            Summary::new(
+                SummaryType::Status,
+                Message::new("test").expect("valid message"),
+            )
+            .expect("valid summary"),
         )
         .kind(),
         OutputLine::Session(

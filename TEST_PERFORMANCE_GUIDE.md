@@ -255,7 +255,7 @@ mod integration_tests {
         harness.zjj(&["init"]).assert_success();
 
         // WHEN: Create session
-        let result = harness.zjj(&["session", "add", "test-1", "--no-zellij"]);
+        let result = harness.zjj(&["session", "add", "test-1"]);
 
         // THEN: Session exists
         assert!(result.success);
@@ -808,7 +808,7 @@ cargo bench -- --baseline main --plotting-backend plotters
 | Property | `tests/*_properties.rs` | < 100ms | proptest |
 | In-memory integration | `tests/*.rs` | < 10ms | None |
 | Subprocess integration | `tests/*.rs` | < 500ms | jj binary |
-| E2E | `tests/e2e_*.rs` | < 2s | jj, zellij |
+| E2E | `tests/e2e_*.rs` | < 2s | jj |
 
 ### Running by Category
 

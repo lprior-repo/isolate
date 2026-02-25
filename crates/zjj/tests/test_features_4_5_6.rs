@@ -26,7 +26,7 @@ fn test_checkpoint_size_limit_compressible_data() {
     );
 
     // Create session
-    let add_result = harness.zjj(&["add", "test-session", "--no-zellij"]);
+    let add_result = harness.zjj(&["add", "test-session"]);
     assert!(add_result.success, "zjj add failed: {}", add_result.stderr);
 
     // Create compressible 150MB file (zeros)
@@ -72,7 +72,7 @@ fn test_checkpoint_size_limit_uncompressible_data() {
         init_result.stderr
     );
 
-    let add_result = harness.zjj(&["add", "test-session", "--no-zellij"]);
+    let add_result = harness.zjj(&["add", "test-session"]);
     assert!(add_result.success, "zjj add failed: {}", add_result.stderr);
 
     // Create uncompressible 150MB file (random data)
@@ -120,7 +120,7 @@ fn test_checkpoint_create_json_output() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
     harness.zjj(&["init"]);
-    harness.zjj(&["add", "test-session", "--no-zellij"]);
+    harness.zjj(&["add", "test-session", "--no-hooks"]);
 
     let result = harness.zjj(&[
         "checkpoint",
@@ -143,7 +143,7 @@ fn test_checkpoint_list_json_output() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
     harness.zjj(&["init"]);
-    harness.zjj(&["add", "test-session", "--no-zellij"]);
+    harness.zjj(&["add", "test-session", "--no-hooks"]);
     harness.zjj(&["checkpoint", "create", "--description", "test1"]);
     harness.zjj(&["checkpoint", "create", "--description", "test2"]);
 
@@ -171,7 +171,7 @@ fn test_checkpoint_on_success_hook() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
     harness.zjj(&["init"]);
-    harness.zjj(&["add", "test-session", "--no-zellij"]);
+    harness.zjj(&["add", "test-session", "--no-hooks"]);
 
     let result = harness.zjj(&[
         "checkpoint",
@@ -248,7 +248,7 @@ fn test_doctor_recovery_with_integrity_issues() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
     harness.zjj(&["init"]);
-    harness.zjj(&["add", "test-session", "--no-zellij"]);
+    harness.zjj(&["add", "test-session", "--no-hooks"]);
 
     // Create recovery.log with CURRENT timestamp
     let recovery_log = harness.repo_path.join(".zjj").join("recovery.log");
@@ -294,7 +294,7 @@ fn test_integrity_validate_json_output() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
     harness.zjj(&["init"]);
-    harness.zjj(&["add", "test-session", "--no-zellij"]);
+    harness.zjj(&["add", "test-session", "--no-hooks"]);
 
     let result = harness.zjj(&["integrity", "validate", "test-session", "--json"]);
     assert!(result.success, "Command failed: {}", result.stderr);
@@ -329,7 +329,7 @@ fn test_integrity_repair_rebind_flag_parses() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
     harness.zjj(&["init"]);
-    harness.zjj(&["add", "test-session", "--no-zellij"]);
+    harness.zjj(&["add", "test-session", "--no-hooks"]);
 
     // Try to use --rebind flag (may fail but should parse the flag)
     let result = harness.zjj(&[
@@ -373,7 +373,7 @@ fn test_checkpoint_list_human_format() {
     let harness = TestHarness::new().expect("Failed to create test harness");
 
     harness.zjj(&["init"]);
-    harness.zjj(&["add", "test-session", "--no-zellij"]);
+    harness.zjj(&["add", "test-session", "--no-hooks"]);
     harness.zjj(&["checkpoint", "create", "--description", "test checkpoint"]);
 
     let result = harness.zjj(&["checkpoint", "list"]);

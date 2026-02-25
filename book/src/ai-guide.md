@@ -59,7 +59,7 @@ zjj agents register
 
 ```bash
 # Manual session
-zjj add <name> --bead <id> --no-zellij --idempotent
+zjj add <name> --bead <id> --idempotent
 
 # Or unified work command
 zjj work <name> --bead <id> --no-agent --idempotent
@@ -264,7 +264,7 @@ zjj agents register --id agent-001
 zjj context --json
 
 # 3. Create workspace
-zjj work feature-auth --bead BD-123 --no-zellij --idempotent
+zjj work feature-auth --bead BD-123 --idempotent
 
 # 4. Enter workspace
 cd $(zjj context --field=workspace.path)

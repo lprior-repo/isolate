@@ -202,8 +202,6 @@ pub struct Prerequisites {
     pub initialized: bool,
     /// JJ must be installed
     pub jj_installed: bool,
-    /// Zellij must be running
-    pub zellij_running: bool,
     /// Additional custom checks
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub custom: Vec<String>,
@@ -416,7 +414,6 @@ impl Default for Capabilities {
                 ],
                 features: vec![
                     "parallel_workspaces".to_string(),
-                    "zellij_integration".to_string(),
                     "hook_lifecycle".to_string(),
                 ],
             },
@@ -460,7 +457,7 @@ impl Prerequisites {
     /// before proceeding with operations that require these prerequisites.
     #[must_use]
     pub const fn all_met(&self) -> bool {
-        self.initialized && self.jj_installed && (!self.zellij_running || self.custom.is_empty())
+        self.initialized && self.jj_installed && self.custom.is_empty()
     }
 
     /// Count how many prerequisites are met
@@ -478,9 +475,6 @@ impl Prerequisites {
         if self.jj_installed {
             count += 1;
         }
-        if self.zellij_running {
-            count += 1;
-        }
         count
     }
 
@@ -492,7 +486,7 @@ impl Prerequisites {
     /// for reporting or validation purposes.
     #[must_use]
     pub const fn total(&self) -> usize {
-        3 + self.custom.len()
+        2 + self.custom.len()
     }
 }
 
@@ -618,7 +612,6 @@ mod tests {
         let prereqs = Prerequisites {
             initialized: true,
             jj_installed: true,
-            zellij_running: true,
             custom: vec![],
         };
         assert!(prereqs.all_met());
@@ -629,7 +622,6 @@ mod tests {
         let prereqs = Prerequisites {
             initialized: false,
             jj_installed: true,
-            zellij_running: true,
             custom: vec![],
         };
         assert!(!prereqs.all_met());
@@ -640,11 +632,10 @@ mod tests {
         let prereqs = Prerequisites {
             initialized: true,
             jj_installed: true,
-            zellij_running: false,
             custom: vec![],
         };
         assert_eq!(prereqs.count_met(), 2);
-        assert_eq!(prereqs.total(), 3);
+        assert_eq!(prereqs.total(), 2);
     }
 
     #[test]
@@ -894,7 +885,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: false,
-                zellij_running: false,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -925,7 +915,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: false,
-                zellij_running: false,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -952,7 +941,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: false,
-                zellij_running: false,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -979,7 +967,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: false,
-                zellij_running: false,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -1054,7 +1041,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: true,
-                zellij_running: false,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -1087,7 +1073,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: true,
-                zellij_running: false,
                 custom: vec![],
             },
             side_effects: vec![],

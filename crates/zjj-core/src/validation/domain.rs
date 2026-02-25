@@ -91,7 +91,11 @@ pub fn validate_session_name(s: &str) -> Result<(), IdentifierError> {
     }
 
     // Rule 3: Must start with a letter
-    if !trimmed.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
+    if !trimmed
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic())
+    {
         return Err(IdentifierError::invalid_start('a'));
     }
 
@@ -158,10 +162,10 @@ pub fn validate_agent_id(s: &str) -> Result<(), IdentifierError> {
     }
 
     // Rule 3: Valid characters only
-    if !s.chars().all(|c| {
-        c.is_ascii_alphanumeric()
-            || matches!(c, '-' | '_' | '.' | ':')
-    }) {
+    if !s
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
+    {
         return Err(IdentifierError::invalid_characters(
             "agent ID must contain only letters, numbers, hyphens, underscores, dots, or colons",
         ));

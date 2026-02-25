@@ -6,9 +6,7 @@ use zjj_core::json::SchemaEnvelope;
 
 use super::json_format::get_format;
 use crate::{
-    commands::{
-        add, attach, focus, init, list, remove, rename, session_mgmt, spawn, status, switch, work,
-    },
+    commands::{add, focus, init, list, remove, rename, session_mgmt, spawn, status, switch, work},
     json,
 };
 
@@ -49,7 +47,6 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
         let example_output = json::AddOutput {
             name: "example-session".to_string(),
             workspace_path: "/path/to/.zjj/workspaces/example-session".to_string(),
-            zellij_tab: "zjj:example-session".to_string(),
             status: "active".to_string(),
             created: true,
         };
@@ -64,9 +61,7 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
     let bead_id = sub_m.get_one::<String>("bead").cloned();
     let parent = sub_m.get_one::<String>("parent").cloned();
     let no_hooks = sub_m.get_flag("no-hooks");
-    let template = sub_m.get_one::<String>("template").cloned();
     let no_open = sub_m.get_flag("no-open");
-    let no_zellij = sub_m.get_flag("no-zellij");
     let idempotent = sub_m.get_flag("idempotent");
     let dry_run = sub_m.get_flag("dry-run");
 
@@ -75,9 +70,7 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
         bead_id,
         parent,
         no_hooks,
-        template,
         no_open,
-        no_zellij,
         format: get_format(sub_m),
         idempotent,
         dry_run,
@@ -148,9 +141,8 @@ pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
     }
 
     let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let no_zellij = sub_m.get_flag("no-zellij");
     let format = get_format(sub_m);
-    let options = focus::FocusOptions { format, no_zellij };
+    let options = focus::FocusOptions { format };
     focus::run_with_options(name, &options).await
 }
 
@@ -178,12 +170,10 @@ pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let show_context = sub_m.get_flag("show-context");
-    let no_zellij = sub_m.get_flag("no-zellij");
     let format = get_format(sub_m);
     let options = switch::SwitchOptions {
         format,
         show_context,
-        no_zellij,
     };
     switch::run_with_options(name, &options).await
 }
@@ -224,18 +214,12 @@ pub async fn handle_work(sub_m: &ArgMatches) -> Result<()> {
         name,
         bead_id: sub_m.get_one::<String>("bead").cloned(),
         agent_id: sub_m.get_one::<String>("agent-id").cloned(),
-        no_zellij: sub_m.get_flag("no-zellij"),
         no_agent: sub_m.get_flag("no-agent"),
         idempotent: sub_m.get_flag("idempotent"),
         dry_run: sub_m.get_flag("dry-run"),
         format,
     };
     work::run(&options).await
-}
-
-pub async fn handle_attach(sub_m: &ArgMatches) -> Result<()> {
-    let options = attach::AttachOptions::from_matches(sub_m)?;
-    attach::run_with_options(&options).await
 }
 
 pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
@@ -248,12 +232,10 @@ pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("new_name")
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("new_name is required"))?;
-    let no_zellij = sub_m.get_flag("no-zellij");
     let options = rename::RenameOptions {
         old_name,
         new_name,
         dry_run: false,
-        no_zellij,
         format,
     };
     rename::run(&options).await
@@ -273,7 +255,6 @@ pub async fn handle_clone(sub_m: &ArgMatches) -> Result<()> {
         source,
         target,
         dry_run: false,
-        no_zellij: sub_m.get_flag("no-zellij"),
         format,
     };
     session_mgmt::run_clone(&options).await
@@ -370,7 +351,6 @@ mod tests {
                         "--agent-id",
                         "agent-1",
                         "--idempotent",
-                        "--no-zellij",
                         "--dry-run",
                         "--json",
                     ],
@@ -407,7 +387,6 @@ mod tests {
                     "zjj-789",
                     "--agent-id",
                     "agent-77",
-                    "--no-zellij",
                     "--no-agent",
                     "--idempotent",
                     "--dry-run",
@@ -427,7 +406,6 @@ mod tests {
                 parsed.get_one::<String>("agent-id").map(String::as_str),
                 Some("agent-77")
             );
-            assert!(parsed.get_flag("no-zellij"));
             assert!(parsed.get_flag("no-agent"));
             assert!(parsed.get_flag("idempotent"));
             assert!(parsed.get_flag("dry-run"));

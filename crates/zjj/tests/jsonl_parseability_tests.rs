@@ -235,7 +235,7 @@ fn test_session_output_has_required_fields() {
     harness.assert_success(&["init"]);
 
     // Create a session to get SessionOutput
-    let result = harness.zjj(&["add", "test-session-fields", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "test-session-fields", "--no-hooks"]);
     assert!(
         result.success,
         "Failed to create session: {}",
@@ -396,7 +396,7 @@ fn test_result_output_has_required_fields() {
     harness.assert_success(&["init"]);
 
     // Run a command that produces ResultOutput (add produces result at end)
-    let result = harness.zjj(&["add", "test-result-fields", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "test-result-fields", "--no-hooks"]);
 
     // Find ResultOutput in the output (lowercase key: "result")
     let result_output = find_json_line_by_type(&result.stdout, "result");
@@ -468,7 +468,7 @@ fn test_result_output_is_final_line_for_add() {
     harness.assert_success(&["init"]);
 
     // Test add command which produces result at end
-    let result = harness.zjj(&["add", "test-final-result", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "test-final-result", "--no-hooks"]);
 
     // Get all JSON lines
     let json_lines: Vec<JsonValue> = result
@@ -527,7 +527,7 @@ fn test_all_output_variants_have_correct_structure() {
     assert!(has_valid_lines, "list command should produce valid JSONL");
 
     // Test Action variant (from add command, lowercase key: "action")
-    let result = harness.zjj(&["add", "test-action-variant", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "test-action-variant", "--no-hooks"]);
     let action_output = find_json_line_by_type(&result.stdout, "action");
     if let Some(json) = action_output {
         // Action should have: verb, target, status, timestamp
@@ -598,12 +598,7 @@ fn test_enums_serialize_to_snake_case() {
     harness.assert_success(&["init"]);
 
     // Create a session
-    let result = harness.zjj(&[
-        "add",
-        "test-enum-serialization",
-        "--no-zellij",
-        "--no-hooks",
-    ]);
+    let result = harness.zjj(&["add", "test-enum-serialization", "--no-hooks"]);
 
     // Check Session status field (lowercase key: "session")
     if let Some(session) = find_json_line_by_type(&result.stdout, "session") {
@@ -621,7 +616,7 @@ fn test_enums_serialize_to_snake_case() {
     }
 
     // Trigger an Issue and check its fields (lowercase key: "issue")
-    let result = harness.zjj(&["add", "", "--no-zellij"]);
+    let result = harness.zjj(&["add", ""]);
     if let Some(issue) = find_json_line_by_type(&result.stdout, "issue") {
         for field in ["kind", "severity"] {
             if let Some(value) = issue.get(field).and_then(JsonValue::as_str) {

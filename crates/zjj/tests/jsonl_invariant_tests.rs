@@ -229,7 +229,7 @@ mod focus_command {
         harness.zjj(&["init"]).assert_success();
 
         // Create a session
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
         assert!(
             result.success,
             "Failed to create session: {}",
@@ -249,7 +249,7 @@ mod focus_command {
         let session_name = setup_focused_session(&harness)?;
 
         // Focus the session
-        let result = harness.zjj(&["focus", &session_name, "--no-zellij"]);
+        let result = harness.zjj(&["focus", &session_name]);
         assert!(result.success, "Focus should succeed: {}", result.stderr);
 
         // Verify INV-GLOBAL-01
@@ -274,7 +274,7 @@ mod focus_command {
 
         let session_name = setup_focused_session(&harness)?;
 
-        let result = harness.zjj(&["focus", &session_name, "--no-zellij"]);
+        let result = harness.zjj(&["focus", &session_name]);
         assert!(result.success, "Focus should succeed: {}", result.stderr);
 
         let parsed = assert_all_lines_valid_jsonl(&result.stdout)?;
@@ -294,7 +294,7 @@ mod focus_command {
 
         let session_name = setup_focused_session(&harness)?;
 
-        let result = harness.zjj(&["focus", &session_name, "--no-zellij"]);
+        let result = harness.zjj(&["focus", &session_name]);
         assert!(result.success, "Focus should succeed: {}", result.stderr);
 
         let parsed = assert_all_lines_valid_jsonl(&result.stdout)?;
@@ -314,38 +314,11 @@ mod focus_command {
 
         let session_name = setup_focused_session(&harness)?;
 
-        let result = harness.zjj(&["focus", &session_name, "--no-zellij"]);
+        let result = harness.zjj(&["focus", &session_name]);
         assert!(result.success, "Focus should succeed: {}", result.stderr);
 
         // Verify INV-GLOBAL-07
         assert_output_is_complete(&result.stdout)?;
-
-        Ok(())
-    }
-
-    /// INV-FOC-01: Zellij tab name is always `zjj:{session_name}`
-    #[test]
-    fn test_focus_zellij_tab_format() -> Result<()> {
-        let Some(harness) = TestHarness::try_new() else {
-            return Ok(());
-        };
-
-        let session_name = setup_focused_session(&harness)?;
-
-        let result = harness.zjj(&["focus", &session_name, "--no-zellij"]);
-        assert!(result.success, "Focus should succeed: {}", result.stderr);
-
-        let parsed = assert_all_lines_valid_jsonl(&result.stdout)?;
-
-        // Find the session line and verify zellij_tab format
-        let _session_line = parsed
-            .iter()
-            .find(|line| line.get("session").is_some())
-            .context("Should have a session line")?;
-
-        // Note: The session output doesn't include zellij_tab directly,
-        // but the contract says tab name should be zjj:{session_name}
-        // This is validated internally by the session creation
 
         Ok(())
     }
@@ -360,7 +333,7 @@ mod focus_command {
         harness.zjj(&["init"]).assert_success();
 
         // Try to focus on non-existent session
-        let result = harness.zjj(&["focus", "nonexistent-session", "--no-zellij"]);
+        let result = harness.zjj(&["focus", "nonexistent-session"]);
 
         // Command should fail
         assert!(!result.success, "Focus on missing session should fail");
@@ -385,7 +358,7 @@ mod focus_command {
         harness.zjj(&["init"]).assert_success();
 
         // Try to focus without providing a name
-        let result = harness.zjj(&["focus", "--no-zellij"]);
+        let result = harness.zjj(&["focus", "--no-session"]);
 
         // Command should fail
         assert!(!result.success, "Focus without name should fail");
@@ -435,7 +408,7 @@ mod remove_command {
 
         // Create a session
         let session_name = "test-jsonl-remove";
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
         assert!(
             result.success,
             "Failed to create session: {}",
@@ -524,7 +497,7 @@ mod sync_command {
 
         // Create a session
         let session_name = "test-jsonl-sync";
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
         assert!(
             result.success,
             "Failed to create session: {}",
@@ -563,7 +536,7 @@ mod sync_command {
 
         // Create multiple sessions
         for name in ["sync-test-1", "sync-test-2", "sync-test-3"] {
-            let result = harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+            let result = harness.zjj(&["add", name, "--no-hooks"]);
             assert!(result.success, "Failed to create session {}", name);
         }
 
@@ -597,7 +570,7 @@ mod add_command {
 
         // Create a session
         let session_name = "test-jsonl-add";
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
         assert!(result.success, "Add should succeed: {}", result.stderr);
 
         // Parse output
@@ -622,7 +595,7 @@ mod add_command {
         harness.zjj(&["init"]).assert_success();
 
         let session_name = "test-name-match";
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
         assert!(result.success, "Add should succeed: {}", result.stderr);
 
         // After conversion, find SessionOutput line and verify name matches
@@ -643,7 +616,7 @@ mod add_command {
         harness.zjj(&["init"]).assert_success();
 
         let session_name = "test-absolute-path";
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
         assert!(result.success, "Add should succeed: {}", result.stderr);
 
         // After conversion, find SessionOutput line and verify workspace_path is absolute
@@ -667,7 +640,7 @@ mod add_command {
         harness.zjj(&["init"]).assert_success();
 
         // Try to create a session with invalid name (e.g., starts with number)
-        let result = harness.zjj(&["add", "123-invalid", "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", "123-invalid", "--no-hooks"]);
 
         // Should fail validation
         assert!(!result.success, "Add with invalid name should fail");
@@ -684,9 +657,9 @@ mod output_types_unit_tests {
     use anyhow::Result;
     use zjj_core::{
         output::{
-            Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind, IssueSeverity,
-            IssueTitle, Message, OutputLine, ResultKind, ResultOutput, SessionOutput, Summary,
-            SummaryType,
+            Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
+            IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput,
+            SessionOutput, Summary, SummaryType,
         },
         types::SessionStatus,
         WorkspaceState,
@@ -934,10 +907,10 @@ mod focus_output_sequence {
         harness.zjj(&["init"]).assert_success();
 
         let session_name = "test-sequence";
-        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", session_name, "--no-hooks"]);
         assert!(result.success, "Add should succeed: {}", result.stderr);
 
-        let result = harness.zjj(&["focus", session_name, "--no-zellij"]);
+        let result = harness.zjj(&["focus", session_name]);
         assert!(result.success, "Focus should succeed: {}", result.stderr);
 
         let parsed = assert_all_lines_valid_jsonl(&result.stdout)?;
@@ -961,25 +934,6 @@ mod focus_output_sequence {
 
         Ok(())
     }
-
-    /// Verify focus inside Zellij emits switch-tab Action
-    #[test]
-    fn test_focus_inside_zellij_emits_action() -> Result<()> {
-        // This test requires ZELLIJ env var to be set
-        // We can't easily test this without mocking, so just verify the pattern
-
-        let Some(_harness) = TestHarness::try_new() else {
-            return Ok(());
-        };
-
-        // When inside Zellij, focus should emit:
-        // 1. Action (switch-tab)
-        // 2. Session
-        // 3. Result
-
-        // This is tested by the unit tests in focus.rs
-        Ok(())
-    }
 }
 
 // ============================================================================
@@ -1000,7 +954,7 @@ mod error_output_sequence {
 
         harness.zjj(&["init"]).assert_success();
 
-        let result = harness.zjj(&["focus", "nonexistent", "--no-zellij"]);
+        let result = harness.zjj(&["focus", "nonexistent", "--no-session"]);
 
         assert!(!result.success, "Focus on missing session should fail");
 

@@ -398,7 +398,7 @@ fn test_focus_schema_matches_contract() -> Result<(), Box<dyn std::error::Error>
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "schema-test-focus", "--no-open"]);
 
-    let result = harness.zjj(&["focus", "schema-test-focus", "--json", "--no-zellij"]);
+    let result = harness.zjj(&["focus", "schema-test-focus", "--json"]);
     assert!(result.success, "focus should succeed: {}", result.stderr);
 
     // Parse as JSONL and validate structure

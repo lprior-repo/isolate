@@ -15,9 +15,9 @@ use tokio::process::Command;
 use zjj_core::{
     domain::SessionName,
     output::{
-        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, BeadId, Message,
-        OutputLine, QueueCounts, QueueEntry, QueueEntryId, QueueEntryStatus, QueueSummary,
-        Summary, SummaryType,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, BeadId, Message, OutputLine,
+        QueueCounts, QueueEntry, QueueEntryId, QueueEntryStatus, QueueSummary, Summary,
+        SummaryType,
     },
     OutputFormat, QueueStatus,
 };
@@ -236,10 +236,7 @@ async fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
 
             emit_stdout(&OutputLine::QueueEntry(entry_with_agent))?;
         } else {
-            let summary = Summary::new(
-                SummaryType::Info,
-                Message::new("Queue is empty")?,
-            )?;
+            let summary = Summary::new(SummaryType::Info, Message::new("Queue is empty")?)?;
             emit_stdout(&OutputLine::Summary(summary))?;
         }
     } else {
@@ -315,7 +312,8 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
         // Emit action for processing start
         let action = Action::new(
             ActionVerb::new("process").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-            ActionTarget::new(entry.workspace.clone()).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+            ActionTarget::new(entry.workspace.clone())
+                .map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
             ActionStatus::InProgress,
         );
         emit_stdout(&OutputLine::Action(action))?;
@@ -395,8 +393,10 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
 
             if options.format.is_json() {
                 let action = Action::new(
-                    ActionVerb::new("merge").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-                    ActionTarget::new(entry.workspace.clone()).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                    ActionVerb::new("merge")
+                        .map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                    ActionTarget::new(entry.workspace.clone())
+                        .map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
                     ActionStatus::Completed,
                 )
                 .with_result(format!("merged at {}", merged_sha));
@@ -414,8 +414,10 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
 
             if options.format.is_json() {
                 let action = Action::new(
-                    ActionVerb::new("merge").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-                    ActionTarget::new(entry.workspace.clone()).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                    ActionVerb::new("merge")
+                        .map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                    ActionTarget::new(entry.workspace.clone())
+                        .map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
                     ActionStatus::Failed,
                 )
                 .with_result(error_msg.clone());
@@ -814,14 +816,14 @@ const fn queue_status_to_entry_status(status: &zjj_core::QueueStatus) -> QueueEn
     match status {
         zjj_core::QueueStatus::Pending => QueueEntryStatus::Pending,
         zjj_core::QueueStatus::Claimed => QueueEntryStatus::Claimed,
-        zjj_core::QueueStatus::Rebasing | zjj_core::QueueStatus::Testing | zjj_core::QueueStatus::Merging => {
-            QueueEntryStatus::InProgress
-        }
+        zjj_core::QueueStatus::Rebasing
+        | zjj_core::QueueStatus::Testing
+        | zjj_core::QueueStatus::Merging => QueueEntryStatus::InProgress,
         zjj_core::QueueStatus::ReadyToMerge => QueueEntryStatus::Ready,
         zjj_core::QueueStatus::Merged => QueueEntryStatus::Completed,
-        zjj_core::QueueStatus::FailedRetryable | zjj_core::QueueStatus::FailedTerminal | zjj_core::QueueStatus::Cancelled => {
-            QueueEntryStatus::Failed
-        }
+        zjj_core::QueueStatus::FailedRetryable
+        | zjj_core::QueueStatus::FailedTerminal
+        | zjj_core::QueueStatus::Cancelled => QueueEntryStatus::Failed,
     }
 }
 

@@ -17,7 +17,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 // Re-export from domain (single source of truth)
-pub use crate::domain::{SessionName, BeadId, QueueEntryId};
+pub use crate::domain::{BeadId, QueueEntryId, SessionName};
 
 use super::OutputLineError;
 
@@ -49,7 +49,6 @@ impl IssueId {
     /// Get the issue ID as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -90,7 +89,6 @@ impl TrainId {
     /// Get the train ID as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -106,7 +104,6 @@ impl AsRef<str> for TrainId {
         &self.0
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TEXT NEWTYPES - Validate once, use everywhere
@@ -136,7 +133,6 @@ impl IssueTitle {
     /// Get the issue title as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -177,7 +173,6 @@ impl PlanTitle {
     /// Get the plan title as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -218,7 +213,6 @@ impl PlanDescription {
     /// Get the plan description as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -259,7 +253,6 @@ impl Message {
     /// Get the message as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -333,10 +326,14 @@ impl WarningCode {
                 }
 
                 // Must start with a letter
-                if !custom.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
-                    return Err(OutputLineError::InvalidWarningCode(
-                        format!("warning code must start with a letter, got: {custom}"),
-                    ));
+                if !custom
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_ascii_alphabetic())
+                {
+                    return Err(OutputLineError::InvalidWarningCode(format!(
+                        "warning code must start with a letter, got: {custom}"
+                    )));
                 }
 
                 // All characters must be alphanumeric or underscore
@@ -344,9 +341,9 @@ impl WarningCode {
                     .chars()
                     .all(|c| c.is_ascii_alphanumeric() || c == '_')
                 {
-                    return Err(OutputLineError::InvalidWarningCode(
-                        format!("warning code must be alphanumeric or underscore, got: {custom}"),
-                    ));
+                    return Err(OutputLineError::InvalidWarningCode(format!(
+                        "warning code must be alphanumeric or underscore, got: {custom}"
+                    )));
                 }
 
                 Ok(Self::Custom(custom.to_string()))
@@ -475,27 +472,25 @@ impl ActionVerb {
                 // Must be lowercase alphanumeric with hyphens
                 let lower = custom.to_lowercase();
                 if lower != custom {
-                    return Err(OutputLineError::InvalidActionVerb(
-                        format!("action verb must be lowercase, got: {custom}"),
-                    ));
+                    return Err(OutputLineError::InvalidActionVerb(format!(
+                        "action verb must be lowercase, got: {custom}"
+                    )));
                 }
 
                 if !lower
                     .chars()
                     .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
                 {
-                    return Err(OutputLineError::InvalidActionVerb(
-                        format!(
-                            "action verb must be lowercase alphanumeric with hyphens, got: {custom}"
-                        ),
-                    ));
+                    return Err(OutputLineError::InvalidActionVerb(format!(
+                        "action verb must be lowercase alphanumeric with hyphens, got: {custom}"
+                    )));
                 }
 
                 // Must start with a letter
                 if !lower.chars().next().is_some_and(|c| c.is_ascii_lowercase()) {
-                    return Err(OutputLineError::InvalidActionVerb(
-                        format!("action verb must start with a lowercase letter, got: {custom}"),
-                    ));
+                    return Err(OutputLineError::InvalidActionVerb(format!(
+                        "action verb must start with a lowercase letter, got: {custom}"
+                    )));
                 }
 
                 Ok(Self::Custom(lower))
@@ -586,7 +581,6 @@ impl ActionTarget {
     /// Get the action target as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -619,7 +613,6 @@ impl BaseRef {
     /// Get the base reference as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 }
@@ -652,7 +645,6 @@ impl Command {
     /// Get the command as a string slice
     #[must_use]
     pub fn as_str(&self) -> &str {
-
         &self.0
     }
 
@@ -720,7 +712,11 @@ impl Outcome {
     /// Convert from boolean (for backward compatibility during migration)
     #[must_use]
     pub const fn from_bool(success: bool) -> Self {
-        if success { Self::Success } else { Self::Failure }
+        if success {
+            Self::Success
+        } else {
+            Self::Failure
+        }
     }
 
     /// Convert to boolean (for backward compatibility during migration)

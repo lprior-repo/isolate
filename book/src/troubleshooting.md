@@ -134,26 +134,6 @@ zjj add 123-feature     # Starts with number
 
 ---
 
-### ERR_ZELLIJ_ERROR (11)
-
-**Message:** `Zellij command failed` or `Zellij not found`
-
-**Fix:**
-```bash
-# Check installation
-zellij --version
-
-# Install if missing
-cargo install zellij
-# or
-brew install zellij
-
-# Or skip Zellij
-zjj add <name> --no-zellij
-```
-
----
-
 ### ERR_WORKSPACE_ERROR (10)
 
 **Message:** `Workspace operation failed`
@@ -234,7 +214,6 @@ zjj recover --last
 | Error | Fix |
 |-------|-----|
 | Not found | Check `zjj list` for exact name |
-| No Zellij | Install or use `--no-zellij` |
 | Tab exists | Close tab or use existing |
 
 ### zjj queue worker

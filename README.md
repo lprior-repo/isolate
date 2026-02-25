@@ -6,7 +6,7 @@
 
 > **ZJJ** helps you run **multiple parallel workstreams (humans or AI agents)** against a single repo **without stepping on each other**.
 
-It combines **JJ (Jujutsu) workspaces** for hard isolation, **Zellij** tabs/sessions for fast context switching, and a **SQLite-backed state + merge/processing queue** for coordination, retries, and recovery.
+It combines **JJ (Jujutsu) workspaces** for hard isolation and a **SQLite-backed state + merge/processing queue** for coordination, retries, and recovery.
 
 ---
 
@@ -79,7 +79,7 @@ Parallel work is easy to start and hard to finish cleanly:
 
 ## Mental Model
 
-**Session** = a named isolated workspace (+ optional bead/issue) + optional Zellij tab
+**Session** = a named isolated workspace (+ optional bead/issue)
 **Queue entry** = a unit of work tied to a workspace that a worker/agent can claim and process
 **Done** = finish the work and land it back to main
 
@@ -117,7 +117,7 @@ zjj init
 # 2) Create an isolated session
 zjj add auth-refactor --bead BD-123
 
-# 3) Jump into it (Zellij tab)
+# 3) Jump into it
 zjj focus auth-refactor
 
 # 4) Keep it synced with main
@@ -152,18 +152,17 @@ ZJJ ensures only one worker claims a given entry at a time, with retries, cancel
 | Command | Description |
 |---------|-------------|
 | `zjj init` | Initialize ZJJ in a JJ repo |
-| `zjj add <name>` | Create an isolated session (workspace + Zellij tab) |
+| `zjj add <name>` | Create an isolated session (workspace) |
 | `zjj add <name> --bead <BEAD_ID>` | Create a session tied to an issue/bead |
 | `zjj list [--verbose]` | List sessions |
 | `zjj status [name]` | Detailed status + changes |
-| `zjj focus <name>` | Jump to that session's Zellij tab |
+| `zjj focus <name>` | Switch to that session's workspace |
 | `zjj sync [name]` | Rebase/sync workspace onto main |
 | `zjj done` | Complete work and merge to main |
 | `zjj remove <name>` | Remove session + workspace |
 | `zjj whereami` | Show current location (main or workspace) |
 | `zjj switch [name]` | Switch between workspaces (interactive if no name) |
 | `zjj diff <name>` | Show diff between session and main |
-| `zjj attach <name>` | Attach to an existing Zellij session |
 | `zjj clean` | Remove stale sessions |
 
 > **All commands support `--json` for machine-readable output.**
@@ -239,7 +238,7 @@ ZJJ follows the **Functional Core, Imperative Shell** pattern with **Domain-Driv
 - Parse CLI arguments with `clap`
 - Handle all I/O operations
 - Manage async runtime with `tokio`
-- Execute external commands (JJ, Zellij)
+- Execute external commands (JJ)
 - Write to database with `sqlx`
 - Emit JSONL output
 
@@ -317,7 +316,7 @@ cd zjj
 ```
 
 The setup script will:
-- Check for Rust 1.80+, Moon, JJ, and Zellij
+- Check for Rust 1.80+, Moon, and JJ
 - Install missing dependencies (with your permission)
 - Set up the development database
 - Run initial build and tests
@@ -329,7 +328,6 @@ The setup script will:
 
 - **Moon** - Install from https://moonrepo.dev/docs/install
 - **JJ** (Jujutsu) - Install from https://github.com/martinvonz/jj#installation
-- **Zellij** - Install from https://zellij.dev/download
 - **Rust** 1.80 or later
 
 #### From Source (with Moon)

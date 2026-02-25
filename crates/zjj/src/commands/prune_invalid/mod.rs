@@ -19,7 +19,10 @@ use std::io::Write;
 use anyhow::Result;
 use futures::{StreamExt, TryStreamExt};
 use zjj_core::{
-    output::{emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine, Summary, SummaryType},
+    output::{
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine, Summary,
+        SummaryType,
+    },
     OutputFormat,
 };
 
@@ -132,8 +135,10 @@ fn output_dry_run(invalid_names: &[String], format: OutputFormat) -> Result<()> 
 
         for name in invalid_names {
             let action = Action::new(
-                ActionVerb::new("discovered").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-                ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                ActionVerb::new("discovered")
+                    .map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                ActionTarget::new(name)
+                    .map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
                 ActionStatus::Pending,
             );
             emit_stdout(&OutputLine::Action(action))?;
@@ -159,8 +164,10 @@ fn output_cancelled(invalid_names: &[String], format: OutputFormat) -> Result<()
 
         for name in invalid_names {
             let action = Action::new(
-                ActionVerb::new("remove").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-                ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                ActionVerb::new("remove")
+                    .map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                ActionTarget::new(name)
+                    .map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
                 ActionStatus::Skipped,
             );
             emit_stdout(&OutputLine::Action(action))?;
@@ -185,8 +192,10 @@ fn output_result(
 
         for name in invalid_names {
             let action = Action::new(
-                ActionVerb::new("remove").map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
-                ActionTarget::new(name).map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
+                ActionVerb::new("remove")
+                    .map_err(|e| anyhow::anyhow!("Invalid action verb: {e}"))?,
+                ActionTarget::new(name)
+                    .map_err(|e| anyhow::anyhow!("Invalid action target: {e}"))?,
                 ActionStatus::Completed,
             );
             emit_stdout(&OutputLine::Action(action))?;

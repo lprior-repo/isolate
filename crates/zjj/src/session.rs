@@ -64,37 +64,23 @@ impl FromStr for SessionStatus {
 #[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Session {
-    /// Auto-generated database ID (None for new sessions not yet persisted)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i64>,
-    /// Unique session name
     pub name: String,
-    /// Current status of the session
     pub status: SessionStatus,
-    /// Workspace lifecycle state (tracks work progress)
     #[serde(default)]
     pub state: WorkspaceState,
-    /// Path to the JJ workspace directory
     pub workspace_path: String,
-    /// Zellij tab name (format: `zjj:NAME`)
-    pub zellij_tab: String,
-    /// Git branch associated with this session
     #[serde(skip_serializing_if = "Option::is_none")]
     pub branch: Option<String>,
-    /// Unix timestamp when session was created
     pub created_at: u64,
-    /// Unix timestamp when session was last updated
     pub updated_at: u64,
-    /// Unix timestamp of last sync operation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_synced: Option<u64>,
-    /// Extensible metadata as JSON
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
-    /// Parent session name (for stacked sessions)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_session: Option<String>,
-    /// Queue status for merge train integration (bd-2np)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub queue_status: Option<QueueStatus>,
 }
@@ -119,7 +105,6 @@ impl Session {
             status: SessionStatus::Creating,
             state: WorkspaceState::Created,
             workspace_path: workspace_path.to_string(),
-            zellij_tab: format!("zjj:{name}"),
             branch: None,
             created_at: now,
             updated_at: now,
@@ -275,7 +260,6 @@ mod tests {
     fn test_session_new_valid() -> Result<()> {
         let session = Session::new("my-session", "/path/to/workspace")?;
         assert_eq!(session.name, "my-session");
-        assert_eq!(session.zellij_tab, "zjj:my-session");
         assert_eq!(session.status, SessionStatus::Creating);
         assert!(session.id.is_none());
         assert!(session.created_at > 0);

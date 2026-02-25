@@ -120,7 +120,7 @@ fn adversational_session_with_missing_workspace() {
     harness.assert_success(&["init"]);
 
     // Create a session
-    harness.assert_success(&["add", "missing-workspace-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "missing-workspace-test", "--no-hooks"]);
 
     // Manually remove the workspace directory (simulating external deletion)
     let workspace_path = harness.workspace_path("missing-workspace-test");
@@ -167,7 +167,7 @@ fn adversarial_deep_stack_depth() {
 
     // Create root session
     let root_name = "deep-stack-root";
-    let result = harness.zjj(&["add", root_name, "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", root_name, "--no-hooks"]);
     if !result.success {
         println!("SKIP: Could not create root session");
         return;
@@ -179,14 +179,7 @@ fn adversarial_deep_stack_depth() {
         let child_name = format!("deep-stack-{}", i);
         let parent_name = session_names.last().map_or("", |s| s.as_str());
 
-        let result = harness.zjj(&[
-            "add",
-            &child_name,
-            "--no-zellij",
-            "--no-hooks",
-            "--parent",
-            parent_name,
-        ]);
+        let result = harness.zjj(&["add", &child_name, "--no-hooks", "--parent", parent_name]);
 
         if !result.success {
             break;
@@ -243,7 +236,7 @@ fn adversarial_session_name_with_special_chars() {
     let valid_names = ["test-name", "test_name", "TestName123"];
 
     for name in &valid_names {
-        let result = harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", name, "--no-hooks"]);
         if result.success {
             let status_result = harness.zjj(&["status", name]);
             assert!(
@@ -281,7 +274,7 @@ fn adversarial_concurrent_session_operations() {
     // Create multiple sessions
     let sessions = ["concurrent-1", "concurrent-2", "concurrent-3"];
     for name in &sessions {
-        let _ = harness.zjj(&["add", name, "--no-zellij", "--no-hooks"]);
+        let _ = harness.zjj(&["add", name, "--no-hooks"]);
     }
 
     // Query status while potentially modifying
@@ -341,7 +334,7 @@ fn adversarial_many_sessions() {
 
     for i in 0..session_count {
         let name = format!("many-sessions-{}", i);
-        let result = harness.zjj(&["add", &name, "--no-zellij", "--no-hooks"]);
+        let result = harness.zjj(&["add", &name, "--no-hooks"]);
         if result.success {
             created_sessions.push(name);
         }
@@ -390,7 +383,7 @@ fn adversarial_status_is_read_only() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "readonly-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "readonly-test", "--no-hooks"]);
 
     // Get initial state
     let initial_result = harness.zjj(&["status", "readonly-test"]);
@@ -448,7 +441,6 @@ fn adversarial_orphan_session_reference() {
     let result = harness.zjj(&[
         "add",
         "orphan-child",
-        "--no-zellij",
         "--no-hooks",
         "--parent",
         "nonexistent-parent",
@@ -482,7 +474,7 @@ fn adversarial_status_after_removal() {
     harness.assert_success(&["init"]);
 
     // Create and then remove a session
-    harness.assert_success(&["add", "remove-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "remove-test", "--no-hooks"]);
     harness.assert_success(&["remove", "remove-test", "--merge"]);
 
     // Status for removed session should fail with NOT_FOUND
@@ -510,7 +502,7 @@ fn adversarial_workspace_with_unicode_path() {
     harness.assert_success(&["init"]);
 
     // Create a session with ASCII name (Unicode names are rejected)
-    let result = harness.zjj(&["add", "unicode-test", "--no-zellij", "--no-hooks"]);
+    let result = harness.zjj(&["add", "unicode-test", "--no-hooks"]);
 
     if result.success {
         let status_result = harness.zjj(&["status", "unicode-test"]);
@@ -544,7 +536,7 @@ fn adversarial_output_schema_validation() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "schema-test", "--no-zellij", "--no-hooks"]);
+    harness.assert_success(&["add", "schema-test", "--no-hooks"]);
 
     let result = harness.zjj(&["status", "schema-test"]);
 

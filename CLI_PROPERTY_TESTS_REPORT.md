@@ -121,7 +121,7 @@ task, session, queue, stack, agent, status, config, doctor
 | 1 | EXIT_USAGE_ERROR | Invalid arguments |
 | 2 | EXIT_CONFIG_ERROR | Configuration error |
 | 3 | EXIT_STATE_ERROR | Invalid state transition |
-| 4 | EXIT_EXTERNAL_ERROR | External tool error (jj, zellij, etc.) |
+| 4 | EXIT_EXTERNAL_ERROR | External tool error (jj, etc.) |
 
 ---
 

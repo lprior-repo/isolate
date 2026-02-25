@@ -489,10 +489,12 @@ mod tests {
             "content": "diff content here",
         });
 
-        let result =
-            ResultOutput::success(ResultKind::Command, Message::new("Diff for test-session").expect("valid message"))
-                .expect("Failed to create result")
-                .with_data(diff_data);
+        let result = ResultOutput::success(
+            ResultKind::Command,
+            Message::new("Diff for test-session").expect("valid message"),
+        )
+        .expect("Failed to create result")
+        .with_data(diff_data);
 
         assert!(matches!(result.outcome, zjj_core::output::Outcome::Success));
         assert_eq!(result.kind, ResultKind::Command);
@@ -508,10 +510,12 @@ mod tests {
             "content": "1 file changed, 5 insertions(+), 2 deletions(-)",
         });
 
-        let result =
-            ResultOutput::success(ResultKind::Command, Message::new("Diff for test-session").expect("valid message"))
-                .expect("Failed to create result")
-                .with_data(diff_data);
+        let result = ResultOutput::success(
+            ResultKind::Command,
+            Message::new("Diff for test-session").expect("valid message"),
+        )
+        .expect("Failed to create result")
+        .with_data(diff_data);
 
         let data = result.data.expect("Data should be present");
         assert_eq!(data["diff_type"], "stat");

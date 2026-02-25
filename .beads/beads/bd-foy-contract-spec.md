@@ -73,7 +73,6 @@ Convert CLI commands (`add`, `remove`, `sync`, `focus`) to emit AI-first JSONL o
 |----|-----------|-------------------|
 | FOC-PRE-01 | Session name is provided | `Issue` with `Validation` kind |
 | FOC-PRE-02 | Session exists | `Issue` with `ResourceNotFound` kind |
-| FOC-PRE-03 | Zellij is available (for tab switching) | Warning + continue with info only |
 
 ---
 
@@ -82,12 +81,11 @@ Convert CLI commands (`add`, `remove`, `sync`, `focus`) to emit AI-first JSONL o
 ### add.rs Postconditions
 
 **Success Path:**
-1. Emits `Action` lines for each creation step (workspace, db record, zellij tab)
+1. Emits `Action` lines for each creation step (workspace, db record)
 2. Emits `SessionOutput` line with full session details
 3. Emits `ResultOutput::success` with kind `Command`
 4. Session exists in database with status `Active`
 5. Workspace directory exists at specified path
-6. Zellij tab created (if `--no-zellij` not set)
 
 **Failure Path:**
 1. Emits `Action` lines for steps attempted (with `Failed` status)
@@ -98,11 +96,10 @@ Convert CLI commands (`add`, `remove`, `sync`, `focus`) to emit AI-first JSONL o
 ### remove.rs Postconditions
 
 **Success Path:**
-1. Emits `Action` lines for cleanup steps (workspace, db record, zellij tab)
+1. Emits `Action` lines for cleanup steps (workspace, db record)
 2. Emits `ResultOutput::success` with kind `Command`
 3. Session removed from database
 4. Workspace directory removed
-5. Zellij tab closed (if applicable)
 
 **Idempotent Path (session not found):**
 1. Emits `ResultOutput::success` with message "already removed"
@@ -137,20 +134,9 @@ Convert CLI commands (`add`, `remove`, `sync`, `focus`) to emit AI-first JSONL o
 
 ### focus.rs Postconditions
 
-**Inside Zellij:**
+**Success Path:**
 1. Emits `SessionOutput` line
 2. Emits `ResultOutput::success`
-3. Zellij tab switched
-
-**Outside Zellij (--no-zellij):**
-1. Emits `SessionOutput` line
-2. Emits `ResultOutput::success` with message
-3. No Zellij interaction
-
-**Outside Zellij (with Zellij):**
-1. Emits `SessionOutput` line
-2. Emits `ResultOutput::success` with "attaching" message
-3. Process execs into Zellij (may not return)
 
 ---
 
@@ -177,7 +163,6 @@ Convert CLI commands (`add`, `remove`, `sync`, `focus`) to emit AI-first JSONL o
 | INV-RM-01 | remove | `--idempotent` never returns error for missing session |
 | INV-SYNC-01 | sync | `synced_count + failed_count == total_sessions` |
 | INV-SYNC-02 | sync | Timestamps are ISO 8601 or epoch milliseconds |
-| INV-FOC-01 | focus | Zellij tab name is always `zjj:{session_name}` |
 
 ---
 
@@ -240,9 +225,6 @@ pub enum CommandError {
         stderr: String,
     },
 
-    #[error("zellij error: {reason}")]
-    ZellijError { reason: String },
-
     // Configuration Errors (exit code 1)
     #[error("not initialized: {reason}")]
     NotInitialized { reason: String },
@@ -265,7 +247,6 @@ pub enum CommandError {
 | `PermissionDenied` | `Issue` | `PermissionDenied` | `Error` |
 | `IoError` | `Issue` | `External` | `Error` |
 | `ExternalCommandFailed` | `Issue` | `External` | `Error` |
-| `ZellijError` | `Issue` | `External` | `Warning` |
 | `NotInitialized` | `Issue` | `Configuration` | `Error` |
 | `InvalidConfig` | `Issue` | `Configuration` | `Error` |
 
@@ -353,10 +334,6 @@ pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Resul
 /// Emits in order:
 /// 1. `SessionOutput` line
 /// 2. `ResultOutput` line
-///
-/// # Note
-///
-/// May exec into Zellij and not return.
 pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<(), CommandError>;
 ```
 

@@ -117,7 +117,7 @@ cargo test --package zjj-core --test fast_in_process_queue -- --nocapture
 - Testing actual CLI behavior
 - Testing command-line argument parsing
 - Testing end-to-end workflows
-- Testing external tool integration (jj, zellij)
+- Testing external tool integration (jj)
 - Validating JSON output format
 
 ## Migration Guide

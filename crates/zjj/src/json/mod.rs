@@ -15,10 +15,7 @@ pub use error::SyncError;
 pub use error::{output_json_error, output_json_parse_error, semantic_exit_code};
 #[allow(unused_imports)] // Keep for test module in serializers.rs
 pub use serializers::SyncOutput;
-pub use serializers::{
-    AddOutput, ConfigSetOutput, ConfigValueOutput, FocusOutput, TemplateCreateOutput,
-    TemplateDeleteOutput, TemplateInfo, TemplateListOutput, TemplateShowOutput,
-};
+pub use serializers::{AddOutput, ConfigSetOutput, ConfigValueOutput, FocusOutput};
 // Note: RemoveOutput removed - remove command uses JSONL output
 
 /// Output a JSON success response to stdout
@@ -58,7 +55,6 @@ mod tests {
         let output = AddOutput {
             name: "test".to_string(),
             workspace_path: "/path/to/workspace".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             status: "active".to_string(),
             created: true,
         };

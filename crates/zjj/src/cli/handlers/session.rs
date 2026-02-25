@@ -15,7 +15,7 @@ use clap::ArgMatches;
 use zjj_core::OutputFormat;
 
 use super::json_format::get_format;
-use crate::commands::{add, attach, focus, init, list, remove, rename, session_mgmt, spawn, sync};
+use crate::commands::{add, focus, init, list, remove, rename, session_mgmt, spawn, sync};
 
 /// Handle session list subcommand
 async fn handle_session_list(args: &ArgMatches) -> Result<()> {
@@ -39,16 +39,13 @@ async fn handle_session_add(args: &ArgMatches) -> Result<()> {
     let dry_run = args.get_flag("dry-run");
     let no_open = args.get_flag("no-open");
     let no_hooks = args.get_flag("no-hooks");
-    let no_zellij = no_open; // Map --no-open to --no-zellij for backward compatibility
 
     let options = add::AddOptions {
         name: name.clone(),
         bead_id: args.get_one::<String>("bead").cloned(),
         parent: args.get_one::<String>("parent").cloned(),
         no_hooks,
-        template: args.get_one::<String>("template").cloned(),
         no_open,
-        no_zellij,
         format,
         idempotent: false,
         dry_run,
@@ -85,10 +82,7 @@ async fn handle_session_focus(args: &ArgMatches) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
 
     let format = get_format(args);
-    let options = focus::FocusOptions {
-        format,
-        no_zellij: false,
-    };
+    let options = focus::FocusOptions { format };
 
     focus::run_with_options(Some(name), &options).await
 }
@@ -141,7 +135,6 @@ async fn handle_session_clone(args: &ArgMatches) -> Result<()> {
         source: source.clone(),
         target,
         dry_run,
-        no_zellij: true,
         format,
     };
 
@@ -163,22 +156,10 @@ async fn handle_session_rename(args: &ArgMatches) -> Result<()> {
         old_name: old_name.clone(),
         new_name: new_name.clone(),
         dry_run: false,
-        no_zellij: false,
         format,
     };
 
     rename::run(&options).await
-}
-
-/// Handle session attach subcommand
-async fn handle_session_attach(args: &ArgMatches) -> Result<()> {
-    let name = args
-        .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
-
-    let options = attach::AttachOptions { name: name.clone() };
-
-    attach::run_with_options(&options).await
 }
 
 /// Handle session spawn subcommand
@@ -240,7 +221,6 @@ pub async fn handle_session(args: &ArgMatches) -> Result<()> {
         Some(("resume", sub_args)) => handle_session_resume(sub_args).await,
         Some(("clone", sub_args)) => handle_session_clone(sub_args).await,
         Some(("rename", sub_args)) => handle_session_rename(sub_args).await,
-        Some(("attach", sub_args)) => handle_session_attach(sub_args).await,
         Some(("spawn", sub_args)) => handle_session_spawn(sub_args).await,
         Some(("sync", sub_args)) => handle_session_sync(sub_args).await,
         Some(("init", sub_args)) => handle_session_init(sub_args).await,

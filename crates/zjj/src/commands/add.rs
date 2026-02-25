@@ -27,16 +27,13 @@ mod atomic;
 mod beads;
 mod hooks;
 mod types;
-mod zellij;
 
-use atomic::{atomic_create_session, replay_add_operation_journal, rollback_partial_state};
+use atomic::{atomic_create_session, rollback_partial_state};
 use beads::query_bead_metadata;
 use hooks::execute_post_create_hooks;
 pub use types::AddOptions;
-use zellij::{create_session_layout, create_zellij_tab};
 
 use crate::{
-    cli::{attach_to_zellij_session, is_inside_zellij, is_terminal},
     command_context,
     commands::{check_prerequisites, get_session_db},
     db::SessionDb,
@@ -60,7 +57,6 @@ fn json_envelope_mode() -> bool {
 fn emit_add_json_envelope(
     name: &str,
     workspace_path: &str,
-    zellij_tab: &str,
     status: &str,
     created: bool,
     success: bool,
@@ -68,7 +64,6 @@ fn emit_add_json_envelope(
     let data = json!({
         "name": name,
         "workspace_path": workspace_path,
-        "zellij_tab": zellij_tab,
         "status": status,
         "created": created,
     });
@@ -159,17 +154,17 @@ fn emit_issue(
     if json_envelope_mode() {
         return Ok(());
     }
-    let mut issue =
-        Issue::new(
-            IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
-            IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
-            kind,
-            severity,
-        )
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let mut issue = Issue::new(
+        IssueId::new(id).map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
+        IssueTitle::new(title).map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
+        kind,
+        severity,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if let Some(s) = session {
-        issue = issue.with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
+        issue = issue
+            .with_session(SessionName::parse(s.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?);
     }
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());
@@ -249,7 +244,6 @@ fn output_human_result(
 fn output_result(
     name: &str,
     workspace_path: &str,
-    zellij_tab: &str,
     mode: &str,
     created: bool,
     format: OutputFormat,
@@ -261,7 +255,7 @@ fn output_result(
         } else {
             format!("Session '{name}' already exists ({mode})")
         };
-        return emit_add_json_envelope(name, workspace_path, zellij_tab, &status, created, true);
+        return emit_add_json_envelope(name, workspace_path, &status, created, true);
     }
 
     if format.is_json() {
@@ -472,8 +466,15 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Phase 4: Perform the actual creation sequence
     let session = perform_creation_sequence(options, &root, &workspace_path, &db).await?;
 
-    // Phase 5: Handle Zellij integration (may never return if it execs)
-    handle_zellij_interaction(options, &workspace_path_str, &session).await
+    // Phase 5: Output result
+    output_result(
+        &options.name,
+        &workspace_path_str,
+        "workspace created",
+        true,
+        options.format,
+        Some(&session),
+    )
 }
 
 /// Handle logic for when a session already exists
@@ -489,7 +490,6 @@ async fn handle_existing_session(
             output_result(
                 &options.name,
                 &existing.workspace_path,
-                &existing.zellij_tab,
                 "command replay",
                 false,
                 options.format,
@@ -509,7 +509,6 @@ async fn handle_existing_session(
         output_result(
             &options.name,
             &existing.workspace_path,
-            &existing.zellij_tab,
             "idempotent",
             false,
             options.format,
@@ -524,7 +523,6 @@ async fn handle_existing_session(
             emit_add_json_envelope(
                 &options.name,
                 &existing.workspace_path,
-                &existing.zellij_tab,
                 &format!("Session '{}' already exists", options.name),
                 false,
                 false,
@@ -563,7 +561,6 @@ fn handle_existing_session_dry_run(
         return emit_add_json_envelope(
             &options.name,
             &existing.workspace_path,
-            &existing.zellij_tab,
             "[DRY RUN] Session already exists (idempotent)",
             false,
             true,
@@ -588,20 +585,16 @@ fn handle_existing_session_dry_run(
             options.name
         );
         println!("  Workspace: {}", existing.workspace_path);
-        println!("  Zellij tab: {}", existing.zellij_tab);
     }
     Ok(())
 }
 
 /// Handle dry run output for a new session
 fn handle_new_session_dry_run(options: &AddOptions, workspace_path_str: &str) -> Result<()> {
-    let zellij_tab = format!("zjj:{name}", name = options.name);
-
     if json_envelope_mode() {
         return emit_add_json_envelope(
             &options.name,
             workspace_path_str,
-            &zellij_tab,
             "[DRY RUN] Would create session",
             true,
             true,
@@ -635,7 +628,6 @@ fn handle_new_session_dry_run(options: &AddOptions, workspace_path_str: &str) ->
     } else {
         println!("[DRY RUN] Would create session '{}'", options.name);
         println!("  Workspace: {workspace_path_str}");
-        println!("  Zellij tab: {zellij_tab}");
     }
     Ok(())
 }
@@ -718,127 +710,6 @@ async fn perform_creation_sequence(
     Ok(session)
 }
 
-/// Handle Zellij integration after session creation
-async fn handle_zellij_interaction(
-    options: &AddOptions,
-    workspace_path_str: &str,
-    session: &crate::session::Session,
-) -> Result<()> {
-    let zellij_installed = crate::cli::is_zellij_installed().await;
-    let no_zellij = options.no_zellij || !crate::cli::is_terminal() || !zellij_installed;
-
-    if !crate::cli::is_terminal() && !options.no_zellij && !options.format.is_json() {
-        println!("Note: Non-interactive environment detected, skipping Zellij integration.");
-    } else if !zellij_installed && !options.no_zellij && !options.format.is_json() {
-        println!("Note: Zellij not found, skipping Zellij integration.");
-    }
-
-    if options.no_open || no_zellij {
-        output_result(
-            &options.name,
-            workspace_path_str,
-            &session.zellij_tab,
-            "workspace only",
-            true,
-            options.format,
-            Some(session),
-        )?;
-    } else if is_inside_zellij() {
-        if !is_terminal() {
-            output_result(
-                &options.name,
-                workspace_path_str,
-                &session.zellij_tab,
-                "workspace only (non-interactive)",
-                true,
-                options.format,
-                Some(session),
-            )?;
-            if options.format.is_json() {
-                // Emit Issue line for JSON mode
-                let issue = Issue::new(
-                    IssueId::new("ADD-002")
-                        .map_err(|e| anyhow::anyhow!("Invalid issue ID: {e}"))?,
-                    IssueTitle::new("Zellij tab not created in non-interactive environment")
-                        .map_err(|e| anyhow::anyhow!("Invalid issue title: {e}"))?,
-                    IssueKind::Configuration,
-                    IssueSeverity::Hint,
-                )
-                .map(|i| i.with_suggestion("Use --no-zellij flag to suppress this message, or run from an interactive terminal".to_string()))
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
-                emit_stdout(&OutputLine::Issue(issue)).map_err(|e| anyhow::anyhow!("{e}"))?;
-            } else {
-                eprintln!("Note: Zellij tab not created in non-interactive environment.");
-                eprintln!("Use --no-zellij flag to suppress this message, or run from an interactive terminal.");
-            }
-            return Ok(());
-        }
-
-        create_zellij_tab(
-            &session.zellij_tab,
-            workspace_path_str,
-            options.template.as_deref(),
-        )
-        .await?;
-
-        if options.format.is_json() {
-            emit_action_with_result(
-                "create",
-                "zellij_tab",
-                ActionStatus::Completed,
-                &format!("Created Zellij tab '{}'", session.zellij_tab),
-            )?;
-        }
-
-        output_result(
-            &options.name,
-            workspace_path_str,
-            &session.zellij_tab,
-            "with Zellij tab",
-            true,
-            options.format,
-            Some(session),
-        )?;
-    } else {
-        // Outside Zellij: Create layout and exec into Zellij
-        if options.format.is_json() {
-            emit_action_with_result(
-                "create",
-                "zellij_tab",
-                ActionStatus::InProgress,
-                &format!("Creating Zellij session layout for '{}'", options.name),
-            )?;
-
-            output_result(
-                &options.name,
-                workspace_path_str,
-                &session.zellij_tab,
-                "launching Zellij",
-                true,
-                options.format,
-                Some(session),
-            )?;
-        } else {
-            println!("Created session '{}'", options.name);
-            println!("Launching Zellij with new tab...");
-        }
-
-        let layout = create_session_layout(
-            &session.zellij_tab,
-            workspace_path_str,
-            options.template.as_deref(),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create session layout: {e}"))?;
-        attach_to_zellij_session(Some(&layout)).await?;
-    }
-
-    Ok(())
-}
-
-pub async fn replay_pending_add_operations(db: &SessionDb) -> Result<usize> {
-    replay_add_operation_journal(db).await
-}
-
 pub async fn pending_add_operation_count(db: &SessionDb) -> Result<usize> {
     Ok(db.list_incomplete_add_operations().await?.len())
 }
@@ -854,7 +725,6 @@ mod tests {
         let opts = AddOptions::new("test-session".to_string());
         assert_eq!(opts.name, "test-session");
         assert!(!opts.no_hooks);
-        assert!(opts.template.is_none());
         assert!(!opts.no_open);
     }
 
@@ -1001,7 +871,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: true,
-                zellij_running: true,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -1088,8 +957,7 @@ mod tests {
             examples: vec![],
             prerequisites: Prerequisites {
                 initialized: false,
-                jj_installed: false,
-                zellij_running: false,
+                jj_installed: true,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -1173,7 +1041,6 @@ mod tests {
             prerequisites: Prerequisites {
                 initialized: true,
                 jj_installed: true,
-                zellij_running: true,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -1285,9 +1152,7 @@ mod tests {
             bead_id: None,
             parent: None,
             no_hooks: false,
-            template: None,
             no_open: false,
-            no_zellij: false,
             format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,
@@ -1305,10 +1170,8 @@ mod tests {
             name: "test".to_string(),
             bead_id: None,
             parent: None,
-            template: None,
             no_hooks: false,
             no_open: false,
-            no_zellij: false,
             format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,
@@ -1330,12 +1193,10 @@ mod tests {
             bead_id: None,
             parent: None,
             no_hooks: false,
-            template: None,
             no_open: false,
             format,
             idempotent: false,
             dry_run: false,
-            no_zellij: false,
         };
 
         // Verify round-trip
@@ -1356,9 +1217,7 @@ mod tests {
             bead_id: None,
             parent: None,
             no_hooks: false,
-            template: None,
             no_open: false,
-            no_zellij: false,
             format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,

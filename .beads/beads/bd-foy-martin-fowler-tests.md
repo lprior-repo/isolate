@@ -30,9 +30,8 @@ When: add called with name="feature-auth"
 Then:
   - Line 1: Action with verb="create", target="workspace", status="completed"
   - Line 2: Action with verb="create", target="database_record", status="completed"
-  - Line 3: Action with verb="create", target="zellij_tab", status="completed"
-  - Line 4: SessionOutput with name="feature-auth", status="active"
-  - Line 5: ResultOutput with success=true, kind="command"
+  - Line 3: SessionOutput with name="feature-auth", status="active"
+  - Line 4: ResultOutput with success=true, kind="command"
 ```
 
 #### `given_valid_name_with_bead_when_add_then_emits_session_with_bead_id`
@@ -147,19 +146,8 @@ Given: zjj initialized
   And: inside Zellij
 When: focus called with name="feature-auth"
 Then:
-  - Line 1: SessionOutput with name="feature-auth", zellij_tab="zjj:feature-auth"
+  - Line 1: SessionOutput with name="feature-auth"
   - Line 2: ResultOutput with success=true, kind="command"
-```
-
-#### `given_no_zellij_when_focus_then_emits_info_only`
-```
-Given: zjj initialized
-  And: session "feature-auth" exists
-  And: no_zellij=true
-When: focus called with name="feature-auth"
-Then:
-  - Line 1: SessionOutput
-  - Line 2: ResultOutput with success=true, message contains "Zellij disabled"
 ```
 
 ---

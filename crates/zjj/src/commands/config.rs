@@ -474,7 +474,7 @@ mod tests {
     #[test]
     fn test_get_nested_value_nested() -> Result<()> {
         let config = setup_test_config();
-        let value = get_nested_value(&config, "zellij.use_tabs")?;
+        let value = get_nested_value(&config, "watch.enabled")?;
         assert_eq!(value, "true");
         Ok(())
     }
@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn test_get_nested_value_deep() -> Result<()> {
         let config = setup_test_config();
-        let value = get_nested_value(&config, "zellij.panes.main.command")?;
+        let value = get_nested_value(&config, "agent.command")?;
         assert_eq!(value, "claude");
         Ok(())
     }
@@ -557,23 +557,23 @@ mod tests {
     #[tokio::test]
     async fn test_set_config_value_nested() -> Result<()> {
         let (_temp_dir, config_path) = create_temp_config("")?;
-        set_config_value(&config_path, "zellij.use_tabs", "false").await?;
+        set_config_value(&config_path, "watch.enabled", "false").await?;
 
         let content = tokio::fs::read_to_string(&config_path).await?;
-        assert!(content.contains("[zellij]"));
-        assert!(content.contains("use_tabs = false"));
+        assert!(content.contains("[watch]"));
+        assert!(content.contains("enabled = false"));
         Ok(())
     }
 
     #[tokio::test]
     async fn test_set_config_value_deep_nested() -> Result<()> {
         let (_temp_dir, config_path) = create_temp_config("")?;
-        set_config_value(&config_path, "zellij.panes.main.command", "nvim").await?;
+        set_config_value(&config_path, "session.commit_prefix", "feat:").await?;
 
         let content = tokio::fs::read_to_string(&config_path).await?;
-        assert!(content.contains("[zellij.panes.main]"));
-        assert!(content.contains("command"));
-        assert!(content.contains("nvim"));
+        assert!(content.contains("[session]"));
+        assert!(content.contains("commit_prefix"));
+        assert!(content.contains("feat:"));
         Ok(())
     }
 
@@ -715,7 +715,7 @@ mod tests {
 
         // Verify data is flattened into envelope (not nested in a "data" field)
         let has_config_fields =
-            parsed.get("workspace_dir").is_some() || parsed.get("zellij").is_some();
+            parsed.get("workspace_dir").is_some() || parsed.get("watch").is_some();
         assert!(
             has_config_fields,
             "Config data should be preserved in envelope"

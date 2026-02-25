@@ -28,9 +28,8 @@ use crate::{types::SessionStatus, WorkspaceState};
 // Import domain types for semantic validation
 use super::domain_types::{
     ActionResult, ActionTarget, ActionVerb, AgentAssignment, BaseRef, BeadAttachment, BeadId,
-    IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription,
-    PlanTitle, QueueEntryId, RecoveryCapability, RecoveryExecution, TrainId, WarningCode,
-    SessionName,
+    IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription, PlanTitle, QueueEntryId,
+    RecoveryCapability, RecoveryExecution, SessionName, TrainId, WarningCode,
 };
 
 #[derive(Debug, Clone, Error)]
@@ -663,10 +662,7 @@ impl Stack {
     /// # Errors
     ///
     /// Returns `OutputLineError::EmptySessionName` if the name is empty.
-    pub fn new(
-        name: SessionName,
-        base_ref: BaseRef,
-    ) -> Result<Self, OutputLineError> {
+    pub fn new(name: SessionName, base_ref: BaseRef) -> Result<Self, OutputLineError> {
         Ok(Self {
             name,
             base_ref,

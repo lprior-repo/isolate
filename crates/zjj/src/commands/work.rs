@@ -24,8 +24,6 @@ pub struct WorkOutput {
     pub name: String,
     /// Workspace path
     pub workspace_path: String,
-    /// Zellij tab name
-    pub zellij_tab: String,
     /// Whether this was a new session or existing
     pub created: bool,
     /// Agent ID if registered
@@ -55,8 +53,6 @@ pub struct WorkOptions {
     pub bead_id: Option<String>,
     /// Agent ID to register (optional, auto-generated if not provided)
     pub agent_id: Option<String>,
-    /// Don't create Zellij tab
-    pub no_zellij: bool,
     /// Don't register as agent
     pub no_agent: bool,
     /// Idempotent mode - succeed if session already exists
@@ -116,14 +112,11 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     }
 
     // Create the session using add command infrastructure
-    let no_zellij = options.no_zellij || !crate::cli::is_terminal();
     let add_options = add::AddOptions {
         name: options.name.clone(),
         bead_id: None,
         no_hooks: false,
-        template: None,
-        no_open: no_zellij,
-        no_zellij,
+        no_open: true,
         format: OutputFormat::Json, // We'll handle our own output
         idempotent: false,
         dry_run: false,
@@ -152,7 +145,6 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     let output = WorkOutput {
         name: options.name.clone(),
         workspace_path: workspace_path.to_string_lossy().to_string(),
-        zellij_tab: format!("zjj:{name}", name = options.name),
         created: true,
         agent_id: agent_id.clone(),
         bead_id: options.bead_id.clone(),
@@ -183,7 +175,6 @@ async fn output_existing_workspace(_root: &Path, name: &str, options: &WorkOptio
     let output = WorkOutput {
         name: name.to_string(),
         workspace_path: workspace_path.to_string_lossy().to_string(),
-        zellij_tab: format!("zjj:{name}"),
         created: false,
         agent_id: agent_id.clone(),
         bead_id: options.bead_id.clone(),
@@ -216,7 +207,6 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
     let output = WorkOutput {
         name: options.name.clone(),
         workspace_path: workspace_path.clone(),
-        zellij_tab: format!("zjj:{name}", name = options.name),
         created: false,
         agent_id,
         bead_id: options.bead_id.clone(),
@@ -250,7 +240,6 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
     } else {
         println!("[DRY RUN] Would create session '{}'", options.name);
         println!("  Workspace: .zjj/workspaces/{}", options.name);
-        println!("  Zellij tab: zjj:{}", options.name);
         if let Some(ref bead) = options.bead_id {
             println!("  Bead: {bead}");
         }
@@ -323,7 +312,6 @@ fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
             println!("Using existing session '{}'", output.name);
         }
         println!("  Workspace: {}", output.workspace_path);
-        println!("  Tab: {}", output.zellij_tab);
         if let Some(ref agent) = output.agent_id {
             println!("  Agent: {agent}");
         }
@@ -437,7 +425,6 @@ mod tests {
         let output = WorkOutput {
             name: "test-session".to_string(),
             workspace_path: "/path/to/.zjj/workspaces/test-session".to_string(),
-            zellij_tab: "zjj:test-session".to_string(),
             created: true,
             agent_id: Some("agent-12345".to_string()),
             bead_id: Some("zjj-abc12".to_string()),
@@ -491,14 +478,12 @@ mod tests {
             name: "test-session".to_string(),
             bead_id: None,
             agent_id: None,
-            no_zellij: false,
             no_agent: false,
             idempotent: false,
             dry_run: false,
             format: zjj_core::OutputFormat::Json,
         };
 
-        assert!(!options.no_zellij);
         assert!(!options.no_agent);
         assert!(!options.idempotent);
         assert!(!options.dry_run);
@@ -511,7 +496,6 @@ mod tests {
         let new_output = WorkOutput {
             name: "test".to_string(),
             workspace_path: "/path".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             created: true,
             agent_id: None,
             bead_id: None,
@@ -524,7 +508,6 @@ mod tests {
         let existing_output = WorkOutput {
             name: "test".to_string(),
             workspace_path: "/path".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             created: false,
             agent_id: None,
             bead_id: None,
@@ -534,13 +517,12 @@ mod tests {
         assert!(!existing_output.created);
     }
 
-    /// Test zellij tab naming convention
+    /// Test work output naming convention
     #[test]
-    fn test_work_zellij_tab_format() {
+    fn test_work_output_format() {
         let output = WorkOutput {
             name: "feature-auth".to_string(),
             workspace_path: "/path".to_string(),
-            zellij_tab: "zjj:feature-auth".to_string(),
             created: true,
             agent_id: None,
             bead_id: None,
@@ -548,9 +530,8 @@ mod tests {
             enter_command: "cd /path".to_string(),
         };
 
-        // Tab should be "zjj:<name>"
-        assert!(output.zellij_tab.starts_with("zjj:"));
-        assert!(output.zellij_tab.ends_with(&output.name));
+        assert!(!output.name.is_empty());
+        assert!(!output.workspace_path.is_empty());
     }
 
     /// Test `env_vars` contains required variables
@@ -674,7 +655,6 @@ mod tests {
         let output = WorkOutput {
             name: "test".to_string(),
             workspace_path: "/home/user/.zjj/workspaces/test".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             created: true,
             agent_id: None,
             bead_id: None,
@@ -692,7 +672,6 @@ mod tests {
         let output = WorkOutput {
             name: "test".to_string(),
             workspace_path: "/path".to_string(),
-            zellij_tab: "zjj:test".to_string(),
             created: true,
             agent_id: Some("agent-1".to_string()),
             bead_id: Some("bead-1".to_string()),
@@ -710,7 +689,6 @@ mod tests {
 
         assert!(json_str.contains("name"));
         assert!(json_str.contains("workspace_path"));
-        assert!(json_str.contains("zellij_tab"));
         assert!(json_str.contains("created"));
         assert!(json_str.contains("agent_id"));
         assert!(json_str.contains("bead_id"));
@@ -725,7 +703,6 @@ mod tests {
             name: "existing".to_string(),
             bead_id: None,
             agent_id: None,
-            no_zellij: false,
             no_agent: false,
             idempotent: true,
             dry_run: false,
@@ -742,7 +719,6 @@ mod tests {
             name: "test".to_string(),
             bead_id: None,
             agent_id: None,
-            no_zellij: false,
             no_agent: false,
             idempotent: false,
             dry_run: true,

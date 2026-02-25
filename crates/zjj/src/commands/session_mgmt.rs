@@ -204,9 +204,6 @@ pub struct CloneOptions {
     pub target: String,
     /// Dry-run mode
     pub dry_run: bool,
-    /// Skip Zellij integration entirely
-    #[allow(dead_code)] // Reserved for future use
-    pub no_zellij: bool,
     /// Output format
     pub format: OutputFormat,
 }

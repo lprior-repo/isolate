@@ -30,7 +30,13 @@ impl WorkspaceState {
     /// All valid workspace states
     #[must_use]
     pub const fn all() -> [Self; 5] {
-        [Self::Creating, Self::Ready, Self::Active, Self::Cleaning, Self::Removed]
+        [
+            Self::Creating,
+            Self::Ready,
+            Self::Active,
+            Self::Cleaning,
+            Self::Removed,
+        ]
     }
 
     #[must_use]

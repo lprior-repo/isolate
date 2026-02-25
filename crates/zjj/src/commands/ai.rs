@@ -8,7 +8,6 @@ use serde::Serialize;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use super::{context, get_session_db, zjj_data_dir};
-use crate::cli::is_inside_zellij;
 
 /// AI Status output
 #[derive(Debug, Clone, Serialize)]
@@ -83,14 +82,12 @@ pub async fn run(options: &AiOptions) -> Result<()> {
 async fn collect_status_info() -> Result<(AiStatusOutput, OutputFormat)> {
     let initialized = zjj_data_dir().await.is_ok();
     let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
-    let inside_zellij = is_inside_zellij();
 
     let (location, workspace) = detect_location().await;
 
     let active_sessions = count_active_sessions().await;
 
-    let (ready, suggestion, next_command) =
-        determine_ready_state(initialized, &location, inside_zellij);
+    let (ready, suggestion, next_command) = determine_ready_state(initialized, &location);
 
     let output = AiStatusOutput {
         location,
@@ -134,11 +131,7 @@ async fn count_active_sessions() -> usize {
 }
 
 /// Determine readiness state and next command based on current context
-fn determine_ready_state(
-    initialized: bool,
-    location: &str,
-    inside_zellij: bool,
-) -> (bool, String, String) {
+fn determine_ready_state(initialized: bool, location: &str) -> (bool, String, String) {
     if !initialized {
         (
             false,
@@ -156,12 +149,6 @@ fn determine_ready_state(
             true,
             "In workspace - continue working or complete".to_string(),
             "zjj done".to_string(),
-        )
-    } else if !inside_zellij {
-        (
-            true,
-            "Ready to work (outside Zellij)".to_string(),
-            "zjj work <task-name> --no-zellij".to_string(),
         )
     } else {
         (
@@ -400,7 +387,6 @@ pub struct NextActionOutput {
 /// Run AI next - single next action
 async fn run_next(format: OutputFormat) -> Result<()> {
     let initialized = zjj_data_dir().await.is_ok();
-    let inside_zellij = is_inside_zellij();
 
     let (location, workspace) = super::check_in_jj_repo().await.map_or_else(
         |_| ("not_in_repo".to_string(), None),
@@ -454,18 +440,11 @@ async fn run_next(format: OutputFormat) -> Result<()> {
                 ),
                 priority: "medium".to_string(),
             }
-        } else if inside_zellij {
+        } else {
             NextActionOutput {
                 action: "Start new work session".to_string(),
                 command: "zjj work <task-name>".to_string(),
                 reason: "Ready to start work - no active sessions".to_string(),
-                priority: "medium".to_string(),
-            }
-        } else {
-            NextActionOutput {
-                action: "Start new work session".to_string(),
-                command: "zjj work <task-name> --no-zellij".to_string(),
-                reason: "Ready to start work (outside Zellij)".to_string(),
                 priority: "medium".to_string(),
             }
         }
@@ -915,24 +894,6 @@ mod tests {
             assert!(
                 output.reason.contains("no active sessions"),
                 "Should explain why"
-            );
-        }
-
-        /// GIVEN: User is outside Zellij
-        /// WHEN: They want to start work
-        /// THEN: The command should include --no-zellij flag
-        #[test]
-        fn when_outside_zellij_suggests_no_zellij_flag() {
-            let output = NextActionOutput {
-                action: "Start new work session".to_string(),
-                command: "zjj work <task-name> --no-zellij".to_string(),
-                reason: "Ready to start work (outside Zellij)".to_string(),
-                priority: "medium".to_string(),
-            };
-
-            assert!(
-                output.command.contains("--no-zellij"),
-                "Should include no-zellij flag"
             );
         }
     }

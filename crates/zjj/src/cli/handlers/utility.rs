@@ -1,11 +1,11 @@
-//! Utility handlers: config, query, schema, completions, wait, pane
+//! Utility handlers: config, query, schema, completions, wait
 
 use anyhow::Result;
 use clap::ArgMatches;
 use zjj_core::OutputFormat;
 
 use super::json_format::get_format;
-use crate::commands::{completions, config, pane, query, schema, wait};
+use crate::commands::{completions, config, query, schema, wait};
 
 pub async fn handle_config(sub_m: &ArgMatches) -> Result<()> {
     let key = sub_m.get_one::<String>("key").cloned();
@@ -131,53 +131,6 @@ fn build_wait_options_from_values(
         poll_interval: std::time::Duration::from_secs_f64(interval),
         format,
     })
-}
-
-pub async fn handle_pane(sub_m: &ArgMatches) -> Result<()> {
-    match sub_m.subcommand() {
-        Some(("focus", focus_m)) => {
-            if focus_m.get_flag("contract") {
-                println!("AI CONTRACT for zjj pane focus:");
-                println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
-                return Ok(());
-            }
-
-            if focus_m.get_flag("ai-hints") {
-                println!("AI COMMAND FLOW:");
-                println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
-                return Ok(());
-            }
-
-            let format = get_format(focus_m);
-            let session = focus_m
-                .get_one::<String>("session")
-                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
-            let pane_identifier = focus_m.get_one::<String>("pane").map(String::as_str);
-            let direction = focus_m.get_one::<String>("direction").map(String::as_str);
-            let options = pane::PaneFocusOptions { format };
-            if let Some(dir_str) = direction {
-                let dir = pane::Direction::parse(dir_str)?;
-                pane::pane_navigate(session, dir, &options).await
-            } else {
-                pane::pane_focus(session, pane_identifier, &options).await
-            }
-        }
-        Some(("list", list_m)) => {
-            let format = get_format(list_m);
-            let session = list_m
-                .get_one::<String>("session")
-                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
-            pane::pane_list(session, &pane::PaneListOptions { format }).await
-        }
-        Some(("next", next_m)) => {
-            let format = get_format(next_m);
-            let session = next_m
-                .get_one::<String>("session")
-                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
-            pane::pane_next(session, &pane::PaneNextOptions { format }).await
-        }
-        _ => anyhow::bail!("Unknown pane subcommand"),
-    }
 }
 
 #[cfg(test)]
