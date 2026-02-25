@@ -191,8 +191,6 @@ import (
 	"lock" | "unlock" | "agents" | "broadcast" |
 	// Atomic operations
 	"batch" |
-	// Queue (future)
-	"queue.add" | "queue.list" | "queue.run" | "queue.daemon" |
 	// Config & introspection
 	"config" | "introspect" | "context" | "doctor" | "query"
 
@@ -220,8 +218,7 @@ import (
 	"JJ_COMMAND_FAILED" | "NOT_JJ_REPOSITORY" |
 	"WORKSPACE_CREATION_FAILED" | "ZELLIJ_COMMAND_FAILED" |
 	"HOOK_FAILED" | "HOOK_EXECUTION_ERROR" |
-	"COMMAND_ERROR" | "BATCH_FAILED" |
-	"QUEUE_EMPTY" | "UNKNOWN"
+	"COMMAND_ERROR" | "BATCH_FAILED" | "UNKNOWN"
 
 // Session name constraint (max 64 chars total: 1 + 63)
 #SessionName: =~"^[a-zA-Z][a-zA-Z0-9._-]{0,63}$"
@@ -800,64 +797,3 @@ import (
 	suggestions: [...string]
 }
 
-// --- Queue Commands (Future) ---
-
-#QueueAddRequest: #InputRequest & {
-	cmd:     "queue.add"
-	command: #CommandName
-	args: {...}
-	priority?: int & >=0 & <=4
-	delay?:    int & >=0 // Delay in seconds
-}
-
-#QueueAddResponse: #ResponseEnvelope & {
-	success:  true
-	queue_id: string
-	position: int & >=0
-	message:  string
-}
-
-#QueueListRequest: #InputRequest & {
-	cmd:     "queue.list"
-	status?: "pending" | "running" | "completed" | "failed"
-}
-
-#QueueListResponse: #ResponseEnvelope & {
-	success: true
-	items: [...#QueueItem]
-}
-
-#QueueItem: {
-	id:      string
-	command: #CommandName
-	args: {...}
-	status:        "pending" | "running" | "completed" | "failed"
-	priority:      int & >=0 & <=4
-	created_at:    string // ISO 8601
-	started_at?:   string
-	completed_at?: string
-	error?:        #ErrorDetail
-}
-
-#QueueRunRequest: #InputRequest & {
-	cmd:       "queue.run"
-	queue_id?: string // Run specific item, or next if omitted
-}
-
-#QueueRunResponse: #ResponseEnvelope & {
-	success:  true
-	queue_id: string
-	result:   _ // Command result
-}
-
-#QueueDaemonRequest: #InputRequest & {
-	cmd:    "queue.daemon"
-	action: "start" | "stop" | "status"
-}
-
-#QueueDaemonResponse: #ResponseEnvelope & {
-	success:    true
-	status:     "running" | "stopped"
-	processed?: int & >=0
-	pending?:   int & >=0
-}

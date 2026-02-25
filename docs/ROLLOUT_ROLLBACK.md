@@ -50,13 +50,11 @@ Rollback:
 Actions:
 
 - Deploy to a small set of operators/agents.
-- Monitor command failures and queue health.
+- Monitor command failures and system health.
 
 Suggested checks:
 
 ```bash
-zjj queue --stats --json
-zjj queue --list --json
 swarm status
 swarm monitor --view failures
 ```
@@ -64,13 +62,12 @@ swarm monitor --view failures
 Success criteria:
 
 - Error rate stays at baseline.
-- No sustained queue growth or stuck processing.
 
 Rollback:
 
 - Revert to previous tagged commit.
 - Restart affected operator sessions.
-- Validate queue/state health after downgrade.
+- Validate state health after downgrade.
 
 ### Phase 2 - Broad Rollout
 
@@ -82,7 +79,7 @@ Actions:
 Success criteria:
 
 - No P0/P1 incidents.
-- Normal queue throughput and agent completion behavior.
+- Normal throughput and agent completion behavior.
 
 Rollback:
 
@@ -97,7 +94,6 @@ Rollback:
 
 ```bash
 zjj --version
-zjj queue --stats --json
 swarm status
 ```
 
@@ -107,7 +103,7 @@ swarm status
 ## Failure Triggers That Require Immediate Rollback
 
 - Command contract breaks (`--json` structure drift, non-deterministic exits).
-- Repeated queue processing failures or lock contention spikes.
+- Lock contention spikes.
 - Swarm agent failure cascade.
 - Data corruption indicators in workspace/session state.
 

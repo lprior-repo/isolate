@@ -54,7 +54,6 @@ All ZJJ documentation in one place, token-efficient and searchable.
 | Document | Purpose | Read Time |
 |----------|---------|-----------|
 | [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) | Debug and resolve specific errors | 15 min |
-| [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md) | Queue management SOP + remediation | 20 min |
 | [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md) | Phased deployment and rollback playbook | 15 min |
 | [CI-CD-PERFORMANCE.md](CI-CD-PERFORMANCE.md) | Build system performance metrics | 15 min |
 | [ASYNC-PATTERNS.md](ASYNC-PATTERNS.md) | Async/await patterns for contributors | 20 min |
@@ -96,7 +95,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 → [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md) - phased rollout and rollback instructions
 
 ### How Do I Respond to Incidents?
-→ [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md), [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md), and [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md)
+→ [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) and [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md)
 
 ### What Combinators Can I Use?
 → [06_COMBINATORS.md](06_COMBINATORS.md) - Complete reference
@@ -104,9 +103,6 @@ All ZJJ documentation in one place, token-efficient and searchable.
 ### How Do I Build/Test?
 → [02_MOON_BUILD.md](02_MOON_BUILD.md) - Commands and workflow  
 → [10_MOON_CICD_INDEXED.md](10_MOON_CICD_INDEXED.md) - Complete task catalog
-
-### How Do I Operate the Queue?
-→ [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md) - Queue SOP + remediation matrix
 
 ### What Are the Rules?
 → [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md) - The law of zero panics  
@@ -160,7 +156,6 @@ All ZJJ documentation in one place, token-efficient and searchable.
 - [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) - Code search metrics and optimization
 
 ### Operations & Deployment
-- [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md) - Queue operational procedures
 - [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md) - Deployment phases and rollback triggers
 - [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) - Troubleshooting guide
 
@@ -213,7 +208,6 @@ zjj session sync [name]  # Sync workspace (replaces 'zjj sync')
 zjj session done         # Complete work (replaces 'zjj done')
 zjj task claim <id>      # Claim task (replaces 'zjj claim')
 zjj task yield <id>      # Release task (replaces 'zjj yield')
-zjj queue list           # List merge queue
 zjj doctor check         # System health check
 ```
 

@@ -6,7 +6,7 @@ This guide documents the transition from flat command structure to object-based 
 
 ZJJ is transitioning from flat commands (`zjj add`, `zjj list`) to an object-based structure (`zjj session add`, `zjj session list`). The new structure provides:
 
-- Better organization by domain (session, task, queue, etc.)
+- Better organization by domain (session, task, agent, etc.)
 - Consistent command patterns (`zjj <object> <action>`)
 - Easier discovery through grouped help text
 - Better AI agent integration
@@ -27,14 +27,12 @@ The following old commands still work but emit deprecation warnings:
 | `zjj submit` | `zjj session submit` | Submit for review/merge |
 | `zjj done` | `zjj session done` | Complete and merge work |
 
-### Object Commands (8 Objects)
+### Object Commands
 
 | Object | Purpose | Current CLI Notes |
 |--------|---------|-------------------|
 | `task` | Manage work items and beads | `task` subcommands defined, using `claim`/`yield` aliases |
 | `session` | Manage workspaces and Zellij | `add`/`list`/`sync`/`done` as flat commands with aliases |
-| `queue` | Manage merge queue | Uses flags (`--add`, `--list`) and `worker` subcommand |
-| `stack` | Manage session stacks | Only `stack status` subcommand |
 | `agent` | Manage agent coordination | Uses `agents` (plural), lists by default |
 | `status` | Query system state | Flat command with `whereami`/`whoami`/`context` separate |
 | `config` | Manage configuration | Flat command with positional args |
@@ -164,9 +162,6 @@ zjj session add feature-auth
 # With bead association
 zjj session add feature-auth --bead zjj-abc123
 
-# With parent (stacked session)
-zjj session add fix-auth --parent auth
-
 # With custom template
 zjj session add feature-auth --template full
 
@@ -294,113 +289,6 @@ Initialize zjj in a JJ repository.
 zjj session init
 zjj session init --dry-run
 zjj session init --json
-```
-
----
-
-### Queue Commands
-
-Manage the merge queue for multi-agent coordination.
-
-#### `zjj queue --list`
-
-List all queue entries.
-
-```bash
-# List entries
-zjj queue --list
-
-# JSON output
-zjj queue --list --json
-```
-
-#### `zjj queue --add <workspace>`
-
-Add workspace to queue.
-
-```bash
-# Add workspace
-zjj queue --add feature-auth
-
-# With bead association
-zjj queue --add feature-auth --bead zjj-abc123
-
-# With priority
-zjj queue --add feature-auth --priority 3
-
-# With agent
-zjj queue --add feature-auth --agent claude
-```
-
-#### `zjj queue --remove <workspace>`
-
-Remove workspace from queue.
-
-```bash
-zjj queue --remove feature-auth
-```
-
-#### `zjj queue --status <workspace>`
-
-Check queue status of a workspace.
-
-```bash
-zjj queue --status feature-auth
-```
-
-#### `zjj queue --next`
-
-Get next pending entry.
-
-```bash
-zjj queue --next
-zjj queue --next --json
-```
-
-#### `zjj queue --process`
-
-Process next ready-to-merge entry.
-
-```bash
-zjj queue --process
-```
-
-#### `zjj queue --stats`
-
-Show queue statistics.
-
-```bash
-zjj queue --stats
-```
-
-#### `zjj queue worker`
-
-Run queue worker daemon.
-
-```bash
-# Process one entry
-zjj queue worker --once
-
-# Run continuously
-zjj queue worker --loop
-```
-
----
-
-### Stack Commands
-
-Query stack context (depth, parent, children, root) for workspaces in the merge queue.
-
-#### `zjj stack status <workspace>`
-
-Show stack context for a workspace in the queue.
-
-```bash
-# Show stack status
-zjj stack status feature-auth
-
-# JSON output
-zjj stack status feature-auth --json
 ```
 
 ---
@@ -659,22 +547,6 @@ zjj agents status
 zjj agents unregister
 ```
 
-### Queue Operations
-
-```bash
-# List queue
-zjj queue --list
-
-# Add to queue
-zjj queue --add feature-auth
-
-# Check queue status
-zjj queue --status feature-auth
-
-# Process queue
-zjj queue --process
-```
-
 ---
 
 ## Migration Checklist
@@ -730,7 +602,6 @@ zjj --help
 # Object help
 zjj session --help
 zjj task --help
-zjj queue --help
 
 # Action help
 zjj session add --help
