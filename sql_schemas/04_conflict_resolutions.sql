@@ -1,7 +1,7 @@
--- ZJJ Conflict Resolutions Table Schema
+-- Isolate Conflict Resolutions Table Schema
 --
 -- This table provides an append-only audit trail for tracking conflict
--- resolution decisions in zjj workspace management.
+-- resolution decisions in isolate workspace management.
 --
 -- Design Principles:
 -- 1. Append-Only: No UPDATE or DELETE operations allowed

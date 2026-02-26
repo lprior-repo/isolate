@@ -25,7 +25,7 @@ codanna list-dirs
 - **Relationships:** 3,399 (call graph, dependencies)
 - **Symbol Types:** 9 kinds (Functions, Structs, Modules, etc.)
 - **Semantic Search:** Disabled (configurable)
-- **Indexed Paths:** 3 directories (crates/zjj-core/src, crates/zjj/src, docs)
+- **Indexed Paths:** 3 directories (crates/isolate-core/src, crates/isolate/src, docs)
 
 **Symbol Distribution:**
 | Kind | Count | Percentage |
@@ -237,13 +237,13 @@ codanna mcp semantic_search_docs --query workspace --limit 10  # Top 10 matches
 # Index only what you need
 codanna remove-dir node_modules      # Exclude large dependencies
 codanna remove-dir target            # Exclude build artifacts
-codanna add-dir crates/zjj-core/src  # Index core library only
+codanna add-dir crates/isolate-core/src  # Index core library only
 ```
 
 **Current Indexed Paths:**
-- `crates/zjj-core/src` (core library)
-- `crates/zjj/src` (CLI binary)
-- `crates/zjj/tests` (integration tests)
+- `crates/isolate-core/src` (core library)
+- `crates/isolate/src` (CLI binary)
+- `crates/isolate/tests` (integration tests)
 - `docs` (documentation)
 
 ### 5. Keep Index Fresh

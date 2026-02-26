@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-cdm6rcwz
+// Validation schema for bead: isolate-20260221150049-cdm6rcwz
 // Title: queue: Add transition_stack_state method
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-cdm6rcwz.cue implementation.cue
+// Use: cue vet isolate-20260221150049-cdm6rcwz.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-cdm6rcwz"
+  bead_id: "isolate-20260221150049-cdm6rcwz"
   title: "queue: Add transition_stack_state method"
 
   // Contract verification

@@ -1,6 +1,6 @@
 # Error Troubleshooting Guide
 
-Complete guide to understanding and resolving zjj errors.
+Complete guide to understanding and resolving isolate errors.
 
 ## Quick Reference: Error Codes by Exit Code
 
@@ -33,9 +33,9 @@ Validation error: value cannot be empty
 **How to fix**:
 ```bash
 # Example: Create a valid session name
-zjj add feature-auth          # Valid (starts with letter)
-zjj add feature_auth          # Valid (underscores allowed)
-zjj add 123-bad               # Invalid (starts with number)
+isolate add feature-auth          # Valid (starts with letter)
+isolate add feature_auth          # Valid (underscores allowed)
+isolate add 123-bad               # Invalid (starts with number)
 ```
 
 **Expected vs Received**:
@@ -66,17 +66,17 @@ Invalid configuration: Failed to parse config: TOML parse error
 **How to fix**:
 ```bash
 # View current configuration
-zjj config list
+isolate config list
 
 # Reset to defaults
-zjj config reset
+isolate config reset
 
 # Edit configuration
-zjj config edit
+isolate config edit
 ```
 
 **Common issues**:
-- Missing `[zjj]` section header
+- Missing `[isolate]` section header
 - Invalid key names
 - Wrong value types (string vs number)
 - Unquoted strings with special characters
@@ -104,10 +104,10 @@ Parse error: Failed to parse config: invalid TOML syntax
 echo '{...}' | jq .
 
 # Validate TOML syntax
-zjj config list
+isolate config list
 
 # Check file encoding
-file ~/.zjj/config.toml
+file ~/.isolate/config.toml
 ```
 
 ---
@@ -119,7 +119,7 @@ file ~/.zjj/config.toml
 **Error message examples**:
 ```
 Not found: session 'my-feature' not found
-Not found: workspace 'fix-zjj-abc' not found
+Not found: workspace 'fix-isolate-abc' not found
 ```
 
 **What to check**:
@@ -130,13 +130,13 @@ Not found: workspace 'fix-zjj-abc' not found
 **How to fix**:
 ```bash
 # List available sessions
-zjj list
+isolate list
 
 # Show current context
-zjj context
+isolate context
 
 # Create missing session
-zjj add my-feature
+isolate add my-feature
 ```
 
 ---
@@ -161,16 +161,16 @@ IO error: Disk quota exceeded
 **How to fix**:
 ```bash
 # Check permissions
-ls -la ~/.zjj
+ls -la ~/.isolate
 
 # Check disk space
 df -h
 
 # Fix permissions
-chmod 755 ~/.zjj
+chmod 755 ~/.isolate
 
 # Check for locked files
-lsof ~/.zjj/state.db
+lsof ~/.isolate/state.db
 ```
 
 ---
@@ -194,18 +194,18 @@ Database error: database disk image is malformed
 **How to fix**:
 ```bash
 # Run database diagnostics
-zjj doctor
+isolate doctor
 
 # Attempt automatic repair
-zjj doctor --fix
+isolate doctor --fix
 
 # Manual repair (last resort)
-rm ~/.zjj/state.db
+rm ~/.isolate/state.db
 br sync
 ```
 
 **Prevention**:
-- Avoid running multiple zjj instances simultaneously
+- Avoid running multiple isolate instances simultaneously
 - Use proper shutdown procedures
 - Backup database regularly
 
@@ -308,17 +308,17 @@ Stderr: Package not found
 **How to fix**:
 ```bash
 # Check hook configuration
-zjj config get hooks.post_create
-zjj config list hooks
+isolate config get hooks.post_create
+isolate config list hooks
 
 # Test hook manually
-~/.zjj/hooks/post_create
+~/.isolate/hooks/post_create
 
 # Skip hooks for debugging
-zjj add test-session --no-hooks
+isolate add test-session --no-hooks
 
 # Fix hook script
-chmod +x ~/.zjj/hooks/post_create
+chmod +x ~/.isolate/hooks/post_create
 ```
 
 **Hook exit codes**:
@@ -346,16 +346,16 @@ Failed to execute hook 'invalid-shell': Permission denied
 **How to fix**:
 ```bash
 # Check hook file
-ls -la ~/.zjj/hooks/
+ls -la ~/.isolate/hooks/
 
 # Add executable permission
-chmod +x ~/.zjj/hooks/*
+chmod +x ~/.isolate/hooks/*
 
 # Verify shebang line
-head -1 ~/.zjj/hooks/post_create
+head -1 ~/.isolate/hooks/post_create
 
 # Test hook directly
-~/.zjj/hooks/post_create
+~/.isolate/hooks/post_create
 ```
 
 ---
@@ -376,16 +376,16 @@ Session 'feature-auth' is locked by agent 'agent-123'
 **How to fix**:
 ```bash
 # Check agent status
-zjj agent status feature-auth
+isolate agent status feature-auth
 
 # Yield the lock (if you hold it)
-zjj yield feature-auth
+isolate yield feature-auth
 
 # Claim the lock (if available)
-zjj claim feature-auth
+isolate claim feature-auth
 
 # Force release (only if agent is dead)
-zjj agent kill agent-123
+isolate agent kill agent-123
 ```
 
 **Lock timeout**: Locks auto-release after 1 hour of inactivity
@@ -408,13 +408,13 @@ Agent 'agent-456' does not hold the lock for session 'feature-auth'
 **How to fix**:
 ```bash
 # Check lock holder
-zjj agent status feature-auth
+isolate agent status feature-auth
 
 # Claim the lock
-zjj claim feature-auth
+isolate claim feature-auth
 
 # Wait for lock holder to release
-zjj yield feature-auth
+isolate yield feature-auth
 ```
 
 ---
@@ -461,17 +461,17 @@ When you encounter an error:
 
 4. **Run diagnostics**
    ```bash
-   zjj doctor
+   isolate doctor
    ```
 
 5. **Check the logs**
    ```bash
    # View recent logs
-   zjj logs
+   isolate logs
 
    # Enable debug logging
-   export ZJJ_LOG=debug
-   zjj <command>
+   export Isolate_LOG=debug
+   isolate <command>
    ```
 
 ---
@@ -482,20 +482,20 @@ If you can't resolve the error:
 
 1. **Collect diagnostic information**
    ```bash
-   zjj doctor > doctor-output.txt
-   zjj context > context.txt
-   zjj logs --last 100 > logs.txt
+   isolate doctor > doctor-output.txt
+   isolate context > context.txt
+   isolate logs --last 100 > logs.txt
    ```
 
 2. **Search existing issues**
-   - GitHub Issues: https://github.com/your-org/zjj/issues
+   - GitHub Issues: https://github.com/your-org/isolate/issues
    - Search for your error code
 
 3. **Create a bug report**
    - Include error code and message
    - Include diagnostic output
    - Include steps to reproduce
-   - Include `zjj --version`
+   - Include `isolate --version`
 
 ---
 
@@ -515,7 +515,7 @@ When reporting errors, include:
 2. **The command you ran**
    ```bash
    # Good
-   $ zjj focus my-feature
+   $ isolate focus my-feature
 
    # Bad
    "I tried to focus the session"
@@ -529,7 +529,7 @@ When reporting errors, include:
 
 4. **Your environment**
    ```bash
-    zjj --version
+    isolate --version
     jj --version
     uname -a
    ```
@@ -541,7 +541,7 @@ When reporting errors, include:
 For machine-readable error output:
 
 ```bash
-zjj --json output <command>
+isolate --json output <command>
 ```
 
 JSON error structure:
@@ -560,12 +560,12 @@ JSON error structure:
         "resource_id": "my-feature",
         "searched_in": "database"
       },
-      "suggestion": "Use 'zjj list' to see available sessions"
+      "suggestion": "Use 'isolate list' to see available sessions"
     },
     "validation_hints": [],
     "fix_commands": [
-      "zjj list",
-      "zjj add my-feature"
+      "isolate list",
+      "isolate add my-feature"
     ]
   }
 }
@@ -580,7 +580,7 @@ JSON error structure:
 **Best practices to avoid errors**:
 
 1. **Always validate input** before running commands
-2. **Use `zjj doctor`** to check system health
+2. **Use `isolate doctor`** to check system health
 3. **Keep dependencies updated** (JJ)
 4. **Backup regularly**: `br sync`
 5. **Use `--dry-run`** to preview changes

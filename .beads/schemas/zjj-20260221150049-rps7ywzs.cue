@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-rps7ywzs
+// Validation schema for bead: isolate-20260221150049-rps7ywzs
 // Title: train: Add stack_depth to sort
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-rps7ywzs.cue implementation.cue
+// Use: cue vet isolate-20260221150049-rps7ywzs.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-rps7ywzs"
+  bead_id: "isolate-20260221150049-rps7ywzs"
   title: "train: Add stack_depth to sort"
 
   // Contract verification

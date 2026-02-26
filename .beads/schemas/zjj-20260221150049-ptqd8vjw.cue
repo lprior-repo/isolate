@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-ptqd8vjw
+// Validation schema for bead: isolate-20260221150049-ptqd8vjw
 // Title: queue: Add dependents JSON column
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-ptqd8vjw.cue implementation.cue
+// Use: cue vet isolate-20260221150049-ptqd8vjw.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-ptqd8vjw"
+  bead_id: "isolate-20260221150049-ptqd8vjw"
   title: "queue: Add dependents JSON column"
 
   // Contract verification

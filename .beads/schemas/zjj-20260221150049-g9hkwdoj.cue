@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-g9hkwdoj
+// Validation schema for bead: isolate-20260221150049-g9hkwdoj
 // Title: queue: Add stack_merge_state column
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-g9hkwdoj.cue implementation.cue
+// Use: cue vet isolate-20260221150049-g9hkwdoj.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-g9hkwdoj"
+  bead_id: "isolate-20260221150049-g9hkwdoj"
   title: "queue: Add stack_merge_state column"
 
   // Contract verification

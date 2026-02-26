@@ -49,8 +49,8 @@ node_modules/
 # OC Workflow engine
 .oc-workflow/
 
-# ZJJ runtime data
-.zjj/
+# Isolate runtime data
+.isolate/
 workspaces/
 .tdd15-worktree/
 

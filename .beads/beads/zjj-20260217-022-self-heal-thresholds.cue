@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-022-self-heal-thresholds
+// Bead ID: isolate-20260217-022-self-heal-thresholds
 // Section: 1 of 16
-bead_id: "zjj-20260217-022-self-heal-thresholds"
+bead_id: "isolate-20260217-022-self-heal-thresholds"
 
 // Section 2: Intent
 intent: {
@@ -35,7 +35,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-013-db-update-mergequeue"]
+    requires: ["isolate-20260217-013-db-update-mergequeue"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything
 }

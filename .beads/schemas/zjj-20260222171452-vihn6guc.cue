@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-vihn6guc
+// Validation schema for bead: isolate-20260222171452-vihn6guc
 // Title: config-green: Minimal config implementation
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-vihn6guc.cue implementation.cue
+// Use: cue vet isolate-20260222171452-vihn6guc.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-vihn6guc"
+  bead_id: "isolate-20260222171452-vihn6guc"
   title: "config-green: Minimal config implementation"
 
   // Contract verification

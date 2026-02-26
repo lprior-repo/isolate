@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-jru15g4u
+// Validation schema for bead: isolate-20260222171452-jru15g4u
 // Title: doctor-red: Property tests for doctor object (failing)
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-jru15g4u.cue implementation.cue
+// Use: cue vet isolate-20260222171452-jru15g4u.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-jru15g4u"
+  bead_id: "isolate-20260222171452-jru15g4u"
   title: "doctor-red: Property tests for doctor object (failing)"
 
   // Contract verification

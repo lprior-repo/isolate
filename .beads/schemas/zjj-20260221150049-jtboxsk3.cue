@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-jtboxsk3
+// Validation schema for bead: isolate-20260221150049-jtboxsk3
 // Title: stack: Add StackError enum
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-jtboxsk3.cue implementation.cue
+// Use: cue vet isolate-20260221150049-jtboxsk3.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-jtboxsk3"
+  bead_id: "isolate-20260221150049-jtboxsk3"
   title: "stack: Add StackError enum"
 
   // Contract verification

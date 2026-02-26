@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221144847-vgrvoe2u
+// Validation schema for bead: isolate-20260221144847-vgrvoe2u
 // Title: cli: Add stack submit with parent flag
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221144847-vgrvoe2u.cue implementation.cue
+// Use: cue vet isolate-20260221144847-vgrvoe2u.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221144847-vgrvoe2u"
+  bead_id: "isolate-20260221144847-vgrvoe2u"
   title: "cli: Add stack submit with parent flag"
 
   // Contract verification

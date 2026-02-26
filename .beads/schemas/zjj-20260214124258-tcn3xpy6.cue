@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260214124258-tcn3xpy6
+// Validation schema for bead: isolate-20260214124258-tcn3xpy6
 // Title: cli-consistency: implement phase 5 dry run 2
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260214124258-tcn3xpy6.cue implementation.cue
+// Use: cue vet isolate-20260214124258-tcn3xpy6.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260214124258-tcn3xpy6"
+  bead_id: "isolate-20260214124258-tcn3xpy6"
   title: "cli-consistency: implement phase 5 dry run 2"
 
   // Contract verification

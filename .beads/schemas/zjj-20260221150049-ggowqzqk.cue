@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-ggowqzqk
+// Validation schema for bead: isolate-20260221150049-ggowqzqk
 // Title: queue: Add stack_depth column
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-ggowqzqk.cue implementation.cue
+// Use: cue vet isolate-20260221150049-ggowqzqk.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-ggowqzqk"
+  bead_id: "isolate-20260221150049-ggowqzqk"
   title: "queue: Add stack_depth column"
 
   // Contract verification

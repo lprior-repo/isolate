@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-uv3jshil
+// Validation schema for bead: isolate-20260222171452-uv3jshil
 // Title: session-scout: ATDD acceptance tests for session object
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-uv3jshil.cue implementation.cue
+// Use: cue vet isolate-20260222171452-uv3jshil.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-uv3jshil"
+  bead_id: "isolate-20260222171452-uv3jshil"
   title: "session-scout: ATDD acceptance tests for session object"
 
   // Contract verification

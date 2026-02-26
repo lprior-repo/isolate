@@ -11,16 +11,16 @@
 # - Agents must be registered before sending heartbeats
 # - Heartbeats track liveness (stale after timeout)
 #
-# See: crates/zjj/src/commands/agents/mod.rs for implementation
+# See: crates/isolate/src/commands/agents/mod.rs for implementation
 
 Feature: Agent Management
 
-  As an autonomous agent using ZJJ
+  As an autonomous agent using Isolate
   I want to manage my agent identity
   So that I can coordinate work with other agents
 
   Background:
-    Given the ZJJ database is initialized
+    Given the Isolate database is initialized
     And I am in a JJ repository
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -32,7 +32,7 @@ Feature: Agent Management
     When I register an agent with ID "agent-test-001"
     Then the agent "agent-test-001" should exist
     And the agent "agent-test-001" should be registered
-    And the environment variable "ZJJ_AGENT_ID" should be set to "agent-test-001"
+    And the environment variable "ISOLATE_AGENT_ID" should be set to "agent-test-001"
     And the agent details should be returned as JSON
 
   Scenario: Register with auto-generated ID
@@ -40,7 +40,7 @@ Feature: Agent Management
     When I register an agent without specifying an ID
     Then an agent should be created with an auto-generated ID
     And the agent ID should match pattern "agent-XXXXXXXX-XXXX"
-    And the environment variable "ZJJ_AGENT_ID" should be set
+    And the environment variable "ISOLATE_AGENT_ID" should be set
 
   Scenario: Duplicate ID fails
     Given an agent with ID "agent-duplicate" exists
@@ -72,7 +72,7 @@ Feature: Agent Management
 
   Scenario: Heartbeat updates timestamp
     Given an agent with ID "agent-heartbeat" exists
-    And the environment variable "ZJJ_AGENT_ID" is set to "agent-heartbeat"
+    And the environment variable "ISOLATE_AGENT_ID" is set to "agent-heartbeat"
     When I send a heartbeat for the current agent
     Then the agent "agent-heartbeat" should have an updated last_seen timestamp
     And the actions_count should be incremented
@@ -80,9 +80,9 @@ Feature: Agent Management
 
   Scenario: Heartbeat with command updates current_command
     Given an agent with ID "agent-cmd" exists
-    And the environment variable "ZJJ_AGENT_ID" is set to "agent-cmd"
-    When I send a heartbeat with command "zjj add feature-x"
-    Then the agent "agent-cmd" should have current_command set to "zjj add feature-x"
+    And the environment variable "ISOLATE_AGENT_ID" is set to "agent-cmd"
+    When I send a heartbeat with command "isolate add feature-x"
+    Then the agent "agent-cmd" should have current_command set to "isolate add feature-x"
     And the last_seen timestamp should be updated
 
   Scenario: Unknown agent heartbeat fails
@@ -92,7 +92,7 @@ Feature: Agent Management
     And the error message should indicate "No agent registered"
 
   Scenario: Heartbeat for unregistered agent fails
-    Given the environment variable "ZJJ_AGENT_ID" is set to "agent-ghost"
+    Given the environment variable "ISOLATE_AGENT_ID" is set to "agent-ghost"
     And no agent with ID "agent-ghost" exists in the database
     When I attempt to send a heartbeat
     Then the operation should fail with error "AGENT_NOT_FOUND"
@@ -104,7 +104,7 @@ Feature: Agent Management
 
   Scenario: Whoami returns identity
     Given an agent with ID "agent-whoami" exists
-    And the environment variable "ZJJ_AGENT_ID" is set to "agent-whoami"
+    And the environment variable "ISOLATE_AGENT_ID" is set to "agent-whoami"
     When I query whoami
     Then the output should contain "agent-whoami"
     And the registered field should be true
@@ -119,8 +119,8 @@ Feature: Agent Management
 
   Scenario: Whoami includes session context
     Given an agent with ID "agent-session" exists
-    And the environment variable "ZJJ_AGENT_ID" is set to "agent-session"
-    And the environment variable "ZJJ_SESSION" is set to "feature-test"
+    And the environment variable "ISOLATE_AGENT_ID" is set to "agent-session"
+    And the environment variable "ISOLATE_SESSION" is set to "feature-test"
     When I query whoami
     Then the output should contain "agent-session"
     And the current_session field should be "feature-test"
@@ -180,7 +180,7 @@ Feature: Agent Management
 
   Scenario: Status shows agent details
     Given an agent with ID "agent-status" exists
-    And the environment variable "ZJJ_AGENT_ID" is set to "agent-status"
+    And the environment variable "ISOLATE_AGENT_ID" is set to "agent-status"
     When I query the agent status
     Then the output should show agent_id "agent-status"
     And the output should show registered_at timestamp
@@ -199,10 +199,10 @@ Feature: Agent Management
 
   Scenario: Unregister removes agent
     Given an agent with ID "agent-unregister" exists
-    And the environment variable "ZJJ_AGENT_ID" is set to "agent-unregister"
+    And the environment variable "ISOLATE_AGENT_ID" is set to "agent-unregister"
     When I unregister the current agent
     Then the agent "agent-unregister" should not exist
-    And the environment variable "ZJJ_AGENT_ID" should be cleared
+    And the environment variable "ISOLATE_AGENT_ID" should be cleared
 
   Scenario: Unregister non-existent agent fails
     Given no agent with ID "agent-ghost" exists

@@ -1,6 +1,6 @@
 # Feature: Doctor Command
 #
-# As an agent in the ZJJ control plane
+# As an agent in the Isolate control plane
 # I want to diagnose system health and optionally fix issues
 # So that I can maintain a healthy development environment
 #
@@ -15,7 +15,7 @@ Feature: Doctor Command
 
   Background:
     Given a JJ repository is initialized
-    And zjj is initialized
+    And isolate is initialized
 
   # ==========================================================================
   # Scenario: Basic health check runs all diagnostics
@@ -48,13 +48,13 @@ Feature: Doctor Command
     And the output should contain suggestion "Install Zellij"
 
   # ==========================================================================
-  # Scenario: Doctor detects uninitialized zjj
+  # Scenario: Doctor detects uninitialized isolate
   # ==========================================================================
-  Scenario: Doctor detects uninitialized zjj
-    Given zjj is not initialized
+  Scenario: Doctor detects uninitialized isolate
+    Given isolate is not initialized
     When I run the doctor command
-    Then the "zjj Initialized" check should warn
-    And the suggestion should include "zjj init"
+    Then the "isolate Initialized" check should warn
+    And the suggestion should include "isolate init"
 
   # ==========================================================================
   # Scenario: Doctor detects orphaned workspaces
@@ -194,7 +194,7 @@ Feature: Doctor Command
     And there are 2 active sessions
     When I run the doctor command
     Then the "Workflow Health" check should warn
-    And the suggestion should include "zjj attach"
+    And the suggestion should include "isolate attach"
 
   # ==========================================================================
   # Scenario: All checks pass for healthy system

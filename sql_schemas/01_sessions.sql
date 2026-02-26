@@ -1,6 +1,6 @@
--- ZJJ Sessions Table Schema
+-- Isolate Sessions Table Schema
 --
--- This table stores all session information for zjj workspace management.
+-- This table stores all session information for isolate workspace management.
 -- Each session represents a JJ workspace with associated Zellij session.
 
 CREATE TABLE IF NOT EXISTS sessions (

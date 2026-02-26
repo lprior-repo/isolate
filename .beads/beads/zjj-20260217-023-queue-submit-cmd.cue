@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-023-queue-submit-cmd
+// Bead ID: isolate-20260217-023-queue-submit-cmd
 // Section: 1 of 16
-bead_id: "zjj-20260217-023-queue-submit-cmd"
+bead_id: "isolate-20260217-023-queue-submit-cmd"
 
 // Section 2: Intent
 intent: {
@@ -36,9 +36,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-008-queue-jsonl-only", "zjj-20260217-011-db-add-columns", "zjj-20260217-013-db-update-mergequeue"]
+    requires: ["isolate-20260217-008-queue-jsonl-only", "isolate-20260217-011-db-add-columns", "isolate-20260217-013-db-update-mergequeue"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-024-merge-train-logic", "zjj-20260217-025-train-failure-auto-rebase", "zjj-20260217-026-queue-new-states", "zjj-20260217-033-test-merge-train"]
+    blocks: ["isolate-20260217-024-merge-train-logic", "isolate-20260217-025-train-failure-auto-rebase", "isolate-20260217-026-queue-new-states", "isolate-20260217-033-test-merge-train"]
 }
 
 // Section 5: Contract

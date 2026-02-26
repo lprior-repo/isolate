@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-027-conflict-analyze-cmd
+// Bead ID: isolate-20260217-027-conflict-analyze-cmd
 // Section: 1 of 16
-bead_id: "zjj-20260217-027-conflict-analyze-cmd"
+bead_id: "isolate-20260217-027-conflict-analyze-cmd"
 
 // Section 2: Intent
 intent: {
@@ -38,9 +38,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-014-db-conflict-resolutions-table", "zjj-20260217-016-config-conflict-resolution"]
+    requires: ["isolate-20260217-014-db-conflict-resolutions-table", "isolate-20260217-016-config-conflict-resolution"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-028-conflict-resolve-cmd", "zjj-20260217-029-conflict-quality-signals"]
+    blocks: ["isolate-20260217-028-conflict-resolve-cmd", "isolate-20260217-029-conflict-quality-signals"]
 }
 
 // Section 5: Contract

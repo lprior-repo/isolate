@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-016-config-conflict-resolution
+// Bead ID: isolate-20260217-016-config-conflict-resolution
 // Section: 1 of 16
-bead_id: "zjj-20260217-016-config-conflict-resolution"
+bead_id: "isolate-20260217-016-config-conflict-resolution"
 
 // Section 2: Intent
 intent: {
@@ -38,7 +38,7 @@ dependencies: {
     // Requires: Must complete before this bead
     requires: []  // No dependencies - foundation bead
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-027-conflict-analyze-cmd", "zjj-20260217-028-conflict-resolve-cmd", "zjj-20260217-029-conflict-quality-signals"]
+    blocks: ["isolate-20260217-027-conflict-analyze-cmd", "isolate-20260217-028-conflict-resolve-cmd", "isolate-20260217-029-conflict-quality-signals"]
 }
 
 // Section 5: Contract
@@ -69,7 +69,7 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj-core/src/config.rs",
+        "Read crates/isolate-core/src/config.rs",
         "Create ConflictResolutionConfig struct",
         "Add mode: ConflictMode field",
         "Add autonomy: u8 field (0-100)",

@@ -1,22 +1,22 @@
-# ZJJ AI Agent Guide
+# Isolate AI Agent Guide
 
-Complete reference for AI agents working with ZJJ, beads, and the zjj toolchain.
+Complete reference for AI agents working with Isolate, beads, and the isolate toolchain.
 
 ---
 
 ## Quick Start (3 commands)
 
 ```bash
-zjj whereami        # Check: "main" or "workspace:<name>"
-zjj work my-task    # Start: Create workspace
-zjj done            # Finish: Merge and cleanup
+isolate whereami        # Check: "main" or "workspace:<name>"
+isolate work my-task    # Start: Create workspace
+isolate done            # Finish: Merge and cleanup
 ```
 
 Or use the AI helpers:
 ```bash
-zjj ai status       # Full status with guided next action
-zjj ai workflow     # 7-step parallel agent workflow
-zjj ai quick-start  # Minimum commands reference
+isolate ai status       # Full status with guided next action
+isolate ai workflow     # 7-step parallel agent workflow
+isolate ai quick-start  # Minimum commands reference
 ```
 
 ---
@@ -140,16 +140,16 @@ codanna index && codanna documents index --collection docs
 {"cmd": "br close <id>", "use": "Complete work", "frequency": "When done"}
 ```
 
-### Workspace (zjj)
+### Workspace (isolate)
 
 ```jsonl
-{"cmd": "zjj add <name>", "use": "Create session + Zellij tab", "frequency": "New work"}
-{"cmd": "zjj focus <name>", "use": "Switch to session tab", "frequency": "Context switch"}
-{"cmd": "zjj remove <name>", "use": "Close tab + workspace", "frequency": "Work complete"}
-{"cmd": "zjj list", "use": "Show all sessions", "frequency": "Status check"}
-{"cmd": "zjj whereami", "use": "Check current location", "frequency": "Orient yourself"}
-{"cmd": "zjj work <name>", "use": "Create workspace (simpler than add)", "frequency": "New work"}
-{"cmd": "zjj done", "use": "Complete and merge work", "frequency": "Finish work"}
+{"cmd": "isolate add <name>", "use": "Create session + Zellij tab", "frequency": "New work"}
+{"cmd": "isolate focus <name>", "use": "Switch to session tab", "frequency": "Context switch"}
+{"cmd": "isolate remove <name>", "use": "Close tab + workspace", "frequency": "Work complete"}
+{"cmd": "isolate list", "use": "Show all sessions", "frequency": "Status check"}
+{"cmd": "isolate whereami", "use": "Check current location", "frequency": "Orient yourself"}
+{"cmd": "isolate work <name>", "use": "Create workspace (simpler than add)", "frequency": "New work"}
+{"cmd": "isolate done", "use": "Complete and merge work", "frequency": "Finish work"}
 ```
 
 ---
@@ -161,11 +161,11 @@ Each autonomous agent follows this pipeline:
 ```jsonl
 {"step": "1", "name": "TRIAGE", "cmd": "bv --robot-triage --robot-triage-by-track", "output": "Parallel execution tracks", "tool": "bv"}
 {"step": "2", "name": "CLAIM", "cmd": "br update <bead-id> --status in_progress", "output": "Reserve bead", "tool": "br"}
-{"step": "3", "name": "ISOLATE", "skill": "zjj", "output": "Spawn isolated JJ workspace + Zellij tab", "tool": "Skill tool"}
+{"step": "3", "name": "ISOLATE", "skill": "isolate", "output": "Spawn isolated JJ workspace + Zellij tab", "tool": "Skill tool"}
 {"step": "4", "name": "IMPLEMENT", "skill": "functional-rust-generator (Rust) | tdd15-gleam (Gleam)", "output": "ZERO unwrap/expect/panic, Railway-Oriented Programming", "tool": "Skill tool"}
 {"step": "5", "name": "REVIEW", "skill": "red-queen", "output": "Adversarial QA, regression hunting", "tool": "Skill tool"}
 {"step": "6", "name": "LAND", "skill": "landing-skill", "output": "Moon quick check, commit, sync, push (MANDATORY)", "tool": "Skill tool"}
-{"step": "7", "name": "MERGE", "skill": "zjj", "output": "jj rebase -d main, cleanup, tab switch", "tool": "Skill tool"}
+{"step": "7", "name": "MERGE", "skill": "isolate", "output": "jj rebase -d main, cleanup, tab switch", "tool": "Skill tool"}
 ```
 
 ### Subagent Template
@@ -175,7 +175,7 @@ Each autonomous agent follows this pipeline:
 
 **WORKFLOW**:
 1. CLAIM: `br update <bead-id> --status in_progress`
-2. ISOLATE: zjj skill → "<session-name>"
+2. ISOLATE: isolate skill → "<session-name>"
 3. IMPLEMENT: functional-rust-generator skill (Rust) or tdd15-gleam skill (Gleam)
   - **ZERO unwrap(), unwrap_or(), unwrap_or_else(), unwrap_or_default()**
   - **ZERO expect(), expect_err()**
@@ -184,7 +184,7 @@ Each autonomous agent follows this pipeline:
   - map, and_then, ? operator
 4. REVIEW: red-queen skill (adversarial QA)
 5. LAND: landing-skill (quality gates, sync, push)
-6. MERGE: zjj skill (merge to main)
+6. MERGE: isolate skill (merge to main)
 
 **CRITICAL CONSTRAINTS**:
 - **ZERO unwrap/expect/panic variants** (see rule 4)
@@ -248,7 +248,7 @@ br close 123
 br update 456 --status done
 
 # 4. COMMIT AND PUSH (MANDATORY)
-git add crates/zjj-core/src/error.rs
+git add crates/isolate-core/src/error.rs
 git commit -m "fix: add error handling for edge case"
 br sync --flush-only
 git add .beads/
@@ -295,11 +295,11 @@ If `git push` fails:
 
 | Variable | Description |
 |----------|-------------|
-| `ZJJ_AGENT_ID` | Your agent ID (set by register) |
-| `ZJJ_SESSION` | Current session name |
-| `ZJJ_WORKSPACE` | Current workspace path |
-| `ZJJ_BEAD_ID` | Associated bead ID |
-| `ZJJ_ACTIVE` | "1" when in workspace |
+| `Isolate_AGENT_ID` | Your agent ID (set by register) |
+| `Isolate_SESSION` | Current session name |
+| `Isolate_WORKSPACE` | Current workspace path |
+| `Isolate_BEAD_ID` | Associated bead ID |
+| `Isolate_ACTIVE` | "1" when in workspace |
 
 ---
 
@@ -308,7 +308,7 @@ If `git push` fails:
 All commands support `--json` and return:
 ```json
 {
-  "$schema": "zjj://<command>-response/v1",
+  "$schema": "isolate://<command>-response/v1",
   "_schema_version": "1.0",
   "schema_type": "single",
   "success": true,
@@ -335,7 +335,7 @@ Errors include suggestions:
   "error": {
     "code": "SESSION_NOT_FOUND",
     "message": "...",
-    "suggestion": "Use 'zjj list' to see available sessions"
+    "suggestion": "Use 'isolate list' to see available sessions"
   }
 }
 ```
@@ -345,10 +345,10 @@ Errors include suggestions:
 ## Introspection
 
 ```bash
-zjj introspect              # All capabilities
-zjj introspect <cmd>        # Command details
-zjj introspect --env-vars   # Environment variables
-zjj introspect --workflows  # Workflow patterns
+isolate introspect              # All capabilities
+isolate introspect <cmd>        # Command details
+isolate introspect --env-vars   # Environment variables
+isolate introspect --workflows  # Workflow patterns
 ```
 
 ---
@@ -357,16 +357,16 @@ zjj introspect --workflows  # Workflow patterns
 
 ```bash
 # Register (optional but recommended)
-zjj agent register
+isolate agent register
 
 # Send heartbeat while working
-zjj agent heartbeat --command "implementing"
+isolate agent heartbeat --command "implementing"
 
 # Check your status
-zjj agent status
+isolate agent status
 
 # Unregister when done
-zjj agent unregister
+isolate agent unregister
 ```
 
 ---
@@ -375,36 +375,36 @@ zjj agent unregister
 
 ### Start Fresh
 ```bash
-zjj whereami                        # Should return "main"
-zjj work feature-auth --idempotent
+isolate whereami                        # Should return "main"
+isolate work feature-auth --idempotent
 ```
 
 ### Continue Existing Work
 ```bash
-zjj whereami                        # Returns "workspace:feature-auth"
+isolate whereami                        # Returns "workspace:feature-auth"
 # Already in workspace, continue working
 ```
 
 ### Abandon and Start Over
 ```bash
-zjj abort --dry-run                 # Preview
-zjj abort                           # Execute
-zjj work feature-auth-v2            # Start fresh
+isolate abort --dry-run                 # Preview
+isolate abort                           # Execute
+isolate work feature-auth-v2            # Start fresh
 ```
 
 ### Multiple Sessions
 ```bash
-zjj list --json                     # List all sessions
-zjj sync --all                      # Sync all with main
+isolate list --json                     # List all sessions
+isolate sync --all                      # Sync all with main
 ```
 
 ---
 
 ## What NOT to Do
 
-- Don't use `zjj spawn` for simple workflows (use `zjj work`)
+- Don't use `isolate spawn` for simple workflows (use `isolate work`)
 - Don't forget `--idempotent` when retrying
-- Don't skip `zjj whereami` before operations
+- Don't skip `isolate whereami` before operations
 - Don't modify files outside your workspace
 - Don't use unwrap/expect/panic in Rust code
 - Don't use raw cargo commands (use Moon)
@@ -423,7 +423,7 @@ Load these skills for specialized tasks:
 | `tdd15-gleam` | 15-phase TDD workflow for Gleam | Gleam implementation |
 | `red-queen` | Adversarial evolutionary QA, regression hunting | Code review/testing |
 | `landing-skill` | Session completion with quality gates, sync, push | **Before ending session** |
-| `zjj` | Workspace isolation and management | Workspace operations |
+| `isolate` | Workspace isolation and management | Workspace operations |
 | `coding-rigor` | TDD-first development, clean boundaries | Code design |
 | `rust-contract` | Design-by-contract, test planning | Planning Rust features |
 
@@ -432,10 +432,10 @@ Load these skills for specialized tasks:
 ## Quick Queries
 
 ```bash
-zjj query location              # Where am I?
-zjj query can-spawn             # Can I start work?
-zjj query lock-status <name>    # Is session locked?
-zjj query pending-merges        # What needs merging?
+isolate query location              # Where am I?
+isolate query can-spawn             # Can I start work?
+isolate query lock-status <name>    # Is session locked?
+isolate query pending-merges        # What needs merging?
 ```
 
 ---
@@ -454,18 +454,18 @@ zjj query pending-merges        # What needs merging?
 
 ```bash
 # 1. Check location
-zjj whereami
+isolate whereami
 
 # 2. Start work (safe to retry with --idempotent)
-zjj work my-task --idempotent
+isolate work my-task --idempotent
 
 # 3. Enter workspace
-cd $(zjj context --json | jq -r '.location.path // empty')
+cd $(isolate context --json | jq -r '.location.path // empty')
 
 # 4. Do work...
 
 # 5. Complete
-zjj done
+isolate done
 ```
 
 ---
@@ -484,7 +484,7 @@ If inactive: `systemctl --user start bazel-remote`
 
 ## Reference
 
-- Full documentation: `zjj --help`
-- Command details: `zjj introspect <command>`
-- AI status: `zjj ai status`
+- Full documentation: `isolate --help`
+- Command details: `isolate introspect <command>`
+- AI status: `isolate ai status`
 - Core docs: [docs/INDEX.md](INDEX.md)

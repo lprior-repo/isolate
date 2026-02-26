@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-w4blforh
+// Validation schema for bead: isolate-20260222171452-w4blforh
 // Title: task-implement: Full production implementation
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-w4blforh.cue implementation.cue
+// Use: cue vet isolate-20260222171452-w4blforh.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-w4blforh"
+  bead_id: "isolate-20260222171452-w4blforh"
   title: "task-implement: Full production implementation"
 
   // Contract verification
@@ -26,7 +26,7 @@ import "list"
 
     // Specific postconditions that must be verified
     postcondition_checks: [
-      "Full integration with zjj-core",
+      "Full integration with isolate-core",
       "Structured logging configured",
       "JSON output with schema",
       "CLI registered with clap",

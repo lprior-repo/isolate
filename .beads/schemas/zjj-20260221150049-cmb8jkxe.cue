@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-cmb8jkxe
+// Validation schema for bead: isolate-20260221150049-cmb8jkxe
 // Title: stack: Add validate_no_cycle function
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-cmb8jkxe.cue implementation.cue
+// Use: cue vet isolate-20260221150049-cmb8jkxe.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-cmb8jkxe"
+  bead_id: "isolate-20260221150049-cmb8jkxe"
   title: "stack: Add validate_no_cycle function"
 
   // Contract verification

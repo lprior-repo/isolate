@@ -1,5 +1,5 @@
 [book]
-title = "ZJJ Documentation"
+title = "Isolate Documentation"
 description = "Parallel Workspace Isolation + Queue Coordination for JJ + Zellij"
 authors = ["Lewis Prior"]
 language = "en"
@@ -25,9 +25,9 @@ preferred-dark-theme = "navy"
 smart-punctuation = true
 mathjax-support = false
 no-section-label = false
-git-repository-url = "https://github.com/lprior-repo/zjj"
-edit-url-template = "https://github.com/lprior-repo/zjj/edit/main/book/{path}"
-site-url = "/zjj/"
+git-repository-url = "https://github.com/lprior-repo/isolate"
+edit-url-template = "https://github.com/lprior-repo/isolate/edit/main/book/{path}"
+site-url = "/isolate/"
 additional-css = ["theme/custom.css", "theme/stripe.css"]
 additional-js = ["theme/sidebar.js"]
 

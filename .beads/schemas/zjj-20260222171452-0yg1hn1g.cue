@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-0yg1hn1g
+// Validation schema for bead: isolate-20260222171452-0yg1hn1g
 // Title: session-green: Minimal session implementation
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-0yg1hn1g.cue implementation.cue
+// Use: cue vet isolate-20260222171452-0yg1hn1g.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-0yg1hn1g"
+  bead_id: "isolate-20260222171452-0yg1hn1g"
   title: "session-green: Minimal session implementation"
 
   // Contract verification

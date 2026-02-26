@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-g7ormg47
+// Validation schema for bead: isolate-20260221150049-g7ormg47
 // Title: queue: Add update_dependents method
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-g7ormg47.cue implementation.cue
+// Use: cue vet isolate-20260221150049-g7ormg47.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-g7ormg47"
+  bead_id: "isolate-20260221150049-g7ormg47"
   title: "queue: Add update_dependents method"
 
   // Contract verification

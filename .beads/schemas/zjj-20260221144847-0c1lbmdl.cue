@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221144847-0c1lbmdl
+// Validation schema for bead: isolate-20260221144847-0c1lbmdl
 // Title: queue-repository: Add stack query methods
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221144847-0c1lbmdl.cue implementation.cue
+// Use: cue vet isolate-20260221144847-0c1lbmdl.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221144847-0c1lbmdl"
+  bead_id: "isolate-20260221144847-0c1lbmdl"
   title: "queue-repository: Add stack query methods"
 
   // Contract verification

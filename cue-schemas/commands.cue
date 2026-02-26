@@ -1,6 +1,6 @@
-// zjj CLI Command Specification
+// isolate CLI Command Specification
 // Defines all commands, subcommands, arguments, and options
-package zjj
+package isolate
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COMMAND SCHEMA
@@ -53,9 +53,9 @@ commands: [...#Command] & [
             {long: "no-open", description: "Create workspace but don't open Zellij tab"},
         ]
         examples: [
-            {command: "zjj add feature-auth", description: "Create session with default template"},
-            {command: "zjj add bugfix-123 --no-hooks", description: "Create without running hooks"},
-            {command: "zjj add experiment -t minimal", description: "Create with minimal layout"},
+            {command: "isolate add feature-auth", description: "Create session with default template"},
+            {command: "isolate add bugfix-123 --no-hooks", description: "Create without running hooks"},
+            {command: "isolate add experiment -t minimal", description: "Create with minimal layout"},
         ]
     },
     {
@@ -68,9 +68,9 @@ commands: [...#Command] & [
             {long: "json", description: "Output as JSON"},
         ]
         examples: [
-            {command: "zjj list", description: "Show active sessions"},
-            {command: "zjj list --all", description: "Show all sessions including completed"},
-            {command: "zjj list --json", description: "JSON output for scripting"},
+            {command: "isolate list", description: "Show active sessions"},
+            {command: "isolate list --all", description: "Show all sessions including completed"},
+            {command: "isolate list --json", description: "JSON output for scripting"},
         ]
     },
     {
@@ -86,9 +86,9 @@ commands: [...#Command] & [
             {long: "keep-branch", description: "Don't delete the branch after removal"},
         ]
         examples: [
-            {command: "zjj remove feature-auth", description: "Remove session with confirmation"},
-            {command: "zjj remove feature-auth --merge", description: "Merge changes then remove"},
-            {command: "zjj remove experiment --force", description: "Force remove without prompts"},
+            {command: "isolate remove feature-auth", description: "Remove session with confirmation"},
+            {command: "isolate remove feature-auth --merge", description: "Merge changes then remove"},
+            {command: "isolate remove experiment --force", description: "Force remove without prompts"},
         ]
     },
     {
@@ -103,9 +103,9 @@ commands: [...#Command] & [
             {long: "watch", short: "w", description: "Continuously watch for changes"},
         ]
         examples: [
-            {command: "zjj status", description: "Show status of all sessions"},
-            {command: "zjj status feature-auth", description: "Show specific session status"},
-            {command: "zjj status --watch", description: "Live status updates"},
+            {command: "isolate status", description: "Show status of all sessions"},
+            {command: "isolate status feature-auth", description: "Show specific session status"},
+            {command: "isolate status --watch", description: "Live status updates"},
         ]
     },
     {
@@ -115,8 +115,8 @@ commands: [...#Command] & [
         args: []
         flags: []
         examples: [
-            {command: "zjj dashboard", description: "Open interactive dashboard"},
-            {command: "zjj dash", description: "Short alias"},
+            {command: "isolate dashboard", description: "Open interactive dashboard"},
+            {command: "isolate dash", description: "Short alias"},
         ]
     },
     {
@@ -128,7 +128,7 @@ commands: [...#Command] & [
         ]
         flags: []
         examples: [
-            {command: "zjj focus feature-auth", description: "Switch to feature-auth tab"},
+            {command: "isolate focus feature-auth", description: "Switch to feature-auth tab"},
         ]
     },
     {
@@ -140,8 +140,8 @@ commands: [...#Command] & [
         ]
         flags: []
         examples: [
-            {command: "zjj sync", description: "Sync all workspaces"},
-            {command: "zjj sync feature-auth", description: "Sync specific workspace"},
+            {command: "isolate sync", description: "Sync all workspaces"},
+            {command: "isolate sync feature-auth", description: "Sync specific workspace"},
         ]
     },
     {
@@ -155,21 +155,21 @@ commands: [...#Command] & [
             {long: "stat", description: "Show diffstat only"},
         ]
         examples: [
-            {command: "zjj diff feature-auth", description: "Show full diff"},
-            {command: "zjj diff feature-auth --stat", description: "Show summary stats"},
+            {command: "isolate diff feature-auth", description: "Show full diff"},
+            {command: "isolate diff feature-auth --stat", description: "Show summary stats"},
         ]
     },
     {
         name:        "init"
         aliases:     []
-        description: "Initialize zjj in current repository"
+        description: "Initialize isolate in current repository"
         args: []
         flags: [
             {long: "global", description: "Create global config only"},
         ]
         examples: [
-            {command: "zjj init", description: "Initialize project config"},
-            {command: "zjj init --global", description: "Initialize global config"},
+            {command: "isolate init", description: "Initialize project config"},
+            {command: "isolate init --global", description: "Initialize global config"},
         ]
     },
     {
@@ -184,9 +184,9 @@ commands: [...#Command] & [
             {long: "global", short: "g", description: "Operate on global config"},
         ]
         examples: [
-            {command: "zjj config", description: "Show all config"},
-            {command: "zjj config workspace_dir", description: "Show specific key"},
-            {command: "zjj config workspace_dir ../ws", description: "Set value"},
+            {command: "isolate config", description: "Show all config"},
+            {command: "isolate config workspace_dir", description: "Show specific key"},
+            {command: "isolate config workspace_dir ../ws", description: "Set value"},
         ]
     },
 ]

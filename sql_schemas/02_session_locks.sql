@@ -1,4 +1,4 @@
--- ZJJ Session Locks Table Schema (DRQ Round 4: Concurrency Control)
+-- Isolate Session Locks Table Schema (DRQ Round 4: Concurrency Control)
 --
 -- This table implements distributed locking for multi-agent scenarios.
 -- Multiple AI agents can coordinate access to sessions through these locks.

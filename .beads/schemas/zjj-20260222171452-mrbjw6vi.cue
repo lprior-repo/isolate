@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-mrbjw6vi
+// Validation schema for bead: isolate-20260222171452-mrbjw6vi
 // Title: queue-review: Red-Queen adversarial QA
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-mrbjw6vi.cue implementation.cue
+// Use: cue vet isolate-20260222171452-mrbjw6vi.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-mrbjw6vi"
+  bead_id: "isolate-20260222171452-mrbjw6vi"
   title: "queue-review: Red-Queen adversarial QA"
 
   // Contract verification

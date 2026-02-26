@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-lxjz3onn
+// Validation schema for bead: isolate-20260222171452-lxjz3onn
 // Title: agent-green: Minimal agent implementation
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-lxjz3onn.cue implementation.cue
+// Use: cue vet isolate-20260222171452-lxjz3onn.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-lxjz3onn"
+  bead_id: "isolate-20260222171452-lxjz3onn"
   title: "agent-green: Minimal agent implementation"
 
   // Contract verification

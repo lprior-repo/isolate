@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-015-db-remove-queue-path
+// Bead ID: isolate-20260217-015-db-remove-queue-path
 // Section: 1 of 16
-bead_id: "zjj-20260217-015-db-remove-queue-path"
+bead_id: "isolate-20260217-015-db-remove-queue-path"
 
 // Section 2: Intent
 intent: {
@@ -34,9 +34,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-013-db-update-mergequeue"]
+    requires: ["isolate-20260217-013-db-update-mergequeue"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-035-test-single-database"]
+    blocks: ["isolate-20260217-035-test-single-database"]
 }
 
 // Section 5: Contract

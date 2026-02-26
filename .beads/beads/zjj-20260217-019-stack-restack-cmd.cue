@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-019-stack-restack-cmd
+// Bead ID: isolate-20260217-019-stack-restack-cmd
 // Section: 1 of 16
-bead_id: "zjj-20260217-019-stack-restack-cmd"
+bead_id: "isolate-20260217-019-stack-restack-cmd"
 
 // Section 2: Intent
 intent: {
@@ -35,7 +35,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-017-stack-create-cmd"]
+    requires: ["isolate-20260217-017-stack-create-cmd"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything
 }

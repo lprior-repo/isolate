@@ -1,4 +1,4 @@
-# ZJJ Documentation - Start Here
+# Isolate Documentation - Start Here
 
 **The Law**: No unwrap, no panic, no unsafe. Period.
 
@@ -87,12 +87,12 @@ br close <id>      # Close issue
 ## Project Structure
 
 ```
-zjj/
+isolate/
 ├── Cargo.toml              # Workspace (strict lints)
 ├── rust-toolchain.toml     # Nightly Rust
 ├── docs/                   # This documentation
 └── crates/
-    └── zjj-core/
+    └── isolate-core/
         ├── Cargo.toml
         └── src/
             ├── lib.rs      # Library root

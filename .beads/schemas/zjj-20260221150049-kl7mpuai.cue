@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-kl7mpuai
+// Validation schema for bead: isolate-20260221150049-kl7mpuai
 // Title: stack: Add find_stack_root function
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-kl7mpuai.cue implementation.cue
+// Use: cue vet isolate-20260221150049-kl7mpuai.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-kl7mpuai"
+  bead_id: "isolate-20260221150049-kl7mpuai"
   title: "stack: Add find_stack_root function"
 
   // Contract verification

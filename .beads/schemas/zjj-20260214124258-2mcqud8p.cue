@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260214124258-2mcqud8p
+// Validation schema for bead: isolate-20260214124258-2mcqud8p
 // Title: cli-consistency: implement phase 4 ai extended 2
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260214124258-2mcqud8p.cue implementation.cue
+// Use: cue vet isolate-20260214124258-2mcqud8p.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260214124258-2mcqud8p"
+  bead_id: "isolate-20260214124258-2mcqud8p"
   title: "cli-consistency: implement phase 4 ai extended 2"
 
   // Contract verification

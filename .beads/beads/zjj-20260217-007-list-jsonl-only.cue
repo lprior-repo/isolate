@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-007-list-jsonl-only
+// Bead ID: isolate-20260217-007-list-jsonl-only
 // Section: 1 of 16
-bead_id: "zjj-20260217-007-list-jsonl-only"
+bead_id: "isolate-20260217-007-list-jsonl-only"
 
 // Section 2: Intent
 intent: {
@@ -36,7 +36,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-003-jsonl-writer-emit", "zjj-20260217-005-remove-outputformat-human"]
+    requires: ["isolate-20260217-003-jsonl-writer-emit", "isolate-20260217-005-remove-outputformat-human"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything
 }

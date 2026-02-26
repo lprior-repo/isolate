@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-tjpiwriw
+// Validation schema for bead: isolate-20260221150049-tjpiwriw
 // Title: queue: Add get_stack_root method
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-tjpiwriw.cue implementation.cue
+// Use: cue vet isolate-20260221150049-tjpiwriw.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-tjpiwriw"
+  bead_id: "isolate-20260221150049-tjpiwriw"
   title: "queue: Add get_stack_root method"
 
   // Contract verification

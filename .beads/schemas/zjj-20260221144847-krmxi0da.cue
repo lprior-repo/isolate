@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221144847-krmxi0da
+// Validation schema for bead: isolate-20260221144847-krmxi0da
 // Title: train: Add stack-aware priority ordering
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221144847-krmxi0da.cue implementation.cue
+// Use: cue vet isolate-20260221144847-krmxi0da.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221144847-krmxi0da"
+  bead_id: "isolate-20260221144847-krmxi0da"
   title: "train: Add stack-aware priority ordering"
 
   // Contract verification

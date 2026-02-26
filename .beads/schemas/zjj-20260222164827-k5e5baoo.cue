@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222164827-k5e5baoo
+// Validation schema for bead: isolate-20260222164827-k5e5baoo
 // Title: cli-doctor: Implement doctor diagnostic command
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222164827-k5e5baoo.cue implementation.cue
+// Use: cue vet isolate-20260222164827-k5e5baoo.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222164827-k5e5baoo"
+  bead_id: "isolate-20260222164827-k5e5baoo"
   title: "cli-doctor: Implement doctor diagnostic command"
 
   // Contract verification

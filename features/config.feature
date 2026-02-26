@@ -1,8 +1,8 @@
 # Feature: Config Command
 #
-# As an agent in the ZJJ control plane
+# As an agent in the Isolate control plane
 # I want to view and modify configuration settings
-# So that I can customize ZJJ behavior for different projects
+# So that I can customize Isolate behavior for different projects
 #
 # Dan North BDD Style - Given/When/Then syntax
 # ATDD Phase: These tests define expected behavior before implementation
@@ -15,14 +15,14 @@ Feature: Config Command
 
   Background:
     Given a JJ repository is initialized
-    And zjj is initialized
+    And isolate is initialized
 
   # ==========================================================================
   # Scenario: List all configuration
   # ==========================================================================
   Scenario: List all configuration
     Given a valid config exists
-    When I run "zjj config"
+    When I run "isolate config"
     Then all config values should be displayed
     And the output should include workspace_dir
     And the output should include main_branch
@@ -34,7 +34,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: List all configuration in JSON format
     Given a valid config exists
-    When I run "zjj config --json"
+    When I run "isolate config --json"
     Then the output should be valid JSON
     And the JSON should contain a $schema field
     And the JSON should contain workspace_dir
@@ -46,8 +46,8 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Get specific config value
     Given a valid config exists
-    When I run "zjj config workspace_dir"
-    Then the output should contain workspace_dir
+    When I run "isolate config workspace_dir"
+    Then all config values should be displayed
     And the value should be displayed in "key = value" format
     And the exit code should be 0
 
@@ -56,7 +56,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Get nested config value
     Given a valid config exists with nested settings
-    When I run "zjj config zellij.use_tabs"
+    When I run "isolate config zellij.use_tabs"
     Then the output should show the nested value
     And the exit code should be 0
 
@@ -65,7 +65,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Get config value in JSON format
     Given a valid config exists
-    When I run "zjj config workspace_dir --json"
+    When I run "isolate config workspace_dir --json"
     Then the output should be valid JSON
     And the JSON should contain the key field
     And the JSON should contain the value field
@@ -76,7 +76,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Set config value
     Given a valid config exists
-    When I run "zjj config workspace_dir ../custom_workspaces"
+    When I run "isolate config workspace_dir ../custom_workspaces"
     Then the config value should be updated
     And the output should confirm the change
     And the exit code should be 0
@@ -86,7 +86,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Set nested config value
     Given a valid config exists
-    When I run "zjj config zellij.use_tabs false"
+    When I run "isolate config zellij.use_tabs false"
     Then the nested config value should be updated
     And the output should confirm the change
     And the exit code should be 0
@@ -96,7 +96,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Set boolean value
     Given a valid config exists
-    When I run "zjj config zellij.use_tabs true"
+    When I run "isolate config zellij.use_tabs true"
     Then the boolean should be stored as a proper boolean
     And reading it back should return "true" not a string
     And the exit code should be 0
@@ -106,7 +106,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Set integer value
     Given a valid config exists
-    When I run "zjj config max_sessions 10"
+    When I run "isolate config max_sessions 10"
     Then the integer should be stored as a proper integer
     And reading it back should return "10" not a string
     And the exit code should be 0
@@ -116,7 +116,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Set array value
     Given a valid config exists
-    When I run "zjj config watch.paths '[".beads/beads.db", "src/"]'"
+    When I run "isolate config watch.paths '[".beads/beads.db", "src/"]'"
     Then the array should be stored properly
     And reading it back should show the array
     And the exit code should be 0
@@ -126,7 +126,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Invalid key is rejected
     Given a valid config exists
-    When I run "zjj config invalid..key value"
+    When I run "isolate config invalid..key value"
     Then the operation should fail
     And the error message should explain the key format
     And the exit code should be 1
@@ -136,9 +136,9 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Non-existent key is rejected
     Given a valid config exists
-    When I run "zjj config nonexistent.key"
+    When I run "isolate config nonexistent.key"
     Then the operation should fail
-    And the error message should suggest running "zjj config" to see valid keys
+    And the error message should suggest running "isolate config" to see valid keys
     And the exit code should be 1
 
   # ==========================================================================
@@ -146,7 +146,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Value without key is rejected
     Given a valid config exists
-    When I run "zjj config value"
+    When I run "isolate config value"
     Then the operation should fail
     And the error should explain that a value requires a key
     And the exit code should be 1
@@ -156,7 +156,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Global config scope
     Given a valid config exists
-    When I run "zjj config --global workspace_dir ../global_workspaces"
+    When I run "isolate config --global workspace_dir ../global_workspaces"
     Then the value should be set in global config
     And the output should indicate global scope
     And the exit code should be 0
@@ -166,7 +166,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Project config scope (default)
     Given a valid config exists
-    When I run "zjj config workspace_dir ../project_workspaces"
+    When I run "isolate config workspace_dir ../project_workspaces"
     Then the value should be set in project config
     And the output should indicate project scope
     And the exit code should be 0
@@ -176,7 +176,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: View global config only
     Given a valid config exists
-    When I run "zjj config --global"
+    When I run "isolate config --global"
     Then only global config should be displayed
     And the output should indicate global scope
     And the exit code should be 0
@@ -188,7 +188,7 @@ Feature: Config Command
     Given global config exists
     And project config exists
     And project config overrides global settings
-    When I run "zjj config"
+    When I run "isolate config"
     Then merged config should be displayed
     And project values should override global values
     And the output should show config sources
@@ -199,7 +199,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Config key validation prevents injection
     Given a valid config exists
-    When I run "zjj config '../../../etc/passwd' value"
+    When I run "isolate config '../../../etc/passwd' value"
     Then the operation should fail
     And the error should explain invalid key format
     And the exit code should be 1
@@ -209,7 +209,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Set creates parent tables automatically
     Given an empty config file
-    When I run "zjj config zellij.panes.main.command nvim"
+    When I run "isolate config zellij.panes.main.command nvim"
     Then the nested table structure should be created
     And the TOML should be valid
     And the exit code should be 0
@@ -229,7 +229,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Type safety - boolean must be true/false
     Given a valid config exists
-    When I run "zjj config zellij.use_tabs yes"
+    When I run "isolate config zellij.use_tabs yes"
     Then the value should be stored as string "yes"
     And the config should remain valid
     And the exit code should be 0
@@ -239,7 +239,7 @@ Feature: Config Command
   # ==========================================================================
   Scenario: Invalid TOML value is rejected
     Given a valid config exists
-    When I run "zjj config watch.paths '[invalid'"
+    When I run "isolate config watch.paths '[invalid'"
     Then the operation should fail
     And the error should explain the value format issue
     And the exit code should be 1

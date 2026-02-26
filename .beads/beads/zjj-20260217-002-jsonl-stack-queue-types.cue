@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-002-jsonl-stack-queue-types
+// Bead ID: isolate-20260217-002-jsonl-stack-queue-types
 // Section: 1 of 16
-bead_id: "zjj-20260217-002-jsonl-stack-queue-types"
+bead_id: "isolate-20260217-002-jsonl-stack-queue-types"
 
 // Section 2: Intent
 intent: {
@@ -39,9 +39,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-001-jsonl-core-types"]
+    requires: ["isolate-20260217-001-jsonl-core-types"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-004-jsonl-tests"]
+    blocks: ["isolate-20260217-004-jsonl-tests"]
 }
 
 // Section 5: Contract
@@ -71,7 +71,7 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj-core/src/output/types.rs",
+        "Read crates/isolate-core/src/output/types.rs",
         "Define QueueStatus enum (Draft, Ready, Blocked, Checking, Mergeable, Merged, Kicked)",
         "Define TrainStatus enum (Idle, Running, Paused, Complete, Failed)",
         "Define TrainAction enum (Merge, Rebase, Skip, Kick)",

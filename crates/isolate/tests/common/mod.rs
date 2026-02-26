@@ -1,0 +1,995 @@
+//! Common test helpers and fixtures for integration tests
+//!
+//! This module provides utilities for setting up test environments,
+//! running isolate commands, and making assertions about the results.
+//!
+//! ## Design Notes
+//!
+//! The `TestHarness` provides test isolation by:
+//! - Creating a temporary directory for each test
+//! - Configuring `workspace_dir` to be inside the repo (not the default sibling directory)
+//! - Providing helper methods for common assertions
+
+// Allow dead code - not all test utilities are used by every test
+#![allow(dead_code)]
+// Integration tests have relaxed clippy settings for brutal test scenarios.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unimplemented,
+    clippy::todo,
+    clippy::unreachable,
+    clippy::indexing_slicing,
+    // Test code ergonomics
+    clippy::too_many_lines,
+    clippy::cognitive_complexity,
+    clippy::too_many_arguments,
+    clippy::unused_self,
+    // Format string ergonomics for tests
+    clippy::uninlined_format_args,
+    // Documentation relaxations for test-only code
+    clippy::doc_markdown,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    // Pattern matching relaxations
+    clippy::manual_let_else,
+    clippy::option_if_let_else,
+    clippy::match_same_arms,
+    clippy::ignored_unit_patterns,
+    // Test-specific patterns
+    clippy::needless_raw_string_hashes,
+    clippy::bool_assert_comparison,
+)]
+
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+    sync::OnceLock,
+};
+
+use anyhow::{Context, Result};
+use serde_json::Value as JsonValue;
+use tempfile::TempDir;
+
+/// Test configuration: workspaces are created inside the repo at this relative path
+const TEST_WORKSPACE_DIR: &str = "workspaces";
+
+/// Common system paths where jj might be installed
+const JJ_SYSTEM_PATHS: &[&str] = &["/usr/bin/jj", "/usr/local/bin/jj", "~/.cargo/bin/jj"];
+
+/// Find the jj binary in common system locations
+/// Returns the path if found, None otherwise
+fn find_jj_binary() -> Option<PathBuf> {
+    // First try PATH (handles cases where jj is in a custom location)
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            let jj_path = dir.join("jj");
+            if jj_path.exists() && jj_path.is_file() {
+                return Some(jj_path);
+            }
+        }
+    }
+
+    // Then check common system locations
+    for path_str in JJ_SYSTEM_PATHS {
+        let path = PathBuf::from(path_str);
+        // Expand ~ manually since shellexpand isn't available
+        let path = if let Some(stripped) = path_str.strip_prefix("~/") {
+            std::env::var("HOME").map_or(path, |home| PathBuf::from(home).join(stripped))
+        } else {
+            path
+        };
+
+        if path.exists() && path.is_file() {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+/// Cached result of JJ availability check and binary path
+/// Uses `OnceLock` for thread-safe one-time initialization
+struct JJInfo {
+    available: bool,
+    binary_path: Option<PathBuf>,
+}
+
+fn jj_info() -> &'static JJInfo {
+    static JJ_INFO: OnceLock<JJInfo> = OnceLock::new();
+    JJ_INFO.get_or_init(|| {
+        let binary_path = find_jj_binary();
+        let available = binary_path.is_some();
+        JJInfo {
+            available,
+            binary_path,
+        }
+    })
+}
+
+/// Cached result of JJ availability check
+/// Uses `OnceLock` for thread-safe one-time initialization
+fn jj_availability() -> &'static bool {
+    &jj_info().available
+}
+
+/// Check if jj is available in PATH
+/// Results are cached for the lifetime of the process to avoid redundant checks
+///
+/// # Performance
+///
+/// Uses `OnceLock` for thread-safe lazy initialization with O(1) access
+/// after first check.
+#[inline]
+pub fn jj_is_available() -> bool {
+    *jj_availability()
+}
+
+/// Test harness for integration tests
+///
+/// Provides a clean temporary environment with a JJ repository
+/// and utilities to execute isolate commands.
+pub struct TestHarness {
+    /// Temporary directory for the test (kept for automatic cleanup on drop)
+    _temp_dir: TempDir,
+    /// Path to the JJ repository root
+    pub repo_path: PathBuf,
+    /// Path to the isolate binary
+    pub isolate_bin: PathBuf,
+    /// Current working directory for commands (defaults to `repo_path`)
+    pub current_dir: PathBuf,
+}
+
+impl TestHarness {
+    /// Create a new test harness with a fresh JJ repository
+    /// Returns None if jj is not available
+    pub fn new() -> Result<Self> {
+        // Get jj binary path from cached check
+        let info = jj_info();
+        if !info.available {
+            anyhow::bail!("jj is not installed - skipping test");
+        }
+
+        let jj_binary = info
+            .binary_path
+            .as_ref()
+            .expect("jj binary path should exist");
+
+        // Create temp directory in a location that doesn't have permission issues
+        // Using /var/tmp instead of /tmp to avoid systemd private directory issues
+        let temp_dir = TempDir::new_in("/var/tmp").context("Failed to create temp directory")?;
+        let repo_path = temp_dir.path().join("test-repo");
+
+        // Create repo directory
+        std::fs::create_dir(&repo_path).context("Failed to create repo directory")?;
+
+        // Initialize JJ repository using full path to binary
+        let output = Command::new(jj_binary)
+            .args(["git", "init"])
+            .current_dir(&repo_path)
+            .output()
+            .context("Failed to run jj git init")?;
+
+        if !output.status.success() {
+            anyhow::bail!(
+                "jj git init failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        // Create an initial commit so we have a working state
+        std::fs::write(repo_path.join("README.md"), "# Test Repository\n")
+            .context("Failed to create README")?;
+
+        let output = Command::new(jj_binary)
+            .args(["commit", "-m", "Initial commit"])
+            .current_dir(&repo_path)
+            .output()
+            .context("Failed to create initial commit")?;
+
+        if !output.status.success() {
+            anyhow::bail!(
+                "jj commit failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        // Create main bookmark explicitly
+        let output = Command::new(jj_binary)
+            .args(["bookmark", "create", "main"])
+            .current_dir(&repo_path)
+            .output()
+            .context("Failed to create main bookmark")?;
+
+        if !output.status.success() {
+            anyhow::bail!(
+                "jj bookmark create main failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        // Get the isolate binary path from the build
+        let isolate_bin = PathBuf::from(env!("CARGO_BIN_EXE_isolate"));
+
+        Ok(Self {
+            _temp_dir: temp_dir,
+            repo_path: repo_path.clone(),
+            isolate_bin,
+            current_dir: repo_path,
+        })
+    }
+
+    /// Try to create a new test harness, returning None if jj is not available
+    /// This is useful for tests that should be skipped rather than fail
+    pub fn try_new() -> Option<Self> {
+        Self::new().ok()
+    }
+
+    /// Run a isolate command and return the result
+    ///
+    /// Sets `Isolate_WORKSPACE_DIR` to ensure workspaces are created inside the
+    /// test repo for proper isolation and cleanup.
+    ///
+    /// Also ensures PATH includes standard system directories (`/usr/bin`, `/usr/local/bin`)
+    /// so that subprocess commands (like `jj`) can be found even when the test environment
+    /// has a minimal PATH.
+    ///
+    /// # Performance
+    ///
+    /// - Reuses environment variable setup across calls
+    /// - Uses functional error handling with `map_or_else`
+    /// - Minimizes string allocations with `from_utf8_lossy`
+    pub fn isolate(&self, args: &[&str]) -> CommandResult {
+        // Ensure PATH includes standard system directories where jj might be installed
+        // This is critical because test environments often have minimal PATH
+        let path_with_system_dirs = format!(
+            "/usr/bin:/usr/local/bin:{}",
+            std::env::var("PATH").unwrap_or_default()
+        );
+
+        // Get absolute path to jj binary for subprocess
+        let jj_binary_path = jj_info().binary_path.as_ref();
+
+        let mut cmd = Command::new(&self.isolate_bin);
+        cmd.args(args)
+            .current_dir(&self.current_dir)
+            .env("NO_COLOR", "1")
+            .env("Isolate_TEST_MODE", "1")
+            .env("Isolate_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("Isolate_RECOVERY_POLICY", "silent")
+            .env("PATH", &path_with_system_dirs);
+
+        // Set Isolate_JJ_PATH if jj binary was found
+        if let Some(path) = jj_binary_path {
+            if let Some(path_str) = path.to_str() {
+                cmd.env("Isolate_JJ_PATH", path_str);
+            }
+        }
+
+        let output = cmd.output().map_or_else(
+            |_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            },
+            |output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            },
+        );
+
+        output
+    }
+
+    /// Run a isolate command and assert it succeeds
+    pub fn assert_success(&self, args: &[&str]) {
+        let result = self.isolate(args);
+        assert!(
+            result.success,
+            "Command failed: isolate {}\nStderr: {}\nStdout: {}",
+            args.join(" "),
+            result.stderr,
+            result.stdout
+        );
+    }
+
+    /// Get the .isolate directory path
+    pub fn isolate_dir(&self) -> PathBuf {
+        self.repo_path.join(".isolate")
+    }
+
+    /// Get the workspace path for a session
+    ///
+    /// Returns the path where JJ workspaces are created, based on the
+    /// test configuration (`TEST_WORKSPACE_DIR`).
+    ///
+    /// ## Design Note
+    ///
+    /// In production, `workspace_dir` defaults to `../{repo}__workspaces` (sibling to repo).
+    /// In tests, we configure it to `workspaces` (inside repo) for isolation.
+    pub fn workspace_path(&self, session: &str) -> PathBuf {
+        self.repo_path.join(TEST_WORKSPACE_DIR).join(session)
+    }
+
+    /// Assert that a workspace exists
+    pub fn assert_workspace_exists(&self, session: &str) {
+        let path = self.workspace_path(session);
+        assert!(path.exists(), "Workspace should exist: {}", path.display());
+    }
+
+    /// Assert that a workspace does not exist
+    pub fn assert_workspace_not_exists(&self, session: &str) {
+        let path = self.workspace_path(session);
+        assert!(
+            !path.exists(),
+            "Workspace should not exist: {}",
+            path.display()
+        );
+    }
+
+    /// Switch to a workspace directory for running commands
+    pub fn switch_to_workspace(&mut self, session: &str) {
+        let workspace_path = self.workspace_path(session);
+        assert!(
+            workspace_path.exists(),
+            "Workspace should exist: {}",
+            workspace_path.display()
+        );
+        self.current_dir = workspace_path;
+    }
+
+    /// Assert that the .isolate directory exists
+    pub fn assert_isolate_dir_exists(&self) {
+        let isolate_dir = self.isolate_dir();
+        assert!(
+            isolate_dir.exists(),
+            ".isolate directory should exist: {}",
+            isolate_dir.display()
+        );
+    }
+
+    /// Assert that a file exists
+    pub fn assert_file_exists(&self, path: &Path) {
+        assert!(path.exists(), "File should exist: {}", path.display());
+    }
+
+    /// Assert that a file does not exist
+    pub fn assert_file_not_exists(&self, path: &Path) {
+        assert!(!path.exists(), "File should not exist: {}", path.display());
+    }
+
+    /// Run a isolate command and assert it fails with expected error
+    pub fn assert_failure(&self, args: &[&str], expected_error: &str) {
+        let result = self.isolate(args);
+        assert!(
+            !result.success,
+            "Command should have failed: isolate {}\nStdout: {}",
+            args.join(" "),
+            result.stdout
+        );
+        assert!(
+            result.stderr.contains(expected_error) || result.stdout.contains(expected_error),
+            "Expected error '{}' not found.\nStderr: {}\nStdout: {}",
+            expected_error,
+            result.stderr,
+            result.stdout
+        );
+    }
+
+    /// Write a custom config file
+    pub fn write_config(&self, content: &str) -> Result<()> {
+        let config_path = self.isolate_dir().join("config.toml");
+        std::fs::write(config_path, content).context("Failed to write config")
+    }
+
+    /// Read the config file
+    pub fn read_config(&self) -> Result<String> {
+        let config_path = self.isolate_dir().join("config.toml");
+        std::fs::read_to_string(config_path).context("Failed to read config")
+    }
+
+    /// Get the state database path
+    pub fn state_db_path(&self) -> PathBuf {
+        self.isolate_dir().join("state.db")
+    }
+
+    /// Run a isolate command from a specific directory
+    ///
+    /// Like `isolate`, but allows the caller to override the working directory.
+    /// Useful for testing commands that require being inside a workspace.
+    ///
+    /// # Performance
+    ///
+    /// Uses functional error handling to reduce branching overhead.
+    pub fn isolate_in_dir(&self, dir: &Path, args: &[&str]) -> CommandResult {
+        // Ensure PATH includes standard system directories where jj might be installed
+        let path_with_system_dirs = format!(
+            "/usr/bin:/usr/local/bin:{}",
+            std::env::var("PATH").unwrap_or_default()
+        );
+
+        // Get absolute path to jj binary for subprocess
+        let jj_binary_path = jj_info().binary_path.as_ref();
+
+        let mut cmd = Command::new(&self.isolate_bin);
+        cmd.args(args)
+            .current_dir(dir)
+            .env("NO_COLOR", "1")
+            .env("Isolate_TEST_MODE", "1")
+            .env("Isolate_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("Isolate_RECOVERY_POLICY", "silent")
+            .env("PATH", &path_with_system_dirs);
+
+        // Set Isolate_JJ_PATH if jj binary was found
+        if let Some(path) = jj_binary_path {
+            if let Some(path_str) = path.to_str() {
+                cmd.env("Isolate_JJ_PATH", path_str);
+            }
+        }
+
+        cmd.output()
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            })
+    }
+
+    /// Run a JJ command in the test repository
+    ///
+    /// # Performance
+    ///
+    /// Uses functional error handling to avoid match branching overhead.
+    pub fn jj(&self, args: &[&str]) -> CommandResult {
+        let jj_binary = jj_info()
+            .binary_path
+            .as_ref()
+            .expect("jj binary should be available");
+
+        Command::new(jj_binary)
+            .args(args)
+            .current_dir(&self.repo_path)
+            .output()
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            })
+    }
+
+    /// Run a JJ command in a specific directory
+    ///
+    /// Like `jj`, but allows the caller to override the working directory.
+    /// Useful for testing JJ commands inside workspaces.
+    ///
+    /// # Performance
+    ///
+    /// Uses functional error handling to avoid match branching overhead.
+    pub fn jj_in_dir(&self, dir: &Path, args: &[&str]) -> CommandResult {
+        let jj_binary = jj_info()
+            .binary_path
+            .as_ref()
+            .expect("jj binary should be available");
+
+        Command::new(jj_binary)
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            })
+    }
+
+    /// Create a file in the repository
+    pub fn create_file(&self, path: &str, content: &str) -> Result<()> {
+        let file_path = self.repo_path.join(path);
+        if let Some(parent) = file_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(file_path, content).context("Failed to create file")
+    }
+
+    /// Set an environment variable for the next command
+    ///
+    /// # Performance
+    ///
+    /// Uses functional patterns to reduce branching and allocations.
+    pub fn isolate_with_env(&self, args: &[&str], env_vars: &[(&str, &str)]) -> CommandResult {
+        // Ensure PATH includes standard system directories where jj might be installed
+        let path_with_system_dirs = format!(
+            "/usr/bin:/usr/local/bin:{}",
+            std::env::var("PATH").unwrap_or_default()
+        );
+
+        // Get absolute path to jj binary for subprocess
+        let jj_binary_path = jj_info().binary_path.as_ref();
+
+        let mut cmd = Command::new(&self.isolate_bin);
+        cmd.args(args)
+            .current_dir(&self.repo_path)
+            .env("NO_COLOR", "1")
+            .env("Isolate_TEST_MODE", "1")
+            .env("Isolate_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("Isolate_RECOVERY_POLICY", "silent")
+            .env("PATH", &path_with_system_dirs);
+
+        // Set Isolate_JJ_PATH if jj binary was found
+        if let Some(path) = jj_binary_path {
+            if let Some(path_str) = path.to_str() {
+                cmd.env("Isolate_JJ_PATH", path_str);
+            }
+        }
+
+        // Functional approach: iterate over env vars (can override defaults)
+        for (key, value) in env_vars {
+            cmd.env(key, value);
+        }
+
+        cmd.output()
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            })
+    }
+}
+
+/// Result of a command execution
+///
+/// # Performance Note
+///
+/// Uses String instead of Cow<str> for simplicity in test code.
+#[derive(Debug, Clone)]
+pub struct CommandResult {
+    /// Whether the command succeeded
+    pub success: bool,
+    /// Exit code (if available)
+    pub exit_code: Option<i32>,
+    /// Standard output
+    pub stdout: String,
+    /// Standard error
+    pub stderr: String,
+}
+
+impl CommandResult {
+    /// Verify session count and uniqueness from JSON output
+    ///
+    /// Functional pattern: Returns Result instead of panicking
+    /// Uses Railway-Oriented Programming for error propagation
+    pub fn verify_sessions(&self, expected_count: usize) -> Result<(), anyhow::Error> {
+        let lines = parse_jsonl_output(&self.stdout).with_context(|| "Failed to parse JSONL output")?;
+
+        let sessions: Vec<_> = filter_jsonl_lines_by_type(&lines, "session")
+            .filter_map(|line| line.get("session"))
+            .collect();
+
+        let actual_count = sessions.len();
+        if actual_count != expected_count {
+            anyhow::bail!("Expected {expected_count} sessions, found {actual_count}");
+        }
+
+        // Verify no duplicates using functional patterns
+        let session_names: std::collections::HashSet<_> =
+            sessions.iter().filter_map(|s| s["name"].as_str()).collect();
+
+        if session_names.len() != expected_count {
+            anyhow::bail!(
+                "Found duplicate session names: {} unique names vs {} expected",
+                session_names.len(),
+                expected_count
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Parse JSON output using functional error handling
+    pub fn parse_json(&self) -> Result<serde_json::Value, anyhow::Error> {
+        serde_json::from_str(&self.stdout).with_context(|| "Failed to parse JSON output")
+    }
+
+    /// Assert that the command succeeded
+    #[inline]
+    pub fn assert_success(&self) {
+        assert!(
+            self.success,
+            "Command failed\nExit code: {:?}\nStdout: {}\nStderr: {}",
+            self.exit_code, self.stdout, self.stderr
+        );
+    }
+
+    /// Assert that stdout contains a string
+    ///
+    /// # Performance
+    ///
+    /// Inlined for hot path optimization in test assertions.
+    #[inline]
+    pub fn assert_stdout_contains(&self, s: &str) {
+        assert!(
+            self.stdout.contains(s),
+            "Stdout should contain '{}'\nGot: {}",
+            s,
+            self.stdout
+        );
+    }
+
+    /// Assert that stderr contains a string
+    ///
+    /// # Performance
+    ///
+    /// Inlined for hot path optimization in test assertions.
+    #[inline]
+    pub fn assert_stderr_contains(&self, s: &str) {
+        assert!(
+            self.stderr.contains(s),
+            "Stderr should contain '{}'\nGot: {}",
+            s,
+            self.stderr
+        );
+    }
+
+    /// Assert that output (stdout or stderr) contains a string
+    ///
+    /// # Performance
+    ///
+    /// Short-circuits on stdout match to avoid redundant stderr check.
+    /// Inlined for hot path optimization.
+    #[inline]
+    pub fn assert_output_contains(&self, s: &str) {
+        let stdout_match = self.stdout.contains(s);
+        let stderr_match = self.stderr.contains(s);
+
+        assert!(
+            stdout_match || stderr_match,
+            "Output should contain '{}'\nStdout: {}\nStderr: {}",
+            s,
+            self.stdout,
+            self.stderr
+        );
+    }
+}
+
+/// Parse JSON output from CLI commands.
+pub fn parse_json_output(s: &str) -> Result<JsonValue, serde_json::Error> {
+    serde_json::from_str(s)
+}
+
+/// Parse JSONL output from CLI commands, returning all parsed JSON lines.
+///
+/// JSONL format has one JSON object per line. This function filters empty lines,
+/// log lines (ANSI escape sequences), and parses each remaining line as JSON.
+pub fn parse_jsonl_output(s: &str) -> Result<Vec<JsonValue>, serde_json::Error> {
+    s.lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty() && trimmed.starts_with('{')
+        })
+        .map(serde_json::from_str)
+        .collect()
+}
+
+/// Get the first JSON line from JSONL output that matches a given variant type.
+///
+/// The JSONL format uses variant names as top-level keys (e.g., `{"session": {...}}`).
+/// Returns `None` if no line matches.
+pub fn find_jsonl_line_by_type<'a>(
+    lines: &'a [JsonValue],
+    type_name: &str,
+) -> Option<&'a JsonValue> {
+    lines.iter().find(|line| line.get(type_name).is_some())
+}
+
+/// Get the payload from a JSONL line for a given variant type.
+///
+/// For `{"session": {"name": "foo"}}`, this returns `{"name": "foo"}`.
+pub fn get_jsonl_payload<'a>(line: &'a JsonValue, type_name: &str) -> Option<&'a JsonValue> {
+    line.get(type_name)
+}
+
+/// Get all JSON lines from JSONL output that match a given variant type.
+pub fn filter_jsonl_lines_by_type<'a>(
+    lines: &'a [JsonValue],
+    type_name: &'a str,
+) -> impl Iterator<Item = &'a JsonValue> + use<'a> {
+    lines
+        .iter()
+        .filter(move |line| line.get(type_name).is_some())
+}
+
+/// Find a line with a "result" type from JSONL output.
+pub fn find_result_line(lines: &[JsonValue]) -> Option<&JsonValue> {
+    find_jsonl_line_by_type(lines, "result")
+}
+
+/// Find a line with a "summary" type from JSONL output.
+pub fn find_summary_line(lines: &[JsonValue]) -> Option<&JsonValue> {
+    find_jsonl_line_by_type(lines, "summary")
+}
+
+/// Return envelope payload (`data`) when present, otherwise return root object.
+pub fn payload(json: &JsonValue) -> &JsonValue {
+    json.get("data").map_or(json, |v| v)
+}
+
+/// Return session entries from either `data.sessions` or array payload shapes.
+pub fn session_entries(json: &JsonValue) -> Option<&Vec<JsonValue>> {
+    let root = payload(json);
+    root.get("sessions")
+        .and_then(JsonValue::as_array)
+        .or_else(|| root.as_array())
+}
+
+/// Validation error type for schema envelope checks.
+#[derive(Debug)]
+pub enum ValidationError {
+    MissingField(&'static str, String),
+    InvalidFormat(String),
+    SchemaMismatch(String),
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingField(field, ctx) => {
+                write!(f, "Missing required field '{field}' in {ctx}")
+            }
+            Self::InvalidFormat(msg) => write!(f, "Invalid format: {msg}"),
+            Self::SchemaMismatch(msg) => write!(f, "Schema mismatch: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
+/// Validate that JSON output uses `SchemaEnvelope` structure.
+pub fn validate_schema_envelope(
+    json_str: &str,
+    command_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let json =
+        parse_json_output(json_str).map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
+
+    validate_envelope_fields(&json, command_name, json_str)
+}
+
+/// Validate that JSONL output lines contain proper schema envelope structure.
+///
+/// For JSONL output, we check the first line for envelope fields since
+/// each line should be self-describing.
+pub fn validate_jsonl_schema_envelope(
+    json_str: &str,
+    command_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let lines =
+        parse_jsonl_output(json_str).map_err(|e| format!("{command_name}: Invalid JSONL: {e}"))?;
+
+    let first_line = lines
+        .first()
+        .ok_or_else(|| format!("{command_name}: Empty JSONL output"))?;
+
+    validate_envelope_fields(first_line, command_name, json_str)
+}
+
+/// Common envelope field validation logic.
+fn validate_envelope_fields(
+    json: &JsonValue,
+    command_name: &str,
+    json_str: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let required_fields: &[&str] = &["$schema", "_schema_version", "success"];
+
+    required_fields.iter().try_for_each(|&field| {
+        json.get(field)
+            .ok_or_else(|| {
+                ValidationError::MissingField(field, format!("{command_name}: output: {json_str}"))
+            })
+            .map(|_| ())
+    })?;
+
+    let schema = json["$schema"].as_str().ok_or_else(|| {
+        ValidationError::InvalidFormat(format!("{command_name}: $schema field is not a string"))
+    })?;
+
+    if !schema.starts_with("isolate://") {
+        return Err(ValidationError::SchemaMismatch(format!(
+            "{command_name}: $schema should start with 'isolate://', got: {schema}"
+        ))
+        .into());
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_harness_creation() {
+        let Some(harness) = TestHarness::try_new() else {
+            // Test framework will handle skipping - no output needed
+            return;
+        };
+        assert!(harness.repo_path.exists());
+        assert!(harness.isolate_bin.exists());
+    }
+
+    #[test]
+    fn test_harness_has_jj_repo() {
+        let Some(harness) = TestHarness::try_new() else {
+            // Test framework will handle skipping - no output needed
+            return;
+        };
+        let result = harness.jj(&["root"]);
+        assert!(result.success);
+    }
+
+    #[test]
+    fn test_command_result_assertions() {
+        let result = CommandResult {
+            success: true,
+            exit_code: Some(0),
+            stdout: "Hello, world!".to_string(),
+            stderr: String::new(),
+        };
+
+        result.assert_stdout_contains("Hello");
+        result.assert_output_contains("world");
+    }
+
+    // === TEST FOR BEAD isolate-29tv: Workspace path configuration ===
+
+    /// RED Phase: Test that isolate receives correct workspace path from environment variable
+    ///
+    /// This test validates that when `Isolate_WORKSPACE_DIR` is set to a relative path,
+    /// isolate correctly resolves it relative to the JJ repo root (not `current_dir`).
+    #[test]
+    fn test_workspace_path_from_env_var_is_resolved_correctly() {
+        let Some(harness) = TestHarness::try_new() else {
+            return;
+        };
+
+        // Initialize isolate first
+        harness.assert_success(&["init"]);
+
+        // Create a session to trigger workspace creation
+        let result = harness.isolate(&["add", "test-workspace-path", "--no-hooks"]);
+
+        // The command should succeed
+        assert!(
+            result.success,
+            "isolate add failed: {}\nstdout: {}\nstderr: {}",
+            result.exit_code.map_or(-1, |c| c),
+            result.stdout,
+            result.stderr
+        );
+
+        // Verify the workspace was created in the correct location
+        // Expected: {temp_repo}/workspaces/test-workspace-path
+        let expected_path = harness.workspace_path("test-workspace-path");
+        assert!(
+            expected_path.exists(),
+            "Workspace should exist at expected path: {}",
+            expected_path.display()
+        );
+
+        // Cleanup
+        let _ = harness.isolate(&["remove", "test-workspace-path", "--merge"]);
+    }
+
+    /// RED Phase: Test that workspace path is inside the test repo (not elsewhere)
+    ///
+    /// This prevents workspaces from being created outside the temp directory,
+    /// which would cause test pollution and cleanup issues.
+    #[test]
+    fn test_workspace_path_is_inside_test_repo() {
+        let Some(harness) = TestHarness::try_new() else {
+            return;
+        };
+
+        // Initialize isolate first
+        harness.assert_success(&["init"]);
+
+        // Create a session
+        let session_name = "test-workspace-containment";
+        let result = harness.isolate(&["add", session_name, "--no-hooks"]);
+
+        assert!(result.success, "isolate add failed: {}", result.stderr);
+
+        // Verify the workspace is inside the test repo by checking the expected location
+        let workspace_path = harness.workspace_path(session_name);
+        assert!(
+            workspace_path.exists(),
+            "Workspace should exist at expected path: {}",
+            workspace_path.display()
+        );
+
+        assert!(
+            workspace_path.starts_with(&harness.repo_path),
+            "Workspace path {} should be inside test repo {}",
+            workspace_path.display(),
+            harness.repo_path.display()
+        );
+
+        // Cleanup
+        let _ = harness.isolate(&["remove", session_name, "--merge"]);
+    }
+
+    /// RED Phase: Test that `workspace_dir` can be configured per test
+    ///
+    /// This validates that tests can override the workspace location
+    /// if needed for specific test scenarios.
+    #[test]
+    fn test_workspace_dir_is_configurable_via_env() {
+        let Some(harness) = TestHarness::try_new() else {
+            return;
+        };
+
+        // Initialize isolate first
+        harness.assert_success(&["init"]);
+
+        // Custom workspace directory for this test
+        let custom_workspace = "custom-workspaces";
+
+        // Add a session with custom workspace dir
+        let result = harness.isolate_with_env(
+            &["add", "test-custom-workspace", "--no-hooks"],
+            &[("Isolate_WORKSPACE_DIR", custom_workspace)],
+        );
+
+        assert!(
+            result.success,
+            "isolate add with custom workspace_dir failed: {}",
+            result.stderr
+        );
+
+        // Verify workspace was created in custom location
+        let expected_path = harness
+            .repo_path
+            .join(custom_workspace)
+            .join("test-custom-workspace");
+        assert!(
+            expected_path.exists(),
+            "Workspace should exist at custom path: {}",
+            expected_path.display()
+        );
+
+        // Cleanup
+        let _ = harness.isolate(&["remove", "test-custom-workspace", "--merge"]);
+    }
+}

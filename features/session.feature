@@ -8,16 +8,16 @@
 #                            v          v          v
 #                          Paused     Failed    Paused/Completed
 #
-# See: crates/zjj-core/src/session_state.rs for state transition definitions
+# See: crates/isolate-core/src/session_state.rs for state transition definitions
 
 Feature: Session Management
 
-  As a developer using ZJJ
+  As a developer using Isolate
   I want to manage isolated work sessions
   So that I can work on multiple features in parallel
 
   Background:
-    Given the ZJJ database is initialized
+    Given the Isolate database is initialized
     And I am in a JJ repository
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -30,7 +30,7 @@ Feature: Session Management
     Then the session "feature-auth" should exist
     And the session "feature-auth" should have status "creating"
     And the session "feature-auth" should have a JJ workspace at "/workspaces/feature-auth"
-    And the session "feature-auth" should have a Zellij tab named "zjj:feature-auth"
+    And the session "feature-auth" should have a Zellij tab named "isolate:feature-auth"
     And the session details should be returned as JSON
 
   Scenario: Create duplicate session fails
@@ -104,7 +104,7 @@ Feature: Session Management
     Given a session named "feature-focus" exists with status "active"
     And I am inside Zellij
     When I focus on the session "feature-focus"
-    Then the Zellij tab "zjj:feature-focus" should become active
+    Then the Zellij tab "isolate:feature-focus" should become active
     And the session details should be returned as JSON
 
   Scenario: Focus from outside Zellij attaches

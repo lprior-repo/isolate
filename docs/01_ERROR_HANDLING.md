@@ -360,12 +360,12 @@ impl Error {
     /// Returns a human-readable suggestion for fixing the error
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            Error::NotFound(_) => Some("Try 'zjj list' to see available sessions"),
+            Error::NotFound(_) => Some("Try 'isolate list' to see available sessions"),
             Error::IoError(msg) if msg.contains("Permission") => {
                 Some("Check file permissions: 'ls -la' or run with appropriate access rights")
             }
             Error::SessionLocked { session, holder } => Some(
-                format!("Session '{session}' is locked by '{holder}'. Use 'zjj yield {session}' to release")
+                format!("Session '{session}' is locked by '{holder}'. Use 'isolate yield {session}' to release")
             )
             // ... more cases
         }
@@ -374,8 +374,8 @@ impl Error {
     /// Returns copy-pastable shell commands to resolve the error
     pub fn fix_commands(&self) -> Vec<String> {
         match self {
-            Error::NotFound(_) => vec!["zjj list".to_string(), "zjj add <session-name>".to_string()],
-            Error::IoError(_) => vec!["ls -la".to_string(), "zjj doctor".to_string()],
+            Error::NotFound(_) => vec!["isolate list".to_string(), "isolate add <session-name>".to_string()],
+            Error::IoError(_) => vec!["ls -la".to_string(), "isolate doctor".to_string()],
             // ... more cases
         }
     }
@@ -391,10 +391,10 @@ impl Error {
 
 ### Guidelines for Error Suggestions
 
-1. **Be specific**: Don't just say "check config" - say "run 'zjj config list' to review configuration"
+1. **Be specific**: Don't just say "check config" - say "run 'isolate config list' to review configuration"
 2. **Provide commands**: Include exact shell commands users can copy-paste
 3. **Account for variations**: Handle different error types with context-specific suggestions
-4. **Include fallbacks**: For unknown errors, suggest "zjj doctor" as a catch-all
+4. **Include fallbacks**: For unknown errors, suggest "isolate doctor" as a catch-all
 
 ### Example: Session Locked Error
 
@@ -406,10 +406,10 @@ Error::SessionLocked {
 
 // Output:
 // Error: Session 'my-session' is locked by agent 'agent-123'
-// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'zjj yield my-session' to release or check status with 'zjj agents status'
+// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'isolate yield my-session' to release or check status with 'isolate agents status'
 // Fix commands:
-//   - zjj agent status my-session
-//   - zjj yield my-session
+//   - isolate agent status my-session
+//   - isolate yield my-session
 ```
 
 This turns a confusing error into clear next steps.

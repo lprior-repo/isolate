@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-2impzlap
+// Validation schema for bead: isolate-20260221150049-2impzlap
 // Title: queue: Add get_children method
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-2impzlap.cue implementation.cue
+// Use: cue vet isolate-20260221150049-2impzlap.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-2impzlap"
+  bead_id: "isolate-20260221150049-2impzlap"
   title: "queue: Add get_children method"
 
   // Contract verification

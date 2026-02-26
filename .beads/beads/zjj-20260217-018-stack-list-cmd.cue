@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-018-stack-list-cmd
+// Bead ID: isolate-20260217-018-stack-list-cmd
 // Section: 1 of 16
-bead_id: "zjj-20260217-018-stack-list-cmd"
+bead_id: "isolate-20260217-018-stack-list-cmd"
 
 // Section 2: Intent
 intent: {
@@ -35,7 +35,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-011-db-add-columns"]
+    requires: ["isolate-20260217-011-db-add-columns"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything
 }

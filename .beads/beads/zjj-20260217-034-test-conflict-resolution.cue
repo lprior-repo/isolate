@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-034-test-conflict-resolution
+// Bead ID: isolate-20260217-034-test-conflict-resolution
 // Section: 1 of 16
-bead_id: "zjj-20260217-034-test-conflict-resolution"
+bead_id: "isolate-20260217-034-test-conflict-resolution"
 
 // Section 2: Intent
 intent: {
@@ -40,7 +40,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-028-conflict-resolve-cmd", "zjj-20260217-029-conflict-quality-signals"]
+    requires: ["isolate-20260217-028-conflict-resolve-cmd", "isolate-20260217-029-conflict-quality-signals"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything
 }

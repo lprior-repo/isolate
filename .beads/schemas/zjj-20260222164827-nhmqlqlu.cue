@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222164827-nhmqlqlu
+// Validation schema for bead: isolate-20260222164827-nhmqlqlu
 // Title: test-atdd: ATDD tests for core command workflows
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222164827-nhmqlqlu.cue implementation.cue
+// Use: cue vet isolate-20260222164827-nhmqlqlu.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222164827-nhmqlqlu"
+  bead_id: "isolate-20260222164827-nhmqlqlu"
   title: "test-atdd: ATDD tests for core command workflows"
 
   // Contract verification

@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-0wkpemtb
+// Validation schema for bead: isolate-20260222171452-0wkpemtb
 // Title: stack-red: Property tests for stack object (failing)
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-0wkpemtb.cue implementation.cue
+// Use: cue vet isolate-20260222171452-0wkpemtb.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-0wkpemtb"
+  bead_id: "isolate-20260222171452-0wkpemtb"
   title: "stack-red: Property tests for stack object (failing)"
 
   // Contract verification

@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-rcf6pzqo
+// Validation schema for bead: isolate-20260221150049-rcf6pzqo
 // Title: cli: Add parent validation
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-rcf6pzqo.cue implementation.cue
+// Use: cue vet isolate-20260221150049-rcf6pzqo.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-rcf6pzqo"
+  bead_id: "isolate-20260221150049-rcf6pzqo"
   title: "cli: Add parent validation"
 
   // Contract verification

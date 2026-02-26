@@ -1,6 +1,6 @@
-# ZJJ Complete Documentation Index
+# Isolate Complete Documentation Index
 
-All ZJJ documentation in one place, token-efficient and searchable.
+All Isolate documentation in one place, token-efficient and searchable.
 
 ---
 
@@ -189,26 +189,26 @@ jj new                              # Start new change
 jj log                              # View history
 ```
 
-### ZJJ (Workspace Management)
+### Isolate (Workspace Management)
 ```bash
-zjj add <name>           # Create session + workspace + Zellij tab
-zjj work <name>          # Simpler workspace creation
-zjj whereami             # Check current location
-zjj focus <name>         # Switch to session's tab
-zjj done                 # Complete and merge work
-zjj remove <name>        # Clean up session
-zjj list                 # List all sessions
+isolate add <name>           # Create session + workspace + Zellij tab
+isolate work <name>          # Simpler workspace creation
+isolate whereami             # Check current location
+isolate focus <name>         # Switch to session's tab
+isolate done                 # Complete and merge work
+isolate remove <name>        # Clean up session
+isolate list                 # List all sessions
 ```
 
-### ZJJ Object Commands (New)
+### Isolate Object Commands (New)
 ```bash
-zjj session add <name>   # Create session (replaces 'zjj add')
-zjj session list         # List sessions (replaces 'zjj list')
-zjj session sync [name]  # Sync workspace (replaces 'zjj sync')
-zjj session done         # Complete work (replaces 'zjj done')
-zjj task claim <id>      # Claim task (replaces 'zjj claim')
-zjj task yield <id>      # Release task (replaces 'zjj yield')
-zjj doctor check         # System health check
+isolate session add <name>   # Create session (replaces 'isolate add')
+isolate session list         # List sessions (replaces 'isolate list')
+isolate session sync [name]  # Sync workspace (replaces 'isolate sync')
+isolate session done         # Complete work (replaces 'isolate done')
+isolate task claim <id>      # Claim task (replaces 'isolate claim')
+isolate task yield <id>      # Release task (replaces 'isolate yield')
+isolate doctor check         # System health check
 ```
 
 ### Codanna (Code Search)
@@ -283,7 +283,7 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 - Moon User Guide: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 - Moon CICD Reference: [10_MOON_CICD_INDEXED.md](10_MOON_CICD_INDEXED.md)
 - Jujutsu: [09_JUJUTSU.md](09_JUJUTSU.md)
-- ZJJ: [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) + README.md
+- Isolate: [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) + README.md
 - Queue Operations: [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md)
 - Rollout/Rollback: [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md)
 

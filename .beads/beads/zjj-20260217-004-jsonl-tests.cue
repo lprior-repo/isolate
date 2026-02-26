@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-004-jsonl-tests
+// Bead ID: isolate-20260217-004-jsonl-tests
 // Section: 1 of 16
-bead_id: "zjj-20260217-004-jsonl-tests"
+bead_id: "isolate-20260217-004-jsonl-tests"
 
 // Section 2: Intent
 intent: {
@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create crates/zjj-core/src/output/tests.rs",
+        "Create crates/isolate-core/src/output/tests.rs",
         "Test all 16 OutputLine variants serialize correctly",
         "Test all enum types (Severity, Status, ActionStatus, QueueStatus, TrainStatus, TrainAction, StepStatus)",
         "Test JsonlWriter emit() function",
@@ -38,7 +38,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-002-jsonl-stack-queue-types"]
+    requires: ["isolate-20260217-002-jsonl-stack-queue-types"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything - validation bead
 }
@@ -72,7 +72,7 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Create crates/zjj-core/src/output/tests.rs",
+        "Create crates/isolate-core/src/output/tests.rs",
         "Add #[cfg(test)] mod tests",
         "Write test_summary_serializes()",
         "Write test_session_serializes()",

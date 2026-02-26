@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-011-db-add-columns
+// Bead ID: isolate-20260217-011-db-add-columns
 // Section: 1 of 16
-bead_id: "zjj-20260217-011-db-add-columns"
+bead_id: "isolate-20260217-011-db-add-columns"
 
 // Section 2: Intent
 intent: {
@@ -40,7 +40,7 @@ dependencies: {
     // Requires: Must complete before this bead
     requires: []  // No dependencies - foundation bead
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-017-stack-create-cmd", "zjj-20260217-018-stack-list-cmd", "zjj-20260217-019-stack-restack-cmd", "zjj-20260217-023-queue-submit-cmd", "zjj-20260217-024-merge-train-logic", "zjj-20260217-025-train-failure-auto-rebase", "zjj-20260217-026-queue-new-states"]
+    blocks: ["isolate-20260217-017-stack-create-cmd", "isolate-20260217-018-stack-list-cmd", "isolate-20260217-019-stack-restack-cmd", "isolate-20260217-023-queue-submit-cmd", "isolate-20260217-024-merge-train-logic", "isolate-20260217-025-train-failure-auto-rebase", "isolate-20260217-026-queue-new-states"]
 }
 
 // Section 5: Contract
@@ -80,7 +80,7 @@ algorithm: {
         "Add index: CREATE INDEX idx_sessions_parent ON sessions(parent_session)",
         "Add index: CREATE INDEX idx_sessions_queue_status ON sessions(queue_status)",
         "Update schema version",
-        "Update Session struct in crates/zjj-core/src/session_state.rs",
+        "Update Session struct in crates/isolate-core/src/session_state.rs",
         "Add parent_session: Option<String> field",
         "Add queue_status: Option<String> field",
         "Write migration test",

@@ -349,7 +349,7 @@ br update BD-123 --status ready  # Ready for review
 
 1. **Create issue** → `br create ...`
 2. **Claim issue** → `br update BD-123 --status in_progress`
-3. **Make branch** → `jj bookmark set feature/...` (implicit in ZJJ)
+3. **Make branch** → `jj bookmark set feature/...` (implicit in Isolate)
 4. **Work** → Edit files, commit with `jj describe`
 5. **Push** → `jj git push`
 6. **Close** → `br close BD-123`

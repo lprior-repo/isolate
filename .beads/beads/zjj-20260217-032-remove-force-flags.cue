@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-032-remove-force-flags
+// Bead ID: isolate-20260217-032-remove-force-flags
 // Section: 1 of 16
-bead_id: "zjj-20260217-032-remove-force-flags"
+bead_id: "isolate-20260217-032-remove-force-flags"
 
 // Section 2: Intent
 intent: {
@@ -36,7 +36,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-030-remove-confirm-remove", "zjj-20260217-031-remove-confirm-clean"]
+    requires: ["isolate-20260217-030-remove-confirm-remove", "isolate-20260217-031-remove-confirm-clean"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything
 }

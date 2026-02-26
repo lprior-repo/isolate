@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-bgnffh0t
+// Validation schema for bead: isolate-20260221150049-bgnffh0t
 // Title: queue-status: Add StackMergeState enum
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-bgnffh0t.cue implementation.cue
+// Use: cue vet isolate-20260221150049-bgnffh0t.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-bgnffh0t"
+  bead_id: "isolate-20260221150049-bgnffh0t"
   title: "queue-status: Add StackMergeState enum"
 
   // Contract verification

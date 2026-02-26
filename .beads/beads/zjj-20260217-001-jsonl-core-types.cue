@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-001-jsonl-core-types
+// Bead ID: isolate-20260217-001-jsonl-core-types
 // Section: 1 of 16
-bead_id: "zjj-20260217-001-jsonl-core-types"
+bead_id: "isolate-20260217-001-jsonl-core-types"
 
 // Section 2: Intent
 intent: {
@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create OutputLine enum in crates/zjj-core/src/output/types.rs",
+        "Create OutputLine enum in crates/isolate-core/src/output/types.rs",
         "Add core variants: Summary, Session, Issue, Plan, Action, Warning, Result, Error, Recovery, Context",
         "Add #[serde(tag = \"type\")] for JSON discrimination",
         "Define relevant fields for each variant",
@@ -38,7 +38,7 @@ dependencies: {
     // Requires: Must complete before this bead
     requires: []  // No dependencies - foundation bead
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-002-jsonl-stack-queue-types", "zjj-20260217-003-jsonl-writer-emit"]
+    blocks: ["isolate-20260217-002-jsonl-stack-queue-types", "isolate-20260217-003-jsonl-writer-emit"]
 }
 
 // Section 5: Contract
@@ -68,7 +68,7 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Create crates/zjj-core/src/output/types.rs",
+        "Create crates/isolate-core/src/output/types.rs",
         "Define Severity enum (Error, Warning, Info)",
         "Define Status enum (Success, Failure, Pending)",
         "Define ActionStatus enum (Pending, Running, Complete, Failed, Skipped)",
@@ -299,6 +299,6 @@ acceptance_criteria: {
     should: [
         "All variants have comprehensive documentation comments",
         "Examples of serialized JSON for each variant",
-        "Types are re-exported from zjj-core crate root",
+        "Types are re-exported from isolate-core crate root",
     ]
 }

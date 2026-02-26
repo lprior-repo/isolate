@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260214124258-dtqswe15
+// Validation schema for bead: isolate-20260214124258-dtqswe15
 // Title: cli-consistency: implement phase 1 quick wins
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260214124258-dtqswe15.cue implementation.cue
+// Use: cue vet isolate-20260214124258-dtqswe15.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260214124258-dtqswe15"
+  bead_id: "isolate-20260214124258-dtqswe15"
   title: "cli-consistency: implement phase 1 quick wins"
 
   // Contract verification

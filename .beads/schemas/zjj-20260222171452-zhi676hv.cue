@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-zhi676hv
+// Validation schema for bead: isolate-20260222171452-zhi676hv
 // Title: agent-scout: ATDD acceptance tests for agent object
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-zhi676hv.cue implementation.cue
+// Use: cue vet isolate-20260222171452-zhi676hv.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-zhi676hv"
+  bead_id: "isolate-20260222171452-zhi676hv"
   title: "agent-scout: ATDD acceptance tests for agent object"
 
   // Contract verification

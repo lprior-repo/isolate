@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-fkfywtga
+// Validation schema for bead: isolate-20260221150049-fkfywtga
 // Title: cli: Add stack fields to submit JSONL
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-fkfywtga.cue implementation.cue
+// Use: cue vet isolate-20260221150049-fkfywtga.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-fkfywtga"
+  bead_id: "isolate-20260221150049-fkfywtga"
   title: "cli: Add stack fields to submit JSONL"
 
   // Contract verification

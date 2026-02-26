@@ -1,0 +1,1102 @@
+#![allow(clippy::unnecessary_wraps, clippy::uninlined_format_args)]
+//! Configuration viewing and editing command
+
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
+use std::{path::Path, time::Duration};
+
+use anyhow::{Context, Result};
+use serde_json::Value as JsonValue;
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use isolate_core::{config::Config, json::SchemaEnvelope, OutputFormat};
+
+use crate::{
+    commands::config_ports::{ConfigReadPort, LocalConfigPort},
+    json::{ConfigSetOutput, ConfigValueOutput},
+};
+
+/// File lock timeout - maximum time to wait for acquiring a file lock
+const LOCK_TIMEOUT: Duration = Duration::from_secs(5);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC API
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug)]
+pub struct ConfigOptions {
+    pub key: Option<String>,
+    pub value: Option<String>,
+    pub global: bool,
+    pub format: OutputFormat,
+}
+
+/// Execute the config command
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Config file cannot be read or parsed
+/// - Config key is not found
+/// - Config value cannot be set
+/// - Invalid arguments provided
+pub async fn run(options: ConfigOptions) -> Result<()> {
+    let port = LocalConfigPort;
+    run_with_port(options, &port).await
+}
+
+async fn run_with_port(options: ConfigOptions, port: &impl ConfigReadPort) -> Result<()> {
+    let config = load_config_for_scope(port, options.global)
+        .await
+        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+
+    match (options.key, options.value) {
+        // No key, no value: Show all config
+        (None, None) => {
+            show_all_config(port, &config, options.global, options.format)?;
+        }
+
+        // Key, no value: Show specific value
+        (Some(key), None) => {
+            isolate_core::config::validate_key(&key)?;
+            show_config_value(&config, &key, options.format)?;
+        }
+
+        // Key + value: Set value
+        (Some(key), Some(value)) => {
+            isolate_core::config::validate_key(&key)?;
+            let config_path = if options.global {
+                port.global_config_path()
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?
+            } else {
+                port.project_config_path()
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?
+            };
+            set_config_value(&config_path, &key, &value).await?;
+
+            if options.format.is_json() {
+                let output = ConfigSetOutput {
+                    key: key.clone(),
+                    value: value.clone(),
+                    scope: if options.global {
+                        "global".to_string()
+                    } else {
+                        "project".to_string()
+                    },
+                };
+                let envelope = SchemaEnvelope::new("config-set", "single", output);
+                let output_json = serde_json::to_string_pretty(&envelope)
+                    .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
+                println!("{output_json}");
+            } else {
+                println!("✓ Set {key} = {value}");
+                if options.global {
+                    println!("  (in global config)");
+                } else {
+                    println!("  (in project config)");
+                }
+            }
+        }
+
+        // Value without key: Invalid
+        (None, Some(_)) => {
+            anyhow::bail!("Cannot set value without key");
+        }
+    }
+
+    Ok(())
+}
+
+async fn load_config_for_scope(
+    port: &impl ConfigReadPort,
+    global_only: bool,
+) -> isolate_core::Result<Config> {
+    if !global_only {
+        return port.load_merged().await;
+    }
+    port.load_global_only().await
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW OPERATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Show all configuration
+fn show_all_config(
+    port: &impl ConfigReadPort,
+    config: &Config,
+    global_only: bool,
+    format: OutputFormat,
+) -> Result<()> {
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("config-response", "single", config.clone());
+        let output_json = serde_json::to_string_pretty(&envelope)
+            .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
+        println!("{output_json}");
+        return Ok(());
+    }
+
+    // Serialize config to TOML
+    let toml = toml::to_string_pretty(config).context("Failed to serialize config to TOML")?;
+
+    println!(
+        "Current configuration{}:",
+        if global_only {
+            " (global)"
+        } else {
+            " (merged)"
+        }
+    );
+    println!();
+    println!("{toml}");
+
+    if !global_only {
+        println!();
+        println!("Config sources:");
+        println!("  1. Built-in defaults");
+        if let Ok(global_path) = port.global_config_path() {
+            println!("  2. Global: {}", global_path.display());
+        }
+        if let Ok(project_path) = port.project_config_path() {
+            println!("  3. Project: {}", project_path.display());
+        }
+        println!("  4. Environment: Isolate_* variables");
+    }
+
+    Ok(())
+}
+
+/// Show a specific config value
+fn show_config_value(config: &Config, key: &str, format: OutputFormat) -> Result<()> {
+    if format.is_json() {
+        let json_val =
+            serde_json::to_value(config).context("Failed to serialize config for value lookup")?;
+        let parts: Vec<&str> = key.split('.').collect();
+        let current = parts.iter().try_fold(&json_val, |current_value, &part| {
+            current_value.get(part).ok_or_else(|| {
+                anyhow::Error::new(isolate_core::Error::ValidationError {
+                    message: format!("Config key '{key}' not found"),
+                    field: None,
+                    value: None,
+                    constraints: Vec::new(),
+                })
+            })
+        })?;
+
+        let output = ConfigValueOutput {
+            key: key.to_string(),
+            value: current.clone(),
+        };
+        let envelope = SchemaEnvelope::new("config-get", "single", output);
+        let output_json = serde_json::to_string_pretty(&envelope)
+            .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
+        println!("{output_json}");
+        return Ok(());
+    }
+
+    let value = get_nested_value(config, key)?;
+    println!("{key} = {value}");
+    Ok(())
+}
+
+/// Get a nested value from config using dot notation
+fn get_nested_value(config: &Config, key: &str) -> Result<String> {
+    // Convert config to JSON for easy nested access
+    let json =
+        serde_json::to_value(config).context("Failed to serialize config for value lookup")?;
+
+    let parts: Vec<&str> = key.split('.').collect();
+
+    // Navigate through nested keys using functional fold pattern
+    let current = parts.iter().try_fold(&json, |current_value, &part| {
+        current_value.get(part).ok_or_else(|| {
+            anyhow::Error::new(isolate_core::Error::ValidationError {
+                message: format!("Config key '{key}' not found. Use 'isolate config' to see all keys."),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
+        })
+    })?;
+
+    // Format value based on type
+    Ok(match current {
+        JsonValue::Bool(b) => b.to_string(),
+        JsonValue::Number(n) => n.to_string(),
+        JsonValue::String(s) => s.clone(),
+        JsonValue::Array(arr) => {
+            // Format as TOML array: ["a", "b"]
+            let items: Vec<String> = arr
+                .iter()
+                .map(|v| format!("\"{}\"", v.as_str().map_or("", |s| s)))
+                .collect();
+            format!("[{}]", items.join(", "))
+        }
+        _ => serde_json::to_string_pretty(current)
+            .context("Failed to format complex config value")?,
+    })
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SET OPERATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set a config value in the specified config file with file locking to prevent data loss
+/// from concurrent writes
+async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<()> {
+    use fs4::tokio::AsyncFileExt;
+    use tokio::fs::OpenOptions;
+
+    // Create parent directory if needed
+    if let Some(parent) = config_path.parent() {
+        tokio::fs::create_dir_all(parent).await.context(format!(
+            "Failed to create config directory {}",
+            parent.display()
+        ))?;
+    }
+
+    // Open file with read and write access, creating if it doesn't exist
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(config_path)
+        .await
+        .context(format!(
+            "Failed to open config file {}",
+            config_path.display()
+        ))?;
+
+    // Try to acquire exclusive lock with timeout
+    let mut acquired = false;
+    let start = std::time::Instant::now();
+    while start.elapsed() < LOCK_TIMEOUT {
+        if file.try_lock_exclusive().is_ok() {
+            acquired = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    if !acquired {
+        anyhow::bail!(
+            "Timeout waiting for file lock on {} after {} seconds. \
+             Another process may be holding the lock.",
+            config_path.display(),
+            LOCK_TIMEOUT.as_secs()
+        );
+    }
+
+    // Load existing config or create new document
+    let mut doc = {
+        file.seek(std::io::SeekFrom::Start(0))
+            .await
+            .context(format!(
+                "Failed to seek config file {}",
+                config_path.display()
+            ))?;
+
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).await.context(format!(
+            "Failed to read config file {}",
+            config_path.display()
+        ))?;
+
+        let content = String::from_utf8(bytes).context(format!(
+            "Config file contains invalid UTF-8: {}",
+            config_path.display()
+        ))?;
+
+        if content.trim().is_empty() {
+            toml_edit::DocumentMut::new()
+        } else {
+            content
+                .parse::<toml_edit::DocumentMut>()
+                .context("Failed to parse config file as TOML")?
+        }
+    };
+
+    // Parse dot notation and set value
+    let parts: Vec<&str> = key.split('.').collect();
+    set_nested_value(&mut doc, &parts, value)?;
+
+    // Write back to file (still holding the lock)
+    let serialized = doc.to_string();
+    toml::from_str::<isolate_core::config::PartialConfig>(&serialized)
+        .context("Setting this value would produce invalid configuration")?;
+
+    file.set_len(0).await.context(format!(
+        "Failed to truncate config file {}",
+        config_path.display()
+    ))?;
+    file.seek(std::io::SeekFrom::Start(0))
+        .await
+        .context(format!(
+            "Failed to seek config file {}",
+            config_path.display()
+        ))?;
+    file.write_all(serialized.as_bytes())
+        .await
+        .context(format!(
+            "Failed to write config file {}",
+            config_path.display()
+        ))?;
+    file.flush().await.context(format!(
+        "Failed to flush config file {}",
+        config_path.display()
+    ))?;
+
+    // Lock is released automatically when `file` is dropped
+    drop(file);
+
+    Ok(())
+}
+
+/// Set a nested value in a TOML document using dot notation
+fn set_nested_value(doc: &mut toml_edit::DocumentMut, parts: &[&str], value: &str) -> Result<()> {
+    if parts.is_empty() {
+        anyhow::bail!("Empty config key");
+    }
+
+    // Navigate to parent table and ensure all intermediate tables exist
+    // Using fold to navigate through the path while maintaining table references
+    let final_table =
+        parts[..parts.len() - 1]
+            .iter()
+            .try_fold(doc.as_table_mut(), |current_table, &part| {
+                // Ensure table exists
+                if !current_table.contains_key(part) {
+                    current_table[part] = toml_edit::table();
+                }
+                current_table[part].as_table_mut().ok_or_else(|| {
+                    anyhow::Error::new(isolate_core::Error::ValidationError {
+                        message: format!("{part} is not a table"),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    })
+                })
+            })?;
+
+    // Set the value
+    let key = parts.last().ok_or_else(|| {
+        anyhow::Error::new(isolate_core::Error::ValidationError {
+            message: "Invalid key path".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        })
+    })?;
+    let toml_value = parse_value(value)?;
+    final_table[key] = toml_value;
+
+    Ok(())
+}
+
+/// Parse a string value into a TOML value (bool, int, string, or array)
+fn parse_value(value: &str) -> Result<toml_edit::Item> {
+    // Try parsing as different types
+    if value == "true" || value == "false" {
+        let bool_val = value
+            .parse::<bool>()
+            .context("Failed to parse boolean value")?;
+        Ok(toml_edit::value(bool_val))
+    } else if let Ok(n) = value.parse::<i64>() {
+        Ok(toml_edit::value(n))
+    } else if value.starts_with('[') && value.ends_with(']') {
+        let parsed = value
+            .parse::<toml_edit::Value>()
+            .context("Failed to parse array value")?;
+        match parsed {
+            toml_edit::Value::Array(array) => {
+                if !array.iter().all(|item| item.as_str().is_some()) {
+                    anyhow::bail!("Array values must contain only strings");
+                }
+                Ok(toml_edit::Item::Value(toml_edit::Value::Array(array)))
+            }
+            _ => anyhow::bail!("Expected array value"),
+        }
+    } else {
+        // Default to string
+        Ok(toml_edit::value(value))
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use std::{io::Write, path::PathBuf};
+
+    use tempfile::TempDir;
+
+    use super::*;
+
+    fn setup_test_config() -> Config {
+        Config::default()
+    }
+
+    fn create_temp_config(content: &str) -> Result<(TempDir, PathBuf)> {
+        let temp_dir = TempDir::new()?;
+        let config_path = temp_dir.path().join("config.toml");
+        let mut file = std::fs::File::create(&config_path)?;
+        file.write_all(content.as_bytes())?;
+        Ok((temp_dir, config_path))
+    }
+
+    // Async version for use in async test contexts
+    #[allow(dead_code)]
+    async fn create_temp_config_async(content: &str) -> Result<(TempDir, PathBuf)> {
+        let temp_dir = TempDir::new()?;
+        let config_path = temp_dir.path().join("config.toml");
+        tokio::fs::write(&config_path, content).await?;
+        Ok((temp_dir, config_path))
+    }
+
+    #[test]
+    fn test_get_nested_value_simple() -> Result<()> {
+        let config = setup_test_config();
+        let value = get_nested_value(&config, "workspace_dir")?;
+        assert_eq!(value, "../{repo}__workspaces");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_nested_value_nested() -> Result<()> {
+        let config = setup_test_config();
+        let value = get_nested_value(&config, "watch.enabled")?;
+        assert_eq!(value, "true");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_nested_value_deep() -> Result<()> {
+        let config = setup_test_config();
+        let value = get_nested_value(&config, "agent.command")?;
+        assert_eq!(value, "claude");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_nested_value_not_found() {
+        let config = setup_test_config();
+        let result = get_nested_value(&config, "invalid.key");
+        assert!(result.is_err(), "Expected an error but got Ok: {result:?}");
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Config key 'invalid.key' not found"));
+        }
+    }
+
+    #[test]
+    fn test_get_nested_value_array() -> Result<()> {
+        let config = setup_test_config();
+        let value = get_nested_value(&config, "watch.paths")?;
+        assert_eq!(value, r#"[".beads/beads.db"]"#);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_value_bool_true() -> Result<()> {
+        let item = parse_value("true")?;
+        assert_eq!(item.to_string().trim(), "true");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_value_bool_false() -> Result<()> {
+        let item = parse_value("false")?;
+        assert_eq!(item.to_string().trim(), "false");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_value_int() -> Result<()> {
+        let item = parse_value("42")?;
+        assert_eq!(item.to_string().trim(), "42");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_value_string() -> Result<()> {
+        let item = parse_value("hello")?;
+        assert_eq!(item.to_string().trim(), r#""hello""#);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_value_array() -> Result<()> {
+        let item = parse_value(r#"["a", "b", "c"]"#)?;
+        let result = item.to_string();
+        assert!(result.contains('a'));
+        assert!(result.contains('b'));
+        assert!(result.contains('c'));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_set_config_value_simple() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        set_config_value(&config_path, "workspace_dir", "../custom").await?;
+
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("workspace_dir"));
+        assert!(content.contains("../custom"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_set_config_value_nested() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        set_config_value(&config_path, "watch.enabled", "false").await?;
+
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("[watch]"));
+        assert!(content.contains("enabled = false"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_set_config_value_deep_nested() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        set_config_value(&config_path, "session.commit_prefix", "feat:").await?;
+
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("[session]"));
+        assert!(content.contains("commit_prefix"));
+        assert!(content.contains("feat:"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_set_config_value_overwrite_existing() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config(r#"workspace_dir = "../old""#)?;
+        set_config_value(&config_path, "workspace_dir", "../new").await?;
+
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("../new"));
+        assert!(!content.contains("../old"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_set_config_value_creates_parent_dir() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let config_path = temp_dir.path().join("subdir").join("config.toml");
+
+        set_config_value(&config_path, "workspace_dir", "../test").await?;
+
+        assert!(config_path.exists());
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("workspace_dir"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_nested_value_empty_parts() {
+        let mut doc = toml_edit::DocumentMut::new();
+        let result = set_nested_value(&mut doc, &[], "value");
+        let has_error = result
+            .as_ref()
+            .map_or_else(|e| e.to_string().contains("Empty config key"), |()| false);
+        assert!(has_error);
+    }
+
+    #[test]
+    fn test_show_config_value() -> Result<()> {
+        let config = setup_test_config();
+        // Just test that it doesn't panic
+        show_config_value(&config, "workspace_dir", isolate_core::OutputFormat::Json)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_show_all_config() -> Result<()> {
+        let config = setup_test_config();
+        let port = LocalConfigPort;
+        // Just test that it doesn't panic
+        show_all_config(&port, &config, false, isolate_core::OutputFormat::Json)?;
+        show_all_config(&port, &config, true, isolate_core::OutputFormat::Json)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_project_config_path() -> Result<()> {
+        let path = LocalConfigPort
+            .project_config_path()
+            .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+        assert!(path.ends_with("config.toml"));
+        assert!(path.to_string_lossy().contains(".isolate"));
+        Ok(())
+    }
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_config_json_has_envelope() -> Result<()> {
+        // FAILING: Verify envelope wrapping for config command output
+        use isolate_core::json::SchemaEnvelope;
+        let config = setup_test_config();
+        let envelope = SchemaEnvelope::new("config-response", "single", config);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_set_wrapped() -> Result<()> {
+        // FAILING: Verify envelope wrapping when setting config values
+        use serde_json::json;
+        use isolate_core::json::SchemaEnvelope;
+
+        let response = json!({"success": true, "key": "test.key", "value": "test_value"});
+        let envelope = SchemaEnvelope::new("config-set", "single", response);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_get_wrapped() -> Result<()> {
+        // FAILING: Verify envelope wrapping when getting config values
+        use serde_json::json;
+        use isolate_core::json::SchemaEnvelope;
+
+        let response = json!({"value": "config_value"});
+        let envelope = SchemaEnvelope::new("config-get", "single", response);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_data_preserved() -> Result<()> {
+        // FAILING: Verify config data is preserved inside envelope
+        use isolate_core::json::SchemaEnvelope;
+
+        let config = setup_test_config();
+        let envelope = SchemaEnvelope::new("config-response", "single", config);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify data is flattened into envelope (not nested in a "data" field)
+        let has_config_fields =
+            parsed.get("workspace_dir").is_some() || parsed.get("watch").is_some();
+        assert!(
+            has_config_fields,
+            "Config data should be preserved in envelope"
+        );
+
+        Ok(())
+    }
+
+    // ===== Concurrency Tests (isolate-16ks) =====
+    // Tests for concurrent write data loss bug fix
+
+    #[tokio::test]
+    async fn concurrent_writes_respect_file_lock() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let mut tasks = Vec::new();
+
+        // Spawn 10 concurrent writes
+        for i in 0..10 {
+            let path = config_path.clone();
+            let task = tokio::spawn(async move {
+                let key = format!("concurrent_key_{i}");
+                set_config_value(&path, &key, &format!("value_{i}")).await
+            });
+            tasks.push(task);
+        }
+
+        // Wait for all tasks
+        for task in tasks {
+            task.await
+                .context("Task join error")?
+                .context("Task execution error")?;
+        }
+
+        // Verify all keys present in the final config
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        for i in 0..10 {
+            let key = format!("concurrent_key_{i}");
+            assert!(
+                content.contains(&key),
+                "Key {key} not found in config after concurrent writes"
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn concurrent_writes_no_data_loss() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let num_writes = 20;
+        let mut tasks = Vec::new();
+
+        // Spawn 20 concurrent writes
+        for i in 0..num_writes {
+            let path = config_path.clone();
+            let task = tokio::spawn(async move {
+                let key = format!("data_loss_test_key_{i:03}");
+                set_config_value(&path, &key, &format!("value_{i}")).await
+            });
+            tasks.push(task);
+        }
+
+        // Wait for all tasks
+        for task in tasks {
+            task.await
+                .context("Task join error")?
+                .context("Task execution error")?;
+        }
+
+        // Count how many unique keys are in the file
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        let mut key_count = 0;
+        for i in 0..num_writes {
+            let key = format!("data_loss_test_key_{i:03}");
+            if content.contains(&key) {
+                key_count += 1;
+            }
+        }
+
+        assert_eq!(
+            key_count,
+            num_writes,
+            "Expected {} keys, got {} (data loss: {})",
+            num_writes,
+            key_count,
+            num_writes - key_count
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn sequential_writes_performance() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let start = std::time::Instant::now();
+
+        for i in 0..50 {
+            let key = format!("perf_key_{i}");
+            set_config_value(&config_path, &key, &format!("value_{i}")).await?;
+        }
+
+        let elapsed = start.elapsed();
+        // Should complete in reasonable time (file locking adds overhead)
+        assert!(
+            elapsed.as_secs() < 30,
+            "50 writes took too long: {elapsed:?}"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn concurrent_mixed_read_write() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let mut write_tasks = Vec::new();
+        let mut read_tasks = Vec::new();
+
+        // First, set some initial values
+        for i in 0..5 {
+            let key = format!("initial_key_{i}");
+            set_config_value(&config_path, &key, &format!("initial_value_{i}")).await?;
+        }
+
+        // Spawn concurrent readers and writers
+        for i in 0..10 {
+            let path = config_path.clone();
+            if i % 2 == 0 {
+                // Writer task
+                let task = tokio::spawn(async move {
+                    let key = format!("mixed_write_key_{i}");
+                    set_config_value(&path, &key, &format!("value_{i}")).await
+                });
+                write_tasks.push(task);
+            } else {
+                // Reader task (verify file is readable)
+                let task = tokio::spawn(async move { tokio::fs::read_to_string(&path).await });
+                read_tasks.push(task);
+            }
+        }
+
+        // All write tasks should complete without error
+        for task in write_tasks {
+            task.await
+                .context("Writer join error")?
+                .context("Writer execution error")?;
+        }
+
+        // All read tasks should complete
+        for task in read_tasks {
+            task.await
+                .context("Reader join error")?
+                .context("Reader execution error")?;
+        }
+        Ok(())
+    }
+
+    // ===== Phase 5 - REVIEW: Adversarial Tests =====
+    // Tests that verify edge cases, security boundaries, and error handling
+
+    #[test]
+    fn adversarial_extremely_long_key() {
+        let key = "a".repeat(10000);
+        let result = isolate_core::config::validate_key(&key);
+        assert!(result.is_err(), "Extremely long key should be rejected");
+    }
+
+    #[test]
+    fn adversarial_unicode_key() {
+        let unicode_keys = ["日本語.key", "ключ.value", "🔴.emoji", "café.setting"];
+        for key in unicode_keys {
+            let result = isolate_core::config::validate_key(key);
+            assert!(result.is_err(), "Unicode key '{key}' should be rejected");
+        }
+    }
+
+    #[test]
+    fn adversarial_path_traversal_key() {
+        let malicious_keys = [
+            "../../../etc/passwd",
+            "..\\..\\..\\windows\\system32",
+            "/etc/passwd",
+            "~/../../etc/shadow",
+        ];
+        for key in malicious_keys {
+            let result = isolate_core::config::validate_key(key);
+            assert!(
+                result.is_err(),
+                "Path traversal key '{key}' should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn adversarial_null_byte_in_key() {
+        let key = "key\x00with\x00nulls";
+        let result = isolate_core::config::validate_key(key);
+        assert!(result.is_err(), "Key with null bytes should be rejected");
+    }
+
+    #[test]
+    fn adversarial_newline_in_key() {
+        let keys = ["key\nvalue", "key\r\nvalue", "key\rvalue"];
+        for key in keys {
+            let result = isolate_core::config::validate_key(key);
+            let escaped = key.escape_unicode();
+            assert!(
+                result.is_err(),
+                "Key with newline '{escaped}' should be rejected"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn adversarial_invalid_toml_value() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Values that look like arrays but aren't valid TOML arrays are stored as strings
+        // This is intentional - the config command treats values as literals unless they
+        // are clearly parseable as TOML arrays (start with [ AND end with ])
+        let result = set_config_value(&config_path, "test.array", "[invalid").await;
+        assert!(
+            result.is_ok(),
+            "Malformed array syntax should be stored as string literal"
+        );
+
+        // Verify it was stored as a string
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(
+            content.contains("\"[invalid\"") || content.contains("'[invalid'"),
+            "Value should be stored as quoted string"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_sql_injection_attempt() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Try SQL injection patterns
+        let sql_injections = vec![
+            "'; DROP TABLE users; --",
+            "1' OR '1'='1",
+            "admin'--",
+            "1; SELECT * FROM users",
+        ];
+
+        for injection in sql_injections {
+            let result = set_config_value(&config_path, "test.value", injection).await;
+            // Should accept as string value (not SQL context)
+            assert!(
+                result.is_ok(),
+                "SQL injection pattern should be stored as string"
+            );
+        }
+
+        // Verify values are stored as strings
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("DROP TABLE") || content.contains("SELECT"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_shell_injection_attempt() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Try shell injection patterns
+        let shell_injections = vec![
+            "$(rm -rf /)",
+            "`cat /etc/passwd`",
+            "| cat /etc/shadow",
+            "; rm -rf /",
+            "&& cat /etc/passwd",
+        ];
+
+        for injection in shell_injections {
+            let result = set_config_value(&config_path, "test.value", injection).await;
+            // Should accept as string value (stored safely, not executed)
+            assert!(
+                result.is_ok(),
+                "Shell injection pattern should be stored as string"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversential_symlink_attack_prevention() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Verify config file is not a symlink
+        assert!(!config_path.is_symlink(), "Config should not be a symlink");
+
+        // Write should work normally
+        set_config_value(&config_path, "test.value", "test").await?;
+
+        // Verify still not a symlink after write
+        assert!(
+            !config_path.is_symlink(),
+            "Config should not become symlink after write"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_integer_overflow() {
+        // Test parsing of overflow integer values
+        let overflow_value = format!("{}{}", i64::MAX, "0");
+        let overflow_values = [
+            "999999999999999999999999999999",
+            "-999999999999999999999999999999",
+            overflow_value.as_str(),
+        ];
+
+        for value in overflow_values {
+            let result = parse_value(value);
+            // Should either reject or store as string
+            // Current implementation stores as string
+            assert!(
+                result.is_ok(),
+                "Overflow integer '{value}' should be handled gracefully"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn adversarial_deeply_nested_key() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Create deeply nested structure
+        let deep_key = "a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.value";
+        let result = set_config_value(&config_path, deep_key, "test").await;
+
+        // Should handle gracefully
+        assert!(result.is_ok(), "Deeply nested key should be handled");
+
+        // Verify structure created
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("[a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p]"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_empty_value() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Empty string should be accepted
+        let result = set_config_value(&config_path, "test.empty", "").await;
+        assert!(result.is_ok(), "Empty value should be accepted");
+
+        // Verify stored correctly
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        assert!(content.contains("empty = \"\""));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn adversarial_whitespace_only_value() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+
+        // Whitespace-only should be accepted as string
+        let result = set_config_value(&config_path, "test.whitespace", "   ").await;
+        assert!(result.is_ok(), "Whitespace value should be accepted");
+
+        Ok(())
+    }
+
+    #[test]
+    fn adversarial_special_characters_in_value() {
+        let special_values = [
+            "value\nwith\nnewlines",
+            "value\twith\ttabs",
+            "value with \"quotes\"",
+            "value with 'apostrophes'",
+            "value\\with\\backslashes",
+        ];
+
+        for value in special_values {
+            let result = parse_value(value);
+            // Should handle as string
+            assert!(result.is_ok(), "Special character value should be handled");
+        }
+    }
+}

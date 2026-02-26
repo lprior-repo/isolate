@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-zcdc32fm
+// Validation schema for bead: isolate-20260222171452-zcdc32fm
 // Title: cli-aliases: Add backward compatibility aliases
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-zcdc32fm.cue implementation.cue
+// Use: cue vet isolate-20260222171452-zcdc32fm.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-zcdc32fm"
+  bead_id: "isolate-20260222171452-zcdc32fm"
   title: "cli-aliases: Add backward compatibility aliases"
 
   // Contract verification

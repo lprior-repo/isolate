@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-dio1bjun
+// Validation schema for bead: isolate-20260222171452-dio1bjun
 // Title: cli-registration: Register all objects with clap
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-dio1bjun.cue implementation.cue
+// Use: cue vet isolate-20260222171452-dio1bjun.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-dio1bjun"
+  bead_id: "isolate-20260222171452-dio1bjun"
   title: "cli-registration: Register all objects with clap"
 
   // Contract verification

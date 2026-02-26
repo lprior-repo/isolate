@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-014-db-conflict-resolutions-table
+// Bead ID: isolate-20260217-014-db-conflict-resolutions-table
 // Section: 1 of 16
-bead_id: "zjj-20260217-014-db-conflict-resolutions-table"
+bead_id: "isolate-20260217-014-db-conflict-resolutions-table"
 
 // Section 2: Intent
 intent: {
@@ -34,9 +34,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-012-db-merge-queue-tables"]
+    requires: ["isolate-20260217-012-db-merge-queue-tables"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-027-conflict-analyze-cmd", "zjj-20260217-028-conflict-resolve-cmd", "zjj-20260217-029-conflict-quality-signals"]
+    blocks: ["isolate-20260217-027-conflict-analyze-cmd", "isolate-20260217-028-conflict-resolve-cmd", "isolate-20260217-029-conflict-quality-signals"]
 }
 
 // Section 5: Contract

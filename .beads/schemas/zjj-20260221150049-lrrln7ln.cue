@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-lrrln7ln
+// Validation schema for bead: isolate-20260221150049-lrrln7ln
 // Title: cli: Add stack error exit codes
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-lrrln7ln.cue implementation.cue
+// Use: cue vet isolate-20260221150049-lrrln7ln.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-lrrln7ln"
+  bead_id: "isolate-20260221150049-lrrln7ln"
   title: "cli: Add stack error exit codes"
 
   // Contract verification

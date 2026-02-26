@@ -246,7 +246,7 @@ Task definitions. Never edit directly unless you know what you're doing.
 All binaries in `crates/*/src/bin/` are built:
 
 ```
-crates/zjj-core/src/bin/
+crates/isolate-core/src/bin/
 ├── example1.rs
 ├── example2.rs
 └── ...
@@ -279,7 +279,7 @@ jj describe -m "feat: description"
 
 ```bash
 # Change a file
-vim crates/zjj-core/src/lib.rs
+vim crates/isolate-core/src/lib.rs
 
 # Test
 moon run :test
@@ -312,7 +312,7 @@ Check `moon.yml` for task definitions and dependencies.
 ### Run specific task
 
 ```bash
-moon run :test --scope zjj-core
+moon run :test --scope isolate-core
 ```
 
 ### Watch mode (experimental)

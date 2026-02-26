@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222164827-7s4seabv
+// Validation schema for bead: isolate-20260222164827-7s4seabv
 // Title: test-property: Property tests for CLI structure invariants
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222164827-7s4seabv.cue implementation.cue
+// Use: cue vet isolate-20260222164827-7s4seabv.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222164827-7s4seabv"
+  bead_id: "isolate-20260222164827-7s4seabv"
   title: "test-property: Property tests for CLI structure invariants"
 
   // Contract verification

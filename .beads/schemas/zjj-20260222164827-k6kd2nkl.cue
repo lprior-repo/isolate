@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222164827-k6kd2nkl
+// Validation schema for bead: isolate-20260222164827-k6kd2nkl
 // Title: cli-status: Implement status shortcut command
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222164827-k6kd2nkl.cue implementation.cue
+// Use: cue vet isolate-20260222164827-k6kd2nkl.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222164827-k6kd2nkl"
+  bead_id: "isolate-20260222164827-k6kd2nkl"
   title: "cli-status: Implement status shortcut command"
 
   // Contract verification

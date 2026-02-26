@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221144847-l2dwyyun
+// Validation schema for bead: isolate-20260221144847-l2dwyyun
 // Title: queue: Add stack helper functions
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221144847-l2dwyyun.cue implementation.cue
+// Use: cue vet isolate-20260221144847-l2dwyyun.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221144847-l2dwyyun"
+  bead_id: "isolate-20260221144847-l2dwyyun"
   title: "queue: Add stack helper functions"
 
   // Contract verification

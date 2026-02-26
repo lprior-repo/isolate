@@ -10,20 +10,17 @@
 //! Run with: cargo test --test status_properties
 //! Reproducible: Set PROPTEST_SEED environment variable for deterministic runs
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
 use std::path::PathBuf;
 
+use isolate_core::output::{OutputLine, SessionOutput, Summary, SummaryType};
+use isolate_core::types::SessionStatus;
+use isolate_core::WorkspaceState;
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
-use zjj_core::output::{OutputLine, SessionOutput, Summary, SummaryType};
-use zjj_core::types::SessionStatus;
-use zjj_core::WorkspaceState;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CUSTOM STRATEGIES FOR GENERATING TEST DATA
@@ -69,15 +66,12 @@ fn workspace_state_strategy() -> impl Strategy<Value = WorkspaceState> {
 /// Generate absolute paths
 fn absolute_path_strategy() -> impl Strategy<Value = PathBuf> {
     // Generate absolute paths starting with /tmp/
-    "[a-zA-Z0-9_-]{1,20}".prop_map(|s| PathBuf::from(format!("/tmp/zjj-test-{}", s)))
+    "[a-zA-Z0-9_-]{1,20}".prop_map(|s| PathBuf::from(format!("/tmp/isolate-test-{}", s)))
 }
 
 /// Generate optional branch names
 fn branch_name_strategy() -> impl Strategy<Value = Option<String>> {
-    prop_oneof![
-        Just(None),
-        "[a-zA-Z][a-zA-Z0-9_-]{0,30}".prop_map(Some),
-    ]
+    prop_oneof![Just(None), "[a-zA-Z][a-zA-Z0-9_-]{0,30}".prop_map(Some),]
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -492,7 +486,7 @@ proptest! {
         name in "[a-zA-Z0-9_-]{0,64}",
     ) {
         use std::str::FromStr;
-        use zjj_core::types::SessionName;
+        use isolate_core::types::SessionName;
 
         let result = SessionName::from_str(&name);
 
@@ -644,9 +638,7 @@ mod tests {
 
     /// This test MUST PASS to confirm the test harness works
     #[test]
-    fn test_harness_works() {
-        assert!(true, "Test harness should work");
-    }
+    fn test_harness_works() {}
 
     /// This test confirms SessionOutput can be created with valid inputs
     #[test]
@@ -672,9 +664,6 @@ mod tests {
         );
 
         // RED PHASE: This will fail until validation is implemented
-        assert!(
-            result.is_err(),
-            "RED PHASE: Empty name should be rejected"
-        );
+        assert!(result.is_err(), "RED PHASE: Empty name should be rejected");
     }
 }

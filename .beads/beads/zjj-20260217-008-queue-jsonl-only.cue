@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-008-queue-jsonl-only
+// Bead ID: isolate-20260217-008-queue-jsonl-only
 // Section: 1 of 16
-bead_id: "zjj-20260217-008-queue-jsonl-only"
+bead_id: "isolate-20260217-008-queue-jsonl-only"
 
 // Section 2: Intent
 intent: {
@@ -37,9 +37,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-003-jsonl-writer-emit", "zjj-20260217-005-remove-outputformat-human"]
+    requires: ["isolate-20260217-003-jsonl-writer-emit", "isolate-20260217-005-remove-outputformat-human"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-023-queue-submit-cmd", "zjj-20260217-024-merge-train-logic", "zjj-20260217-025-train-failure-auto-rebase", "zjj-20260217-026-queue-new-states"]
+    blocks: ["isolate-20260217-023-queue-submit-cmd", "isolate-20260217-024-merge-train-logic", "isolate-20260217-025-train-failure-auto-rebase", "isolate-20260217-026-queue-new-states"]
 }
 
 // Section 5: Contract

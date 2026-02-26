@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-tlt3mscd
+// Validation schema for bead: isolate-20260222171452-tlt3mscd
 // Title: config-red: Property tests for config object (failing)
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-tlt3mscd.cue implementation.cue
+// Use: cue vet isolate-20260222171452-tlt3mscd.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-tlt3mscd"
+  bead_id: "isolate-20260222171452-tlt3mscd"
   title: "config-red: Property tests for config object (failing)"
 
   // Contract verification

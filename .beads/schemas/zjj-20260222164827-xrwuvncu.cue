@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222164827-xrwuvncu
+// Validation schema for bead: isolate-20260222164827-xrwuvncu
 // Title: cli-foundation: Setup property test framework with proptest
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222164827-xrwuvncu.cue implementation.cue
+// Use: cue vet isolate-20260222164827-xrwuvncu.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222164827-xrwuvncu"
+  bead_id: "isolate-20260222164827-xrwuvncu"
   title: "cli-foundation: Setup property test framework with proptest"
 
   // Contract verification

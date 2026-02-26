@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-t7m34sqg
+// Validation schema for bead: isolate-20260222171452-t7m34sqg
 // Title: stack-implement: Full stack implementation
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-t7m34sqg.cue implementation.cue
+// Use: cue vet isolate-20260222171452-t7m34sqg.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-t7m34sqg"
+  bead_id: "isolate-20260222171452-t7m34sqg"
   title: "stack-implement: Full stack implementation"
 
   // Contract verification

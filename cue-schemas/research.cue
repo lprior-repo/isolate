@@ -1,6 +1,6 @@
-// zjj Research Notes
+// isolate Research Notes
 // Documents analysis of existing tools and technology decisions
-package zjj
+package isolate
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROBLEM STATEMENT
@@ -146,7 +146,7 @@ tech_decisions: [...#TechDecision] & [
             "Built-in plugin system for future extensibility",
             "Better floating pane support",
             "Session resume built-in",
-            "Modern Rust codebase aligns with zjj",
+            "Modern Rust codebase aligns with isolate",
         ]
     },
     {

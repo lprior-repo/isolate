@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171451-jpba3hku
+// Validation schema for bead: isolate-20260222171451-jpba3hku
 // Title: cli-contracts: Define KIRK contracts for all 8 CLI objects
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171451-jpba3hku.cue implementation.cue
+// Use: cue vet isolate-20260222171451-jpba3hku.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171451-jpba3hku"
+  bead_id: "isolate-20260222171451-jpba3hku"
   title: "cli-contracts: Define KIRK contracts for all 8 CLI objects"
 
   // Contract verification

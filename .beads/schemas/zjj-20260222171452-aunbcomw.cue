@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171452-aunbcomw
+// Validation schema for bead: isolate-20260222171452-aunbcomw
 // Title: agent-implement: Full agent implementation
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171452-aunbcomw.cue implementation.cue
+// Use: cue vet isolate-20260222171452-aunbcomw.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171452-aunbcomw"
+  bead_id: "isolate-20260222171452-aunbcomw"
   title: "agent-implement: Full agent implementation"
 
   // Contract verification

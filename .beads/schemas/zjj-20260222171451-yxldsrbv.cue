@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171451-yxldsrbv
+// Validation schema for bead: isolate-20260222171451-yxldsrbv
 // Title: task-scout: ATDD acceptance tests for task object
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171451-yxldsrbv.cue implementation.cue
+// Use: cue vet isolate-20260222171451-yxldsrbv.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171451-yxldsrbv"
+  bead_id: "isolate-20260222171451-yxldsrbv"
   title: "task-scout: ATDD acceptance tests for task object"
 
   // Contract verification

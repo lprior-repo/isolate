@@ -1,6 +1,6 @@
-// zjj Configuration Schema
+// isolate Configuration Schema
 // Defines all configuration options with defaults and validation
-package zjj
+package isolate
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION SCHEMA
@@ -10,7 +10,7 @@ package zjj
     workspace_dir:    string | *"../{repo}__workspaces"
     main_branch:      string | *""  // auto-detected if empty
     default_template: string | *"standard"
-    state_db:         string | *".zjj/state.db"
+    state_db:         string | *".isolate/state.db"
 
     watch:   #WatchConfig
     hooks:   #HooksConfig
@@ -33,16 +33,16 @@ package zjj
 }
 
 #ZellijConfig: {
-    session_prefix: string | *"zjj"
+    session_prefix: string | *"isolate"
     use_tabs:       bool | *true
-    layout_dir:     string | *".zjj/layouts"
+    layout_dir:     string | *".isolate/layouts"
     panes:          #PanesConfig
 }
 
 #PanesConfig: {
     main:  #PaneConfig & {command: string | *"claude", size: string | *"70%"}
     beads: #PaneConfig & {command: string | *"bv", size: string | *"50%"}
-    status: #PaneConfig & {command: string | *"zjj", args: [...string] | *["status", "--watch"], size: string | *"50%"}
+    status: #PaneConfig & {command: string | *"isolate", args: [...string] | *["status", "--watch"], size: string | *"50%"}
     float: #FloatPaneConfig
 }
 
@@ -88,9 +88,9 @@ package zjj
 
 config_sources: [...#ConfigSource] & [
     {path: "<builtin>", priority: 1, required: true},
-    {path: "~/.config/zjj/config.toml", priority: 2, required: false},
-    {path: ".zjj/config.toml", priority: 3, required: false},
-    {path: "ZJJ_* environment variables", priority: 4, required: false},
+    {path: "~/.config/isolate/config.toml", priority: 2, required: false},
+    {path: ".isolate/config.toml", priority: 3, required: false},
+    {path: "ISOLATE_* environment variables", priority: 4, required: false},
     {path: "CLI flags", priority: 5, required: false},
 ]
 
@@ -99,21 +99,21 @@ config_sources: [...#ConfigSource] & [
 // ═══════════════════════════════════════════════════════════════════════════
 
 #EnvVar: {
-    env_name:    string & =~"^ZJJ_"
+    env_name:    string & =~"^ISOLATE_"
     config_path: string & !=""
     value_type:  "string" | "bool" | "int" | "list"
 }
 
 env_vars: [...#EnvVar] & [
-    {env_name: "ZJJ_WORKSPACE_DIR", config_path: "workspace_dir", value_type: "string"},
-    {env_name: "ZJJ_MAIN_BRANCH", config_path: "main_branch", value_type: "string"},
-    {env_name: "ZJJ_DEFAULT_TEMPLATE", config_path: "default_template", value_type: "string"},
-    {env_name: "ZJJ_WATCH_ENABLED", config_path: "watch.enabled", value_type: "bool"},
-    {env_name: "ZJJ_WATCH_DEBOUNCE_MS", config_path: "watch.debounce_ms", value_type: "int"},
-    {env_name: "ZJJ_ZELLIJ_USE_TABS", config_path: "zellij.use_tabs", value_type: "bool"},
-    {env_name: "ZJJ_DASHBOARD_REFRESH_MS", config_path: "dashboard.refresh_ms", value_type: "int"},
-    {env_name: "ZJJ_DASHBOARD_VIM_KEYS", config_path: "dashboard.vim_keys", value_type: "bool"},
-    {env_name: "ZJJ_AGENT_COMMAND", config_path: "agent.command", value_type: "string"},
+    {env_name: "ISOLATE_WORKSPACE_DIR", config_path: "workspace_dir", value_type: "string"},
+    {env_name: "ISOLATE_MAIN_BRANCH", config_path: "main_branch", value_type: "string"},
+    {env_name: "ISOLATE_DEFAULT_TEMPLATE", config_path: "default_template", value_type: "string"},
+    {env_name: "ISOLATE_WATCH_ENABLED", config_path: "watch.enabled", value_type: "bool"},
+    {env_name: "ISOLATE_WATCH_DEBOUNCE_MS", config_path: "watch.debounce_ms", value_type: "int"},
+    {env_name: "ISOLATE_ZELLIJ_USE_TABS", config_path: "zellij.use_tabs", value_type: "bool"},
+    {env_name: "ISOLATE_DASHBOARD_REFRESH_MS", config_path: "dashboard.refresh_ms", value_type: "int"},
+    {env_name: "ISOLATE_DASHBOARD_VIM_KEYS", config_path: "dashboard.vim_keys", value_type: "bool"},
+    {env_name: "ISOLATE_AGENT_COMMAND", config_path: "agent.command", value_type: "string"},
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -142,7 +142,7 @@ default_config: #Config & {
     workspace_dir:    "../{repo}__workspaces"
     main_branch:      ""
     default_template: "standard"
-    state_db:         ".zjj/state.db"
+    state_db:         ".isolate/state.db"
 
     watch: {
         enabled:     true
@@ -157,13 +157,13 @@ default_config: #Config & {
     }
 
     zellij: {
-        session_prefix: "zjj"
+        session_prefix: "isolate"
         use_tabs:       true
-        layout_dir:     ".zjj/layouts"
+        layout_dir:     ".isolate/layouts"
         panes: {
             main:  {command: "claude", args: [], size: "70%"}
             beads: {command: "bv", args: [], size: "50%"}
-            status: {command: "zjj", args: ["status", "--watch"], size: "50%"}
+            status: {command: "isolate", args: ["status", "--watch"], size: "50%"}
             float: {enabled: true, command: "", width: "80%", height: "60%"}
         }
     }

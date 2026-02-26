@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-005-remove-outputformat-human
+// Bead ID: isolate-20260217-005-remove-outputformat-human
 // Section: 1 of 16
-bead_id: "zjj-20260217-005-remove-outputformat-human"
+bead_id: "isolate-20260217-005-remove-outputformat-human"
 
 // Section 2: Intent
 intent: {
@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Remove Human variant from OutputFormat enum in crates/zjj-core/src/output_format.rs",
+        "Remove Human variant from OutputFormat enum in crates/isolate-core/src/output_format.rs",
         "Keep only Json variant",
         "Update all uses of OutputFormat::Human to OutputFormat::Json or remove",
         "Remove --output-format flag from CLI (always JSON now)",
@@ -38,7 +38,7 @@ dependencies: {
     // Requires: Must complete before this bead
     requires: []  // No dependencies - can be done in parallel with Bead 001
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-006-status-jsonl-only", "zjj-20260217-007-list-jsonl-only", "zjj-20260217-008-queue-jsonl-only", "zjj-20260217-009-other-commands-jsonl", "zjj-20260217-010-remove-color-deps"]
+    blocks: ["isolate-20260217-006-status-jsonl-only", "isolate-20260217-007-list-jsonl-only", "isolate-20260217-008-queue-jsonl-only", "isolate-20260217-009-other-commands-jsonl", "isolate-20260217-010-remove-color-deps"]
 }
 
 // Section 5: Contract
@@ -70,7 +70,7 @@ algorithm: {
     steps: [
         "Grep for all uses of OutputFormat::Human",
         "Grep for all uses of OutputFormat enum",
-        "Read crates/zjj-core/src/output_format.rs",
+        "Read crates/isolate-core/src/output_format.rs",
         "Remove Human variant from OutputFormat enum",
         "Keep only Json variant",
         "Remove --output-format flag from CLI definition",

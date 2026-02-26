@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222171451-gecybwe8
+// Validation schema for bead: isolate-20260222171451-gecybwe8
 // Title: task-red: Property tests for task object (failing)
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222171451-gecybwe8.cue implementation.cue
+// Use: cue vet isolate-20260222171451-gecybwe8.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222171451-gecybwe8"
+  bead_id: "isolate-20260222171451-gecybwe8"
   title: "task-red: Property tests for task object (failing)"
 
   // Contract verification

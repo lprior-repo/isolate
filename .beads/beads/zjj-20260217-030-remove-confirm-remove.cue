@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-030-remove-confirm-remove
+// Bead ID: isolate-20260217-030-remove-confirm-remove
 // Section: 1 of 16
-bead_id: "zjj-20260217-030-remove-confirm-remove"
+bead_id: "isolate-20260217-030-remove-confirm-remove"
 
 // Section 2: Intent
 intent: {
@@ -34,9 +34,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-003-jsonl-writer-emit"]
+    requires: ["isolate-20260217-003-jsonl-writer-emit"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-032-remove-force-flags"]
+    blocks: ["isolate-20260217-032-remove-force-flags"]
 }
 
 // Section 5: Contract

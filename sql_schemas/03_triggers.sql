@@ -1,4 +1,4 @@
--- ZJJ Database Triggers
+-- Isolate Database Triggers
 --
 -- Automatic timestamp management for sessions table
 

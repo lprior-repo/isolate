@@ -1,6 +1,6 @@
 # Feature: Status Query
 #
-# As an agent in the ZJJ control plane
+# As an agent in the Isolate control plane
 # I want to query my current session status and context
 # So that I can understand my work environment and make informed decisions
 #
@@ -13,7 +13,7 @@ Feature: Status Query
 
   Background:
     Given a JJ repository is initialized
-    And zjj is initialized
+    And isolate is initialized
 
   # ==========================================================================
   # Scenario: Status shows current session

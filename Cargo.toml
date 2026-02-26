@@ -63,14 +63,15 @@ proptest = "1.0"
 tempfile = "3.0"
 serial_test = "3.0"
 criterion = "0.5"
+doc-comment = "0.3"
 
 [workspace.package]
 version = "0.4.3"
 edition = "2021"
 rust-version = "1.80"
-authors = ["ZJJ Contributors"]
+authors = ["Isolate Contributors"]
 license = "MIT"
-repository = "https://github.com/lprior-repo/zjj"
+repository = "https://github.com/lprior-repo/isolate"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-owcvblr6
+// Validation schema for bead: isolate-20260221150049-owcvblr6
 // Title: test: Integration test deep stack
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-owcvblr6.cue implementation.cue
+// Use: cue vet isolate-20260221150049-owcvblr6.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-owcvblr6"
+  bead_id: "isolate-20260221150049-owcvblr6"
   title: "test: Integration test deep stack"
 
   // Contract verification

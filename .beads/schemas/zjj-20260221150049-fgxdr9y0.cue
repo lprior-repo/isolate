@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-fgxdr9y0
+// Validation schema for bead: isolate-20260221150049-fgxdr9y0
 // Title: queue: Add parent_workspace column
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-fgxdr9y0.cue implementation.cue
+// Use: cue vet isolate-20260221150049-fgxdr9y0.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-fgxdr9y0"
+  bead_id: "isolate-20260221150049-fgxdr9y0"
   title: "queue: Add parent_workspace column"
 
   // Contract verification

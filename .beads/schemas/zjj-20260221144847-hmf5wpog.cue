@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221144847-hmf5wpog
+// Validation schema for bead: isolate-20260221144847-hmf5wpog
 // Title: train: Add stack auto-rebase
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221144847-hmf5wpog.cue implementation.cue
+// Use: cue vet isolate-20260221144847-hmf5wpog.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221144847-hmf5wpog"
+  bead_id: "isolate-20260221144847-hmf5wpog"
   title: "train: Add stack auto-rebase"
 
   // Contract verification

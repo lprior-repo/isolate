@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-012-db-merge-queue-tables
+// Bead ID: isolate-20260217-012-db-merge-queue-tables
 // Section: 1 of 16
-bead_id: "zjj-20260217-012-db-merge-queue-tables"
+bead_id: "isolate-20260217-012-db-merge-queue-tables"
 
 // Section 2: Intent
 intent: {
@@ -38,7 +38,7 @@ dependencies: {
     // Requires: Must complete before this bead
     requires: []  // No dependencies - foundation bead
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-013-db-update-mergequeue", "zjj-20260217-014-db-conflict-resolutions-table", "zjj-20260217-015-db-remove-queue-path"]
+    blocks: ["isolate-20260217-013-db-update-mergequeue", "isolate-20260217-014-db-conflict-resolutions-table", "isolate-20260217-015-db-remove-queue-path"]
 }
 
 // Section 5: Contract

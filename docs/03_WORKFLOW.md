@@ -21,7 +21,7 @@ jj git fetch --all-remotes
 
 ```bash
 # Edit files (automatically tracked by jj)
-vim crates/zjj-core/src/lib.rs
+vim crates/isolate-core/src/lib.rs
 
 # Check status
 jj status
@@ -296,19 +296,19 @@ br close BD-124
 
 ## Syncing Workspaces
 
-`zjj sync` rebases your workspace onto main, keeping your work up to date with the latest changes.
+`isolate sync` rebases your workspace onto main, keeping your work up to date with the latest changes.
 
 ### Basic Usage
 
 ```bash
 # Sync current workspace with main
-zjj sync
+isolate sync
 
 # Sync specific workspace
-zjj sync feature-auth
+isolate sync feature-auth
 
 # Sync all workspaces
-zjj sync --all
+isolate sync --all
 ```
 
 ### What It Does
@@ -326,7 +326,7 @@ zjj sync --all
 ### Example
 
 ```bash
-$ zjj sync
+$ isolate sync
 Syncing workspace 'feature-auth' with main...
 Rebasing workspace commits onto main
 Summary: 3 commits rebased, 0 conflicts
@@ -512,7 +512,7 @@ jj git push     # Push corrected
 3. **Moon**: Validation (building & testing)
 4. **Beads**: Closure (marking done)
 
-Everything flows through these tools. Master them and you master ZJJ development.
+Everything flows through these tools. Master them and you master Isolate development.
 
 ---
 

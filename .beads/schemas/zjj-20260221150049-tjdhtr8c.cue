@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-tjdhtr8c
+// Validation schema for bead: isolate-20260221150049-tjdhtr8c
 // Title: stack: Add build_dependent_list function
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-tjdhtr8c.cue implementation.cue
+// Use: cue vet isolate-20260221150049-tjdhtr8c.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-tjdhtr8c"
+  bead_id: "isolate-20260221150049-tjdhtr8c"
   title: "stack: Add build_dependent_list function"
 
   // Contract verification

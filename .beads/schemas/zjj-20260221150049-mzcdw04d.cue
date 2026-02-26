@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-mzcdw04d
+// Validation schema for bead: isolate-20260221150049-mzcdw04d
 // Title: cli: Add stack sync command
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-mzcdw04d.cue implementation.cue
+// Use: cue vet isolate-20260221150049-mzcdw04d.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-mzcdw04d"
+  bead_id: "isolate-20260221150049-mzcdw04d"
   title: "cli: Add stack sync command"
 
   // Contract verification

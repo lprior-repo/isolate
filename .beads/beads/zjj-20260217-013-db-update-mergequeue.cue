@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-013-db-update-mergequeue
+// Bead ID: isolate-20260217-013-db-update-mergequeue
 // Section: 1 of 16
-bead_id: "zjj-20260217-013-db-update-mergequeue"
+bead_id: "isolate-20260217-013-db-update-mergequeue"
 
 // Section 2: Intent
 intent: {
@@ -19,8 +19,8 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Update crates/zjj-core/src/coordination/queue.rs",
-        "Update crates/zjj-core/src/coordination/queue_entities.rs",
+        "Update crates/isolate-core/src/coordination/queue.rs",
+        "Update crates/isolate-core/src/coordination/queue_entities.rs",
         "Change database queries to use state.db",
         "Remove queue.db path logic",
         "Update queue table names to use zjj_queue prefix",
@@ -37,9 +37,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-012-db-merge-queue-tables"]
+    requires: ["isolate-20260217-012-db-merge-queue-tables"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-015-db-remove-queue-path", "zjj-20260217-020-self-heal-stale-locks", "zjj-20260217-021-self-heal-orphans", "zjj-20260217-022-self-heal-thresholds", "zjj-20260217-023-queue-submit-cmd", "zjj-20260217-024-merge-train-logic", "zjj-20260217-025-train-failure-auto-rebase", "zjj-20260217-026-queue-new-states"]
+    blocks: ["isolate-20260217-015-db-remove-queue-path", "isolate-20260217-020-self-heal-stale-locks", "isolate-20260217-021-self-heal-orphans", "isolate-20260217-022-self-heal-thresholds", "isolate-20260217-023-queue-submit-cmd", "isolate-20260217-024-merge-train-logic", "isolate-20260217-025-train-failure-auto-rebase", "isolate-20260217-026-queue-new-states"]
 }
 
 // Section 5: Contract
@@ -68,8 +68,8 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj-core/src/coordination/queue.rs",
-        "Read crates/zjj-core/src/coordination/queue_entities.rs",
+        "Read crates/isolate-core/src/coordination/queue.rs",
+        "Read crates/isolate-core/src/coordination/queue_entities.rs",
         "Grep for references to queue.db or queue_db_path",
         "Update MergeQueue::new() to take state.db pool",
         "Update all queries to use zjj_queue table names",

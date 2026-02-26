@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-3wfy09ly
+// Validation schema for bead: isolate-20260221150049-3wfy09ly
 // Title: queue: Add find_blocked method
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-3wfy09ly.cue implementation.cue
+// Use: cue vet isolate-20260221150049-3wfy09ly.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-3wfy09ly"
+  bead_id: "isolate-20260221150049-3wfy09ly"
   title: "queue: Add find_blocked method"
 
   // Contract verification

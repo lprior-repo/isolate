@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-033-test-merge-train
+// Bead ID: isolate-20260217-033-test-merge-train
 // Section: 1 of 16
-bead_id: "zjj-20260217-033-test-merge-train"
+bead_id: "isolate-20260217-033-test-merge-train"
 
 // Section 2: Intent
 intent: {
@@ -37,7 +37,7 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-024-merge-train-logic"]
+    requires: ["isolate-20260217-024-merge-train-logic"]
     // Blocks: Blocks until this completes
     blocks: []  // Doesn't block anything
 }

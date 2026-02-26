@@ -1,8 +1,8 @@
-# Async Patterns for ZJJ Contributors
+# Async Patterns for Isolate Contributors
 
 ## Overview
 
-ZJJ migrated from synchronous `rusqlite` to asynchronous `sqlx` in version 0.3.0. All database operations and command handlers now use async/await patterns with Tokio runtime.
+Isolate migrated from synchronous `rusqlite` to asynchronous `sqlx` in version 0.3.0. All database operations and command handlers now use async/await patterns with Tokio runtime.
 
 ## Core Concepts
 
@@ -41,7 +41,7 @@ let sessions = sqlx::query_as!("SELECT * FROM sessions")
 All command handlers are now async:
 
 ```rust
-// crates/zjj/src/commands/status/mod.rs
+// crates/isolate/src/commands/status/mod.rs
 pub async fn run(args: Args, ctx: &CommandContext) -> Result<()> {
     let db = get_session_db().await?;
     let session = db.get(&args.name).await?;

@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222164827-loqr5gaj
+// Validation schema for bead: isolate-20260222164827-loqr5gaj
 // Title: test-scenario: Scenario tests for agent workflows
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222164827-loqr5gaj.cue implementation.cue
+// Use: cue vet isolate-20260222164827-loqr5gaj.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222164827-loqr5gaj"
+  bead_id: "isolate-20260222164827-loqr5gaj"
   title: "test-scenario: Scenario tests for agent workflows"
 
   // Contract verification

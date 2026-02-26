@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260221150049-z2xphh3c
+// Validation schema for bead: isolate-20260221150049-z2xphh3c
 // Title: train: Add cascade unblock logic
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260221150049-z2xphh3c.cue implementation.cue
+// Use: cue vet isolate-20260221150049-z2xphh3c.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260221150049-z2xphh3c"
+  bead_id: "isolate-20260221150049-z2xphh3c"
   title: "train: Add cascade unblock logic"
 
   // Contract verification

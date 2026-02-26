@@ -1,9 +1,9 @@
 package beads
 
 
-// Bead ID: zjj-20260217-003-jsonl-writer-emit
+// Bead ID: isolate-20260217-003-jsonl-writer-emit
 // Section: 1 of 16
-bead_id: "zjj-20260217-003-jsonl-writer-emit"
+bead_id: "isolate-20260217-003-jsonl-writer-emit"
 
 // Section 2: Intent
 intent: {
@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create JsonlWriter struct in crates/zjj-core/src/output/mod.rs",
+        "Create JsonlWriter struct in crates/isolate-core/src/output/mod.rs",
         "Create jsonl.rs with emit() function",
         "Implement JsonlWriter::new() for stdout",
         "Implement JsonlWriter::emit() method",
@@ -38,9 +38,9 @@ scope: {
 // Section 4: Dependencies
 dependencies: {
     // Requires: Must complete before this bead
-    requires: ["zjj-20260217-001-jsonl-core-types"]
+    requires: ["isolate-20260217-001-jsonl-core-types"]
     // Blocks: Blocks until this completes
-    blocks: ["zjj-20260217-006-status-jsonl-only", "zjj-20260217-007-list-jsonl-only", "zjj-20260217-008-queue-jsonl-only", "zjj-20260217-009-other-commands-jsonl", "zjj-20260217-030-remove-confirm-remove", "zjj-20260217-031-remove-confirm-clean"]
+    blocks: ["isolate-20260217-006-status-jsonl-only", "isolate-20260217-007-list-jsonl-only", "isolate-20260217-008-queue-jsonl-only", "isolate-20260217-009-other-commands-jsonl", "isolate-20260217-030-remove-confirm-remove", "isolate-20260217-031-remove-confirm-clean"]
 }
 
 // Section 5: Contract
@@ -72,8 +72,8 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Create crates/zjj-core/src/output/mod.rs with pub exports",
-        "Create crates/zjj-core/src/output/jsonl.rs",
+        "Create crates/isolate-core/src/output/mod.rs with pub exports",
+        "Create crates/isolate-core/src/output/jsonl.rs",
         "Import OutputLine types and serde_json",
         "Define JsonlWriter<W: Write> struct with writer field",
         "Implement JsonlWriter::new(writer: W) -> Self",

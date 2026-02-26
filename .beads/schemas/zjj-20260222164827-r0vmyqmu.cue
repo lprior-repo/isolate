@@ -3,14 +3,14 @@ package validation
 
 import "list"
 
-// Validation schema for bead: zjj-20260222164827-r0vmyqmu
+// Validation schema for bead: isolate-20260222164827-r0vmyqmu
 // Title: cli-stack: Implement stack object commands
 //
 // This schema validates that implementation is complete.
-// Use: cue vet zjj-20260222164827-r0vmyqmu.cue implementation.cue
+// Use: cue vet isolate-20260222164827-r0vmyqmu.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "zjj-20260222164827-r0vmyqmu"
+  bead_id: "isolate-20260222164827-r0vmyqmu"
   title: "cli-stack: Implement stack object commands"
 
   // Contract verification
