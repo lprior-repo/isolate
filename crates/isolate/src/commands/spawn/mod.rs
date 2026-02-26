@@ -55,8 +55,8 @@ Check the project's README or CLAUDE.md for the correct build commands.
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
-use types::SpawnStatus;
 use isolate_core::json::SchemaEnvelope;
+use types::SpawnStatus;
 
 use crate::{
     beads::{BeadRepository, BeadStatus},
@@ -259,7 +259,10 @@ async fn validate_location() -> Result<String> {
     let current_dir = std::env::current_dir().context("Failed to get current directory")?;
 
     // Simple check: if we're in .isolate/workspaces, we're in a workspace
-    if current_dir.to_string_lossy().contains(".isolate/workspaces") {
+    if current_dir
+        .to_string_lossy()
+        .contains(".isolate/workspaces")
+    {
         anyhow::bail!("In workspace directory");
     }
 
@@ -312,11 +315,15 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
     // 2. All workspaces are based on the same repository operation
     // 3. Operation graph consistency is verified after creation
     // CRITICAL-004 fix: Pass root explicitly to support sibling workspace directories
-    isolate_core::jj_operation_sync::create_workspace_synced(bead_id, &workspace_path, Path::new(root))
-        .await
-        .map_err(|e| SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to create workspace with operation sync: {e}"),
-        })?;
+    isolate_core::jj_operation_sync::create_workspace_synced(
+        bead_id,
+        &workspace_path,
+        Path::new(root),
+    )
+    .await
+    .map_err(|e| SpawnError::WorkspaceCreationFailed {
+        reason: format!("Failed to create workspace with operation sync: {e}"),
+    })?;
 
     // Create AI discoverability files in the workspace
     create_workspace_discoverability(&workspace_path).await?;
@@ -355,7 +362,10 @@ async fn spawn_agent_foreground(
     cmd.args(&options.agent_args)
         .current_dir(workspace_path)
         .env("Isolate_BEAD_ID", &options.bead_id)
-        .env("Isolate_WORKSPACE", workspace_path.to_string_lossy().as_ref())
+        .env(
+            "Isolate_WORKSPACE",
+            workspace_path.to_string_lossy().as_ref(),
+        )
         .env("Isolate_ACTIVE", "1"); // Required by git pre-commit hook
 
     let mut child = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {

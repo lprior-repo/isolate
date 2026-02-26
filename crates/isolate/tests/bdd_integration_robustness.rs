@@ -135,7 +135,10 @@ mod tests {
 
         // Verify DB file exists
         let db_path = repo_path.join(".isolate").join("state.db");
-        assert!(db_path.exists(), "Database should exist at .isolate/state.db");
+        assert!(
+            db_path.exists(),
+            "Database should exist at .isolate/state.db"
+        );
 
         // Verify it's a valid SQLite file (starts with SQLite format header)
         let db_content = std::fs::read(&db_path).unwrap();
@@ -182,7 +185,8 @@ mod tests {
     /// Scenario: Batch execution with 'isolate' prefix
     ///   Given a batch file with "isolate add session1"
     ///   When I run 'isolate batch --file commands.txt'
-    ///   Then it should correctly execute 'isolate add session1' instead of 'isolate isolate add session1'
+    ///   Then it should correctly execute 'isolate add session1' instead of 'isolate isolate add
+    /// session1'
     #[test]
     fn test_batch_with_isolate_prefix() {
         let temp_dir = tempdir().unwrap();
@@ -283,42 +287,40 @@ add session2",
         .stdout(predicate::str::contains("\"ttl_seconds\": 60"));
     }
 
-    /*
-    /// Scenario: Queue session
-    ///   Given a JJ repo
-    ///   When I run 'isolate queue enqueue session1'
-    ///   Then it should succeed and show in the list
-    #[test]
-    fn test_queue_with_priority() {
-        let temp_dir = tempdir().unwrap();
-        let repo_path = temp_dir.path();
-
-        // Initialize JJ and Isolate
-        Command::new("jj")
-            .args(["git", "init"])
-            .current_dir(repo_path)
-            .status()
-            .unwrap();
-        Command::cargo_bin("isolate")
-            .unwrap()
-            .args(["init"])
-            .current_dir(repo_path)
-            .status()
-            .unwrap();
-
-        let mut cmd = Command::cargo_bin("isolate").unwrap();
-        cmd.args(["queue", "enqueue", "q-session"])
-            .current_dir(repo_path)
-            .assert()
-            .success();
-
-        let mut cmd = Command::cargo_bin("isolate").unwrap();
-        cmd.args(["queue", "list"])
-            .current_dir(repo_path)
-            .assert()
-            .success();
-    }
-    */
+    // Scenario: Queue session
+    //   Given a JJ repo
+    //   When I run 'isolate queue enqueue session1'
+    //   Then it should succeed and show in the list
+    // #[test]
+    // fn test_queue_with_priority() {
+    // let temp_dir = tempdir().unwrap();
+    // let repo_path = temp_dir.path();
+    //
+    // Initialize JJ and Isolate
+    // Command::new("jj")
+    // .args(["git", "init"])
+    // .current_dir(repo_path)
+    // .status()
+    // .unwrap();
+    // Command::cargo_bin("isolate")
+    // .unwrap()
+    // .args(["init"])
+    // .current_dir(repo_path)
+    // .status()
+    // .unwrap();
+    //
+    // let mut cmd = Command::cargo_bin("isolate").unwrap();
+    // cmd.args(["queue", "enqueue", "q-session"])
+    // .current_dir(repo_path)
+    // .assert()
+    // .success();
+    //
+    // let mut cmd = Command::cargo_bin("isolate").unwrap();
+    // cmd.args(["queue", "list"])
+    // .current_dir(repo_path)
+    // .assert()
+    // .success();
+    // }
 
     /// Scenario: Done with advanced flags
     ///   Given an active session with changes

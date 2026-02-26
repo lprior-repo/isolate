@@ -39,13 +39,13 @@
 
 use std::time::Duration;
 
-use tempfile::TempDir;
-use tokio::{fs, time::timeout};
 use isolate_core::{
     config::WatchConfig,
     watcher::{FileWatcher, WatchEvent},
     Result,
 };
+use tempfile::TempDir;
+use tokio::{fs, time::timeout};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -113,7 +113,9 @@ async fn test_watcher_detects_file_changes() -> Result<()> {
     // Wait for event with reduced timeout (2s -> 1s)
     let event = timeout(Duration::from_secs(1), rx.recv())
         .await
-        .map_err(|_| isolate_core::Error::Unknown("Timeout waiting for file change event".to_string()))?
+        .map_err(|_| {
+            isolate_core::Error::Unknown("Timeout waiting for file change event".to_string())
+        })?
         .ok_or_else(|| isolate_core::Error::Unknown("No event received".to_string()))?;
 
     // Verify the event is correct
@@ -170,7 +172,9 @@ async fn test_watcher_debounces_rapid_changes() -> Result<()> {
     for i in 0..2 {
         fs::write(&beads_db, format!("content {i}").as_bytes())
             .await
-            .map_err(|e| isolate_core::Error::IoError(format!("Failed to write iteration {i}: {e}")))?;
+            .map_err(|e| {
+                isolate_core::Error::IoError(format!("Failed to write iteration {i}: {e}"))
+            })?;
 
         // Small delay between writes (shorter than debounce, 20ms -> 15ms)
         tokio::time::sleep(Duration::from_millis(15)).await;
@@ -339,8 +343,8 @@ async fn test_watcher_handles_missing_database() -> Result<()> {
     );
 
     // Verify receiver exists
-    let _rx =
-        result.map_err(|e| isolate_core::Error::IoError(format!("Failed to create watcher: {e}")))?;
+    let _rx = result
+        .map_err(|e| isolate_core::Error::IoError(format!("Failed to create watcher: {e}")))?;
 
     Ok(())
 }
@@ -591,7 +595,9 @@ async fn test_watcher_channel_capacity() -> Result<()> {
     for i in 0..7 {
         fs::write(&beads_db, format!("content {i}").as_bytes())
             .await
-            .map_err(|e| isolate_core::Error::IoError(format!("Failed to write iteration {i}: {e}")))?;
+            .map_err(|e| {
+                isolate_core::Error::IoError(format!("Failed to write iteration {i}: {e}"))
+            })?;
         tokio::time::sleep(Duration::from_millis(40)).await;
     }
 

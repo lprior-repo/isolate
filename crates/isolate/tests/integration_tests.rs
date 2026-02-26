@@ -25,7 +25,7 @@
 
 mod common;
 
-use common::{TestHarness, CommandResult};
+use common::{CommandResult, TestHarness};
 
 // ============================================================================
 // WORKFLOW 1: Session → Workspace → Close Lifecycle
@@ -59,7 +59,9 @@ fn integration_session_workspace_close_workflow() {
     let list_after = harness.isolate(&["session", "list", "--json"]);
     list_after.assert_success();
     // Session should not appear in the session list
-    assert!(!list_after.stdout.contains(&format!("\"name\":\"{session_name}\"")));
+    assert!(!list_after
+        .stdout
+        .contains(&format!("\"name\":\"{session_name}\"")));
 }
 
 #[test]
@@ -71,11 +73,7 @@ fn integration_multiple_sessions_workflow() {
     // Initialize and create sessions
     harness.assert_success(&["init"]);
 
-    let sessions = vec![
-        "feature-payment",
-        "feature-auth",
-        "feature-ui",
-    ];
+    let sessions = vec!["feature-payment", "feature-auth", "feature-ui"];
 
     for session in &sessions {
         harness.assert_success(&["session", "add", session, "--no-open"]);
@@ -153,8 +151,10 @@ fn integration_session_full_lifecycle_transitions() {
     let whoami_before = harness.isolate(&["whoami", "--json"]);
     whoami_before.assert_success();
     // Check for unregistered state or null current_session
-    assert!(whoami_before.stdout.contains("unregistered")
-        || whoami_before.stdout.contains("\"current_session\":null"));
+    assert!(
+        whoami_before.stdout.contains("unregistered")
+            || whoami_before.stdout.contains("\"current_session\":null")
+    );
 
     // State 2: Create session (Creating → Ready)
     let session_name = "lifecycle-session";
@@ -175,7 +175,9 @@ fn integration_session_full_lifecycle_transitions() {
     // State 6: Verify session is no longer in list
     let list_final = harness.isolate(&["session", "list", "--json"]);
     list_final.assert_success();
-    assert!(!list_final.stdout.contains(&format!("\"name\":\"{session_name}\"")));
+    assert!(!list_final
+        .stdout
+        .contains(&format!("\"name\":\"{session_name}\"")));
 
     // Cleanup
     harness.assert_success(&["session", "remove", session2, "-f"]);
@@ -336,7 +338,10 @@ fn integration_error_recovery_workflow() {
 
     // Attempt to remove non-existent session
     let remove_result = harness.isolate(&["session", "remove", "non-existent", "-f"]);
-    assert!(!remove_result.success, "Should fail for non-existent session");
+    assert!(
+        !remove_result.success,
+        "Should fail for non-existent session"
+    );
 
     // Verify system is still functional
     let session_name = "recovery-test";
@@ -525,6 +530,10 @@ fn assert_session_exists(result: &CommandResult, session_name: &str) {
 /// Helper to verify a session does not exist in the list output
 #[allow(dead_code)]
 fn assert_session_not_exists(result: &CommandResult, session_name: &str) {
-    assert!(!result.stdout.contains(session_name),
-        "Session '{}' should not exist in output: {}", session_name, result.stdout);
+    assert!(
+        !result.stdout.contains(session_name),
+        "Session '{}' should not exist in output: {}",
+        session_name,
+        result.stdout
+    );
 }

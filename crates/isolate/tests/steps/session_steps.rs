@@ -1,5 +1,9 @@
 #![allow(clippy::uninlined_format_args)]
-#![allow(clippy::unnecessary_wraps, clippy::unused_async, clippy::missing_const_for_fn)]
+#![allow(
+    clippy::unnecessary_wraps,
+    clippy::unused_async,
+    clippy::missing_const_for_fn
+)]
 //! BDD Step Definitions for Session Management Feature
 //!
 //! This module implements the Given/When/Then steps defined in
@@ -177,8 +181,12 @@ pub mod given_steps {
         // Navigate to session workspace and create bookmark
         let ws_path = ctx.harness.workspace_path(session);
         // Ensure the current change has a description so it can be pushed
-        ctx.harness.jj_in_dir(&ws_path, &["describe", "-m", "test bookmark commit"]).assert_success();
-        ctx.harness.jj_in_dir(&ws_path, &["bookmark", "create", bookmark]).assert_success();
+        ctx.harness
+            .jj_in_dir(&ws_path, &["describe", "-m", "test bookmark commit"])
+            .assert_success();
+        ctx.harness
+            .jj_in_dir(&ws_path, &["bookmark", "create", bookmark])
+            .assert_success();
         Ok(())
     }
 
@@ -266,7 +274,9 @@ pub mod when_steps {
 
     /// When I submit the session "NAME" with dry-run
     pub async fn submit_session_with_dry_run(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.isolate(&["submit", name, "--dry-run", "--json"]);
+        let result = ctx
+            .harness
+            .isolate(&["submit", name, "--dry-run", "--json"]);
         *ctx.last_result.lock().await = Some(result);
         Ok(())
     }
@@ -295,8 +305,18 @@ pub mod then_steps {
 
     /// Then the operation should succeed
     pub async fn operation_should_succeed(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
-        assert!(result.success, "Operation should have succeeded. Stderr: {}", result.stderr);
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
+        assert!(
+            result.success,
+            "Operation should have succeeded. Stderr: {}",
+            result.stderr
+        );
         Ok(())
     }
 
@@ -305,14 +325,22 @@ pub mod then_steps {
         ctx: &SessionTestContext,
         code: &str,
     ) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         assert!(!result.success, "Operation should have failed");
 
         // Try to find error code in any JSON object in the output
         let mut found_code = None;
-        
+
         // Robust detection: try to find any JSON object starting with '{'
-        let start_indices: Vec<_> = result.stdout.char_indices()
+        let start_indices: Vec<_> = result
+            .stdout
+            .char_indices()
             .filter(|&(_, c)| c == '{')
             .map(|(i, _)| i)
             .collect();
@@ -320,7 +348,8 @@ pub mod then_steps {
         for start in start_indices {
             // Try to parse from this start point to the end
             let remainder = &result.stdout[start..];
-            let mut de = serde_json::Deserializer::from_str(remainder).into_iter::<serde_json::Value>();
+            let mut de =
+                serde_json::Deserializer::from_str(remainder).into_iter::<serde_json::Value>();
             if let Some(Ok(json)) = de.next() {
                 // Check for SchemaEnvelope error format
                 if let Some(err) = json.get("error") {
@@ -332,7 +361,11 @@ pub mod then_steps {
                     }
                 }
                 // Check for SubmitResponse error format
-                if let Some(c) = json.get("error").and_then(|e| e.get("code")).and_then(|v| v.as_str()) {
+                if let Some(c) = json
+                    .get("error")
+                    .and_then(|e| e.get("code"))
+                    .and_then(|v| v.as_str())
+                {
                     if c == code {
                         found_code = Some(c.to_string());
                         break;
@@ -365,15 +398,21 @@ pub mod then_steps {
         if found_code.is_none() {
             let stderr_lower = result.stderr.to_lowercase();
             let code_lower = code.to_lowercase();
-            if stderr_lower.contains(&code_lower) || stderr_lower.contains(&code_lower.replace('_', " ")) {
+            if stderr_lower.contains(&code_lower)
+                || stderr_lower.contains(&code_lower.replace('_', " "))
+            {
                 found_code = Some(code.to_string());
             }
         }
 
         assert_eq!(
-            found_code.as_deref(), Some(code),
+            found_code.as_deref(),
+            Some(code),
             "Error code mismatch. Expected {}, got {:?}. \nStdout: {}\nStderr: {}",
-            code, found_code, result.stdout, result.stderr
+            code,
+            found_code,
+            result.stdout,
+            result.stderr
         );
         Ok(())
     }
@@ -398,14 +437,26 @@ pub mod then_steps {
 
     /// Then the output should be valid JSON
     pub async fn output_is_valid_json(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         let _ = parse_jsonl_output(&result.stdout)?;
         Ok(())
     }
 
     /// Then the output contains session name "NAME"
     pub async fn output_contains_session_name(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         assert!(
             result.stdout.contains(name),
             "Output should contain session name {}",
@@ -416,7 +467,13 @@ pub mod then_steps {
 
     /// Then the output contains status "STATUS"
     pub async fn output_contains_status(ctx: &SessionTestContext, status: &str) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         assert!(
             result.stdout.contains(status),
             "Output should contain status {}",
@@ -427,7 +484,13 @@ pub mod then_steps {
 
     /// Then the session details are shown as JSON
     pub async fn session_details_as_json(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         let lines = parse_jsonl_output(&result.stdout)?;
         assert!(
             lines.iter().any(|l| l.get("session").is_some()),
@@ -438,7 +501,13 @@ pub mod then_steps {
 
     /// Then the output should contain N sessions
     pub async fn output_contains_n_sessions(ctx: &SessionTestContext, n: usize) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         let lines = parse_jsonl_output(&result.stdout)?;
         let count = lines.iter().filter(|l| l.get("session").is_some()).count();
         assert_eq!(count, n, "Expected {n} sessions, got {count}");
@@ -447,7 +516,13 @@ pub mod then_steps {
 
     /// Then the sessions show details
     pub async fn sessions_show_details(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         let lines = parse_jsonl_output(&result.stdout)?;
         for line in lines {
             if let Some(session) = line.get("session") {
@@ -461,7 +536,13 @@ pub mod then_steps {
 
     /// Then the output is an empty array
     pub async fn output_is_empty_array(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         let lines = parse_jsonl_output(&result.stdout)?;
         let count = lines.iter().filter(|l| l.get("session").is_some()).count();
         assert_eq!(count, 0, "Output should contain zero sessions");
@@ -476,23 +557,37 @@ pub mod then_steps {
 
     /// Then the response should include the dedupe key
     pub async fn response_includes_dedupe_key(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         let json: JsonValue = serde_json::from_str(&result.stdout)?;
         assert!(
             json["data"]["dedupe_key"].is_string(),
-            "Dedupe key missing in response: {}", result.stdout
+            "Dedupe key missing in response: {}",
+            result.stdout
         );
         Ok(())
     }
 
     /// Then the response should indicate "FIELD"
     pub async fn response_indicates(ctx: &SessionTestContext, field: &str) -> Result<()> {
-        let result = ctx.last_result.lock().await.as_ref().context("No last result")?.clone();
+        let result = ctx
+            .last_result
+            .lock()
+            .await
+            .as_ref()
+            .context("No last result")?
+            .clone();
         let json: JsonValue = serde_json::from_str(&result.stdout)?;
         assert!(
             json["data"][field].as_bool().unwrap_or(false),
             "Field {} not indicated as true in {}",
-            field, result.stdout
+            field,
+            result.stdout
         );
         Ok(())
     }

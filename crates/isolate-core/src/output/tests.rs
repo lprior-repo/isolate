@@ -2,12 +2,10 @@
 
 use std::path::PathBuf;
 
-use super::domain_types::*;
-use super::*;
-use crate::{types::SessionStatus, WorkspaceState};
-
+use super::{domain_types::*, *};
 // Import domain SessionName for use in tests
 use crate::domain::SessionName as DomainSessionName;
+use crate::{types::SessionStatus, WorkspaceState};
 
 #[test]
 fn test_summary_new_validates_empty_message() {

@@ -13,12 +13,12 @@
 
 use std::time::Duration;
 
-use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use isolate_core::coordination::{
     conflict_resolutions_entities::ConflictResolution, get_conflict_resolutions,
     get_resolutions_by_decider, get_resolutions_by_time_range, init_conflict_resolutions_schema,
     insert_conflict_resolution,
 };
+use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 
 /// Helper: Create in-memory test database
 async fn create_test_pool() -> SqlitePool {

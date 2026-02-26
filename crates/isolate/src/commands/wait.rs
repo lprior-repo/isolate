@@ -8,8 +8,8 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use isolate_core::{json::SchemaEnvelope, OutputFormat};
+use serde::Serialize;
 
 use super::get_session_db;
 

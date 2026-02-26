@@ -3,8 +3,8 @@
 //! Provides real-time event streaming with --follow support.
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use isolate_core::{OutputFormat, SchemaEnvelope};
+use serde::{Deserialize, Serialize};
 
 /// Options for the events command
 #[derive(Debug, Clone)]

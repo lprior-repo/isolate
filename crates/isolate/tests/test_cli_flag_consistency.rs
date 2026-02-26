@@ -51,7 +51,12 @@ fn test_spawn_accepts_idempotent_flag() {
 
     // Test: spawn should accept --idempotent flag
     // Will fail because we don't have beads set up, but flag should be recognized
-    let result = harness.isolate(&["spawn", "isolate-test123", "--idempotent", "--no-auto-merge"]);
+    let result = harness.isolate(&[
+        "spawn",
+        "isolate-test123",
+        "--idempotent",
+        "--no-auto-merge",
+    ]);
     assert!(
         !result.stderr.contains("unexpected argument"),
         "Should recognize --idempotent flag (stderr: {})",

@@ -9,8 +9,10 @@
 //! State machines should compile down to simple enum swaps with minimal overhead.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use isolate_core::beads::{Issue, IssueState};
-use isolate_core::domain::aggregates::bead::Bead;
+use isolate_core::{
+    beads::{Issue, IssueState},
+    domain::aggregates::bead::Bead,
+};
 
 // ============================================================================
 // FIXTURES
@@ -81,11 +83,15 @@ fn bench_issue_state_transition(c: &mut Criterion) {
     let mut group = c.benchmark_group("issue_state_transition");
 
     for (idx, (from, to)) in transitions.into_iter().enumerate() {
-        group.bench_with_input(BenchmarkId::new("transition", idx), &(from, to), |b, (from, to)| {
-            b.iter(|| {
-                let _result = black_box(from).transition_to(black_box(*to));
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("transition", idx),
+            &(from, to),
+            |b, (from, to)| {
+                b.iter(|| {
+                    let _result = black_box(from).transition_to(black_box(*to));
+                });
+            },
+        );
     }
 
     group.finish();
@@ -318,7 +324,8 @@ fn bench_common_workflows(c: &mut Criterion) {
     group.bench_function("issue_with_blockers", |b| {
         b.iter(|| {
             let mut issue = test_issue();
-            issue.set_blocked_by(vec!["blocker-1".to_string(), "blocker-2".to_string()])
+            issue
+                .set_blocked_by(vec!["blocker-1".to_string(), "blocker-2".to_string()])
                 .expect("valid");
             issue.transition_to(IssueState::Blocked).expect("valid");
             black_box(&issue);

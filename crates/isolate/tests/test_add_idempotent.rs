@@ -34,9 +34,8 @@ use serde_json::Value as JsonValue;
 
 fn find_session<'a>(parsed: &'a [JsonValue], name: &str) -> Option<&'a JsonValue> {
     parsed.iter().find_map(|line| {
-        line.get("session").filter(|s| {
-            s.get("name").and_then(|n| n.as_str()) == Some(name)
-        })
+        line.get("session")
+            .filter(|s| s.get("name").and_then(|n| n.as_str()) == Some(name))
     })
 }
 
@@ -110,8 +109,8 @@ fn test_add_idempotent_creates_session_when_not_exists() {
     let list_result = harness.isolate(&["list", "--json"]);
     assert!(list_result.success, "List command should succeed");
 
-    let parsed = common::parse_jsonl_output(&list_result.stdout)
-        .expect("List output should be valid JSONL");
+    let parsed =
+        common::parse_jsonl_output(&list_result.stdout).expect("List output should be valid JSONL");
 
     assert!(
         find_session(&parsed, "new-session").is_some(),
@@ -139,9 +138,8 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     );
 
     // THEN: Output is valid JSONL
-    let parsed = common::parse_jsonl_output(&result.stdout)
-        .expect("Output should be valid JSONL");
-    
+    let parsed = common::parse_jsonl_output(&result.stdout).expect("Output should be valid JSONL");
+
     // Find the result output or session output
     // Note: isolate add --json still emits SchemaEnvelope (a single object)
     // which parse_jsonl_output will return as a single element vector
@@ -165,8 +163,8 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     );
 
     // THEN: JSON indicates already exists
-    let parsed2 = common::parse_jsonl_output(&result2.stdout)
-        .expect("Second output should be valid JSONL");
+    let parsed2 =
+        common::parse_jsonl_output(&result2.stdout).expect("Second output should be valid JSONL");
 
     let envelope2 = &parsed2[0];
     let message = if let Some(r) = envelope2.get("result") {
@@ -213,8 +211,8 @@ fn test_add_idempotent_with_bead_id_succeeds_on_duplicate() {
     let list_result = harness.isolate(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let parsed = common::parse_jsonl_output(&list_result.stdout)
-        .expect("List output should be valid JSONL");
+    let parsed =
+        common::parse_jsonl_output(&list_result.stdout).expect("List output should be valid JSONL");
 
     let count = parsed
         .iter()
@@ -256,9 +254,9 @@ fn test_add_idempotent_fails_on_invalid_session_name() {
     let list_result = harness.isolate(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let parsed = common::parse_jsonl_output(&list_result.stdout)
-        .expect("List output should be valid JSONL");
-    
+    let parsed =
+        common::parse_jsonl_output(&list_result.stdout).expect("List output should be valid JSONL");
+
     let session_count = parsed.iter().filter(|l| l.get("session").is_some()).count();
 
     assert_eq!(
@@ -445,8 +443,8 @@ fn test_add_idempotent_concurrent_calls_handle_race_condition() {
         list_result.stdout, list_result.stderr
     );
 
-    let parsed = common::parse_jsonl_output(&list_result.stdout)
-        .expect("List output should be valid JSONL");
+    let parsed =
+        common::parse_jsonl_output(&list_result.stdout).expect("List output should be valid JSONL");
 
     let count = parsed
         .iter()
@@ -472,8 +470,7 @@ fn test_add_idempotent_json_output_schema_validation() {
     let result = harness.isolate(&["add", "schema-test", "--idempotent", "--json", "--no-open"]);
 
     // THEN: Output is valid JSONL
-    let parsed = common::parse_jsonl_output(&result.stdout)
-        .expect("Output should be valid JSONL");
+    let parsed = common::parse_jsonl_output(&result.stdout).expect("Output should be valid JSONL");
 
     // THEN: Find the session data (either in 'session' line or 'data' field of envelope)
     let envelope = &parsed[0];
@@ -489,7 +486,10 @@ fn test_add_idempotent_json_output_schema_validation() {
         session.get("workspace_path").is_some(),
         "Should have 'workspace_path' field"
     );
-    assert!(session.get("status").is_some(), "Should have 'status' field");
+    assert!(
+        session.get("status").is_some(),
+        "Should have 'status' field"
+    );
 }
 
 // ============================================================================
@@ -508,9 +508,8 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
 
     // Get initial session info
     let list1 = harness.isolate(&["list", "--json"]);
-    let parsed1 = common::parse_jsonl_output(&list1.stdout)
-        .expect("List should be valid JSONL");
-    
+    let parsed1 = common::parse_jsonl_output(&list1.stdout).expect("List should be valid JSONL");
+
     let _session1 = find_session(&parsed1, "metadata-test").expect("Should find session");
 
     // WHEN: User runs with different bead_id and --idempotent
@@ -530,14 +529,13 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
     // Note: bead_id is usually in metadata or tags, depends on implementation
     // We'll check how it was stored in the first session.
     // In current impl, we just want to see it didn't change if it was there.
-    
+
     let list2 = harness.isolate(&["list", "--json"]);
-    let parsed2 = common::parse_jsonl_output(&list2.stdout)
-        .expect("List should be valid JSONL");
+    let parsed2 = common::parse_jsonl_output(&list2.stdout).expect("List should be valid JSONL");
     let _session2 = find_session(&parsed2, "metadata-test").expect("Should find session");
 
-    // Since we don't know exactly where bead_id is stored in SessionOutput (might not be exposed yet),
-    // we'll just check that it still EXISTS if it did before.
+    // Since we don't know exactly where bead_id is stored in SessionOutput (might not be exposed
+    // yet), we'll just check that it still EXISTS if it did before.
     // Actually, if it's not in SessionOutput, we can't check it via 'list --json'.
     // But we'll at least verify the command succeeded.
 }

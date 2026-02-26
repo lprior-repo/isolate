@@ -7,11 +7,11 @@ pub mod types;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use isolate_core::{json::SchemaEnvelope, OutputFormat};
 use tokio::process::Command;
 pub use types::{
     BeadsContext, ContextOutput, HealthStatus, Location, RepositoryContext, SessionContext,
 };
-use isolate_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::{check_in_jj_repo, get_session_db};
 

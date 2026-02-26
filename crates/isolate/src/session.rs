@@ -8,8 +8,8 @@
 use std::time::SystemTime;
 use std::{fmt, str::FromStr};
 
-use serde::{Deserialize, Serialize};
 use isolate_core::{Error, Result, WorkspaceState};
+use serde::{Deserialize, Serialize};
 
 /// Session status representing the lifecycle state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

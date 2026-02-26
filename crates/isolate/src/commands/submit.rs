@@ -20,10 +20,10 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use isolate_core::{config, jj, json::schemas, OutputFormat};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::process::Command;
-use isolate_core::{config, jj, json::schemas, OutputFormat};
 
 use crate::commands::{check_in_jj_repo, workspace_utils};
 
@@ -180,9 +180,10 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
     // Determine workspace context
     let workspace_info = if let Some(ref name) = options.name {
         let db = crate::commands::get_session_db().await?;
-        let session = db.get(name).await?.ok_or_else(|| {
-            anyhow::anyhow!("Session '{name}' not found")
-        })?;
+        let session = db
+            .get(name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
         WorkspaceInfo {
             path: PathBuf::from(session.workspace_path),
             name: session.name,
@@ -327,9 +328,10 @@ async fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
         });
     }
 
-    let workspace_dir = config::load_config()
-        .await
-        .map_or_else(|_| ".isolate/workspaces".to_string(), |cfg| cfg.workspace_dir);
+    let workspace_dir = config::load_config().await.map_or_else(
+        |_| ".isolate/workspaces".to_string(),
+        |cfg| cfg.workspace_dir,
+    );
     let workspace_roots = workspace_utils::candidate_workspace_roots(root, &workspace_dir);
 
     for workspace_root in workspace_roots {
@@ -697,7 +699,8 @@ mod tests {
 
     #[test]
     fn test_submit_options_defaults() {
-        let options = SubmitOptions { name: None, 
+        let options = SubmitOptions {
+            name: None,
             format: OutputFormat::Json,
             dry_run: false,
             auto_commit: false,
@@ -961,7 +964,8 @@ mod tests {
 
     #[test]
     fn test_submit_options_auto_commit() {
-        let options_with_commit = SubmitOptions { name: None, 
+        let options_with_commit = SubmitOptions {
+            name: None,
             format: OutputFormat::Json,
             dry_run: false,
             auto_commit: true,
@@ -974,7 +978,8 @@ mod tests {
             Some("custom message".to_string())
         );
 
-        let options_without_commit = SubmitOptions { name: None, 
+        let options_without_commit = SubmitOptions {
+            name: None,
             format: OutputFormat::Json,
             dry_run: false,
             auto_commit: false,

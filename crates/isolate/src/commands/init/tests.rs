@@ -313,8 +313,8 @@ fn test_init_run_with_cwd_accepts_format() {
 
 // ... rest of documentative tests unchanged
 // ============================================================================
-// Bug Fix Tests: isolate-rg0v - Init doesn't recreate config.toml when .jjz exists but config missing
-// ============================================================================
+// Bug Fix Tests: isolate-rg0v - Init doesn't recreate config.toml when .jjz exists but config
+// missing ============================================================================
 
 /// Test that init recreates config.toml when .isolate exists but config.toml is missing
 #[tokio::test]

@@ -16,11 +16,16 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::fmt::Display;
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use crate::cli_contracts::ContractError;
-
+// Re-export AgentId from domain layer (single source of truth)
+//
+// The domain::identifiers module provides the canonical AgentId implementation
+// with comprehensive validation (1-128 chars, alphanumeric plus hyphen, underscore,
+// dot, and colon). This re-export maintains API compatibility while consolidating
+// to a single validated implementation.
+pub use crate::domain::AgentId;
 // ═══════════════════════════════════════════════════════════════════════════
 // IDENTIFIER NEWTYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -31,14 +36,6 @@ use crate::cli_contracts::ContractError;
 // following DDD principles. This re-export maintains API compatibility while
 // consolidating to a single validated implementation.
 pub use crate::domain::SessionName;
-
-// Re-export AgentId from domain layer (single source of truth)
-//
-// The domain::identifiers module provides the canonical AgentId implementation
-// with comprehensive validation (1-128 chars, alphanumeric plus hyphen, underscore,
-// dot, and colon). This re-export maintains API compatibility while consolidating
-// to a single validated implementation.
-pub use crate::domain::AgentId;
 
 // Provide conversion from ContractError for CLI contract usage
 impl AgentId {

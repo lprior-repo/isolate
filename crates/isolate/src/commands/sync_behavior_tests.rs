@@ -7,8 +7,8 @@
 
 use std::time::SystemTime;
 
-use tempfile::TempDir;
 use isolate_core::OutputFormat;
+use tempfile::TempDir;
 
 use crate::{
     commands::sync::SyncOptions,

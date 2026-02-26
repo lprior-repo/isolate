@@ -18,10 +18,10 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use itertools::Itertools;
 use isolate_core::{
     lifecycle::LifecycleState, session_state::SessionState, types::SessionStatus, WorkspaceState,
 };
+use itertools::Itertools;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TRANSITION MATRIX GENERATION

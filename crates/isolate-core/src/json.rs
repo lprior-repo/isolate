@@ -1547,7 +1547,10 @@ mod tests {
 
     #[test]
     fn test_schema_registry_uri_format() {
-        assert_eq!(schemas::uri(schemas::ADD_RESPONSE), "isolate://add-response/v1");
+        assert_eq!(
+            schemas::uri(schemas::ADD_RESPONSE),
+            "isolate://add-response/v1"
+        );
         assert_eq!(
             schemas::uri(schemas::DONE_RESPONSE),
             "isolate://done-response/v1"

@@ -16,13 +16,14 @@
 //! domain events. Events are used for event sourcing and audit logging,
 //! so serialization performance is critical.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use isolate_core::domain::events::{
-    serialize_event, serialize_event_bytes, DomainEvent,
-};
-use isolate_core::domain::identifiers::{AgentId, BeadId, SessionName, WorkspaceName};
-use chrono::Utc;
 use std::path::PathBuf;
+
+use chrono::Utc;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use isolate_core::domain::{
+    events::{serialize_event, serialize_event_bytes, DomainEvent},
+    identifiers::{AgentId, BeadId, SessionName, WorkspaceName},
+};
 
 // ============================================================================
 // FIXTURES
@@ -295,12 +296,16 @@ fn bench_deserialize_multiple_events(c: &mut Criterion) {
             events.iter().map(|e| serialize_event(e)).collect();
         let json_batch = json_batch.expect("serialization failed");
 
-        group.bench_with_input(BenchmarkId::from_parameter(size), &json_batch, |b, batch| {
-            b.iter(|| {
-                let _results: Result<Vec<DomainEvent>, _> =
-                    batch.iter().map(|j| serde_json::from_str(j)).collect();
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            &json_batch,
+            |b, batch| {
+                b.iter(|| {
+                    let _results: Result<Vec<DomainEvent>, _> =
+                        batch.iter().map(|j| serde_json::from_str(j)).collect();
+                });
+            },
+        );
     }
 
     group.finish();

@@ -7,11 +7,11 @@
 use std::{io, path::Path, process::Stdio};
 
 use anyhow::Result;
-use tokio::{io::AsyncWriteExt, process::Command};
 use isolate_core::{
     output::{emit_stdout, Message, OutputLine, ResultKind, ResultOutput, SessionOutput},
     OutputFormat,
 };
+use tokio::{io::AsyncWriteExt, process::Command};
 
 use crate::commands::{determine_main_branch, get_session_db};
 
@@ -184,7 +184,9 @@ async fn handle_diff_output(
 }
 
 /// Convert local `SessionStatus` to core `SessionStatus`
-const fn to_core_status(status: crate::session::SessionStatus) -> isolate_core::types::SessionStatus {
+const fn to_core_status(
+    status: crate::session::SessionStatus,
+) -> isolate_core::types::SessionStatus {
     match status {
         crate::session::SessionStatus::Active => isolate_core::types::SessionStatus::Active,
         crate::session::SessionStatus::Paused => isolate_core::types::SessionStatus::Paused,
@@ -493,7 +495,10 @@ mod tests {
         .expect("Failed to create result")
         .with_data(diff_data);
 
-        assert!(matches!(result.outcome, isolate_core::output::Outcome::Success));
+        assert!(matches!(
+            result.outcome,
+            isolate_core::output::Outcome::Success
+        ));
         assert_eq!(result.kind, ResultKind::Command);
         assert!(result.data.is_some());
     }

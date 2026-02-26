@@ -4,8 +4,8 @@
 //! command inputs, outputs, and side effects.
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use isolate_core::{json::schemas, OutputFormat, SchemaEnvelope};
+use serde::{Deserialize, Serialize};
 
 /// Options for the contract command
 #[derive(Debug, Clone)]
@@ -257,7 +257,10 @@ fn build_init_contract() -> CommandContract {
             "Creates default layouts".to_string(),
         ],
         related_commands: vec!["doctor".to_string(), "add".to_string()],
-        examples: vec!["isolate init".to_string(), "isolate init --json".to_string()],
+        examples: vec![
+            "isolate init".to_string(),
+            "isolate init --json".to_string(),
+        ],
         reversible: false,
         undo_command: None,
         prerequisites: vec!["JJ must be installed".to_string()],
@@ -703,7 +706,10 @@ fn build_undo_contract() -> CommandContract {
             "Recreates workspace".to_string(),
         ],
         related_commands: vec!["done".to_string(), "revert".to_string()],
-        examples: vec!["isolate undo".to_string(), "isolate undo --dry-run".to_string()],
+        examples: vec![
+            "isolate undo".to_string(),
+            "isolate undo --dry-run".to_string(),
+        ],
         reversible: true,
         undo_command: Some("isolate done".to_string()),
         prerequisites: vec![
@@ -974,7 +980,10 @@ fn build_whoami_contract() -> CommandContract {
         output_schema: "isolate://whoami-response/v1".to_string(),
         side_effects: vec![],
         related_commands: vec!["whereami".to_string(), "agents".to_string()],
-        examples: vec!["isolate whoami".to_string(), "isolate whoami --json".to_string()],
+        examples: vec![
+            "isolate whoami".to_string(),
+            "isolate whoami --json".to_string(),
+        ],
         reversible: false,
         undo_command: None,
         prerequisites: vec![],

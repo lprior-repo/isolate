@@ -16,8 +16,8 @@
 use std::process;
 
 use anyhow::Result;
-use serde_json::json;
 use isolate_core::{json::schemas, SchemaEnvelope};
+use serde_json::json;
 
 use crate::{
     cli::{alias_handler, build_cli},

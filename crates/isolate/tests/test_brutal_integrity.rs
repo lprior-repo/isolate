@@ -49,14 +49,14 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use isolate_core::{
+    workspace_integrity::{BackupManager, CorruptionType, IntegrityValidator, RepairExecutor},
+    Error, Result,
+};
 use tempfile::TempDir;
 use tokio::{
     sync::{Mutex, MutexGuard},
     task::JoinSet,
-};
-use isolate_core::{
-    workspace_integrity::{BackupManager, CorruptionType, IntegrityValidator, RepairExecutor},
-    Error, Result,
 };
 
 /// Global mutex to synchronize tests that change current directory or touch shared resources

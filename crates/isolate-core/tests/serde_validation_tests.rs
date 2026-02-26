@@ -12,18 +12,21 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 
-use chrono::{DateTime, Utc};
 use std::path::PathBuf;
-use isolate_core::domain::events::{
-    serialize_event, serialize_event_bytes, DomainEvent, EventMetadata, StoredEvent,
-};
-use isolate_core::domain::identifiers::{
-    AbsolutePath, AgentId, BeadId, SessionId, SessionName, TaskId, WorkspaceName,
-};
-use isolate_core::domain::session::BranchState;
-use isolate_core::beads::{
-    Assignee, BlockedBy, DependsOn, Description, IssueId, IssueState, IssueType, Labels,
-    Priority, Title,
+
+use chrono::{DateTime, Utc};
+use isolate_core::{
+    beads::{
+        Assignee, BlockedBy, DependsOn, Description, IssueId, IssueState, IssueType, Labels,
+        Priority, Title,
+    },
+    domain::{
+        events::{serialize_event, serialize_event_bytes, DomainEvent, EventMetadata, StoredEvent},
+        identifiers::{
+            AbsolutePath, AgentId, BeadId, SessionId, SessionName, TaskId, WorkspaceName,
+        },
+        session::BranchState,
+    },
 };
 
 // ============================================================================
@@ -51,7 +54,10 @@ fn test_session_name_rejects_invalid_json() {
 
     // String starting with number should be rejected
     let result: Result<SessionName, _> = serde_json::from_str("\"123-session\"");
-    assert!(result.is_err(), "Session name starting with number should be rejected");
+    assert!(
+        result.is_err(),
+        "Session name starting with number should be rejected"
+    );
 
     // String with special characters should be rejected
     let result: Result<SessionName, _> = serde_json::from_str("\"my.session\"");
@@ -102,8 +108,7 @@ fn test_workspace_name_json_roundtrip() {
     assert_eq!(json, "\"my-workspace\"");
 
     // Deserialize from JSON
-    let deserialized: WorkspaceName =
-        serde_json::from_str(&json).expect("deserialization failed");
+    let deserialized: WorkspaceName = serde_json::from_str(&json).expect("deserialization failed");
     assert_eq!(deserialized, original);
 }
 
@@ -135,11 +140,17 @@ fn test_task_id_json_roundtrip() {
 fn test_task_id_rejects_invalid_prefix() {
     // Missing bd- prefix should be rejected
     let result: Result<TaskId, _> = serde_json::from_str("\"abc123\"");
-    assert!(result.is_err(), "Task ID without bd- prefix should be rejected");
+    assert!(
+        result.is_err(),
+        "Task ID without bd- prefix should be rejected"
+    );
 
     // Wrong prefix should be rejected
     let result: Result<TaskId, _> = serde_json::from_str("\"task-abc123\"");
-    assert!(result.is_err(), "Task ID with wrong prefix should be rejected");
+    assert!(
+        result.is_err(),
+        "Task ID with wrong prefix should be rejected"
+    );
 }
 
 #[test]
@@ -166,7 +177,10 @@ fn test_session_id_json_roundtrip() {
 fn test_session_id_rejects_non_ascii() {
     // Non-ASCII characters should be rejected
     let result: Result<SessionId, _> = serde_json::from_str("\"session-日本語\"");
-    assert!(result.is_err(), "Session ID with non-ASCII should be rejected");
+    assert!(
+        result.is_err(),
+        "Session ID with non-ASCII should be rejected"
+    );
 }
 
 #[test]
@@ -178,8 +192,7 @@ fn test_absolute_path_json_roundtrip() {
     assert_eq!(json, "\"/home/user/workspace\"");
 
     // Deserialize from JSON
-    let deserialized: AbsolutePath =
-        serde_json::from_str(&json).expect("deserialization failed");
+    let deserialized: AbsolutePath = serde_json::from_str(&json).expect("deserialization failed");
     assert_eq!(deserialized, original);
 }
 
@@ -306,8 +319,7 @@ fn test_issue_state_json_roundtrip() {
         let json = serde_json::to_string(&state).expect("serialization failed");
 
         // Deserialize from JSON
-        let deserialized: IssueState =
-            serde_json::from_str(&json).expect("deserialization failed");
+        let deserialized: IssueState = serde_json::from_str(&json).expect("deserialization failed");
         assert_eq!(deserialized, state);
     }
 }
@@ -354,8 +366,7 @@ fn test_priority_json_roundtrip() {
         let json = serde_json::to_string(&priority).expect("serialization failed");
 
         // Deserialize from JSON
-        let deserialized: Priority =
-            serde_json::from_str(&json).expect("deserialization failed");
+        let deserialized: Priority = serde_json::from_str(&json).expect("deserialization failed");
         assert_eq!(deserialized, priority);
     }
 }
@@ -387,8 +398,7 @@ fn test_issue_type_json_roundtrip() {
         let json = serde_json::to_string(&issue_type).expect("serialization failed");
 
         // Deserialize from JSON
-        let deserialized: IssueType =
-            serde_json::from_str(&json).expect("deserialization failed");
+        let deserialized: IssueType = serde_json::from_str(&json).expect("deserialization failed");
         assert_eq!(deserialized, issue_type);
     }
 }
@@ -469,8 +479,8 @@ fn test_labels_empty() {
 
 #[test]
 fn test_depends_on_json_roundtrip() {
-    let original = DependsOn::new(vec!["issue-1".to_string(), "issue-2".to_string()])
-        .expect("valid");
+    let original =
+        DependsOn::new(vec!["issue-1".to_string(), "issue-2".to_string()]).expect("valid");
 
     // Serialize to JSON
     let json = serde_json::to_string(&original).expect("serialization failed");
@@ -520,8 +530,8 @@ fn test_domain_event_json_roundtrip() {
     for event in events {
         // JSON roundtrip
         let json = serialize_event(&event).expect("serialization failed");
-        let deserialized = serde_json::from_str::<DomainEvent>(&json)
-            .expect("deserialization failed");
+        let deserialized =
+            serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
         assert_eq!(event, deserialized);
 
         // Binary roundtrip
@@ -616,8 +626,7 @@ fn test_timestamp_serialization() {
     let now = Utc::now();
     let json = serde_json::to_string(&now).expect("serialization failed");
 
-    let deserialized: DateTime<Utc> =
-        serde_json::from_str(&json).expect("deserialization failed");
+    let deserialized: DateTime<Utc> = serde_json::from_str(&json).expect("deserialization failed");
 
     // Timestamps should survive roundtrip within reasonable precision
     let duration = if deserialized > now {

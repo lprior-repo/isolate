@@ -8,8 +8,8 @@
 //! Use this when you want to discard work without completing it.
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use isolate_core::{json::SchemaEnvelope, OutputFormat};
+use serde::Serialize;
 
 use super::{context, get_session_db};
 use crate::session::{SessionStatus, SessionUpdate};

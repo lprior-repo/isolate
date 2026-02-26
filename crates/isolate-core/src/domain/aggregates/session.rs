@@ -18,9 +18,12 @@
 
 use std::path::PathBuf;
 
-use crate::domain::identifiers::{SessionId, SessionName};
-use crate::domain::session::BranchState;
 use thiserror::Error;
+
+use crate::domain::{
+    identifiers::{SessionId, SessionName},
+    session::BranchState,
+};
 
 // ============================================================================
 // DOMAIN ERRORS
@@ -396,8 +399,8 @@ mod tests {
         let name2 = SessionName::parse("name2").expect("valid name");
         let workspace = PathBuf::from("/tmp");
 
-        let session = Session::new(id, name1, BranchState::Detached, workspace)
-            .expect("session created");
+        let session =
+            Session::new(id, name1, BranchState::Detached, workspace).expect("session created");
 
         let renamed = session.rename(name2.clone());
         assert_eq!(renamed.name, name2);

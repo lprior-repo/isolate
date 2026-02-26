@@ -149,7 +149,9 @@ async fn bdd_submit_pushes_bookmark() {
     let result = result_guard.as_ref().unwrap();
     if result.success || !result.stdout.contains("REMOTE_ERROR") {
         drop(result_guard);
-        then_steps::response_includes_dedupe_key(&ctx).await.unwrap();
+        then_steps::response_includes_dedupe_key(&ctx)
+            .await
+            .unwrap();
     }
 }
 

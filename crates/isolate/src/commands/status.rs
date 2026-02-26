@@ -10,16 +10,18 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use serde::Serialize;
 use isolate_core::output::{
     emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine,
     SessionOutput, Summary, SummaryType,
 };
+use serde::Serialize;
 
 use crate::{commands::get_session_db, session::Session};
 
 /// Convert local `SessionStatus` to core `SessionStatus`
-const fn to_core_status(status: crate::session::SessionStatus) -> isolate_core::types::SessionStatus {
+const fn to_core_status(
+    status: crate::session::SessionStatus,
+) -> isolate_core::types::SessionStatus {
     match status {
         crate::session::SessionStatus::Active => isolate_core::types::SessionStatus::Active,
         crate::session::SessionStatus::Paused => isolate_core::types::SessionStatus::Paused,

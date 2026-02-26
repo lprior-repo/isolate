@@ -360,7 +360,10 @@ fn test_list_agent_with_no_matches() {
     let parsed = common::parse_jsonl_output(&result.stdout);
     if let Ok(json_lines) = parsed {
         let has_sessions = json_lines.iter().any(|l| l.get("session").is_some());
-        assert!(!has_sessions, "Expected no session lines, got: {json_lines:?}");
+        assert!(
+            !has_sessions,
+            "Expected no session lines, got: {json_lines:?}"
+        );
         return;
     }
     // Human output fallback
@@ -454,7 +457,10 @@ fn test_list_with_bead_no_matches() {
     let parsed = common::parse_jsonl_output(&result.stdout);
     if let Ok(json_lines) = parsed {
         let has_sessions = json_lines.iter().any(|l| l.get("session").is_some());
-        assert!(!has_sessions, "Expected no session lines, got: {json_lines:?}");
+        assert!(
+            !has_sessions,
+            "Expected no session lines, got: {json_lines:?}"
+        );
     } else {
         assert!(
             result.stdout.contains("No sessions found") || result.stdout.is_empty(),

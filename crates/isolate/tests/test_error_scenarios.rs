@@ -386,8 +386,8 @@ fn test_readonly_isolate_directory() {
 
     // Make .isolate directory readonly - functional error handling
     let isolate_dir = harness.isolate_dir();
-    let metadata =
-        fs::metadata(&isolate_dir).unwrap_or_else(|e| panic!("Failed to get directory metadata: {e}"));
+    let metadata = fs::metadata(&isolate_dir)
+        .unwrap_or_else(|e| panic!("Failed to get directory metadata: {e}"));
     let mut perms = metadata.permissions();
     perms.set_mode(0o444); // Readonly
     fs::set_permissions(&isolate_dir, perms)

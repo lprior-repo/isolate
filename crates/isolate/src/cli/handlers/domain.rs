@@ -1,4 +1,9 @@
-#![allow(clippy::manual_string_new, clippy::redundant_closure_for_method_calls, clippy::unnecessary_wraps, clippy::uninlined_format_args)]
+#![allow(
+    clippy::manual_string_new,
+    clippy::redundant_closure_for_method_calls,
+    clippy::unnecessary_wraps,
+    clippy::uninlined_format_args
+)]
 //! Domain types for CLI handlers
 //!
 //! This module provides semantic newtypes that make illegal states unrepresentable.
@@ -14,15 +19,16 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::fmt::{self, Display};
-use std::str::FromStr;
-
-use thiserror::Error;
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 // Re-export BeadId from domain layer (single source of truth)
 //
 // BeadId is a type alias for TaskId in the domain layer, validating bd-{hex} format.
 pub use isolate_core::domain::BeadId;
+use thiserror::Error;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOMAIN ERRORS
@@ -115,11 +121,11 @@ impl SessionName {
         }
 
         let Some(first) = name.chars().next() else {
-             // This branch should be unreachable due to is_empty check above
-             return Err(DomainError::invalid_session_name(
-                 name,
-                 "unexpected empty string".to_string(),
-             ));
+            // This branch should be unreachable due to is_empty check above
+            return Err(DomainError::invalid_session_name(
+                name,
+                "unexpected empty string".to_string(),
+            ));
         };
 
         if !first.is_alphabetic() && first != '_' {

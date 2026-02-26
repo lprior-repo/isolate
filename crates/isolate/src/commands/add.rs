@@ -9,7 +9,6 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use serde_json::json;
 use isolate_core::{
     config,
     domain::SessionName,
@@ -19,6 +18,7 @@ use isolate_core::{
     },
     OutputFormat,
 };
+use serde_json::json;
 
 mod atomic;
 mod beads;

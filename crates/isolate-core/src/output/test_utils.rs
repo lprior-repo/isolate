@@ -52,7 +52,9 @@ impl OutputEmitter for StdoutEmitter {
 /// # Example
 ///
 /// ```
-/// use isolate_core::output::{domain_types::Message, OutputEmitter, OutputLine, Summary, SummaryType, VecEmitter};
+/// use isolate_core::output::{
+///     domain_types::Message, OutputEmitter, OutputLine, Summary, SummaryType, VecEmitter,
+/// };
 ///
 /// let emitter = VecEmitter::new();
 /// let message = Message::new("test").unwrap();

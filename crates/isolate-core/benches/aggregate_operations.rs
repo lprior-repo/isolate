@@ -12,10 +12,11 @@
 //! - Query method performance
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use isolate_core::{
+    beads::{Assignee, Description, Issue, IssueBuilder, IssueId, Labels, Priority, Title},
+    domain::{aggregates::bead::Bead, identifiers::BeadId},
+};
 use itertools::Itertools;
-use isolate_core::beads::{Assignee, Description, Issue, IssueBuilder, IssueId, Labels, Priority, Title};
-use isolate_core::domain::aggregates::bead::Bead;
-use isolate_core::domain::identifiers::BeadId;
 
 // ============================================================================
 // FIXTURES
@@ -29,12 +30,16 @@ fn test_issue() -> Issue {
 /// Create a test issue with full data
 fn test_issue_full() -> Issue {
     let mut issue = Issue::new("test-1", "Test Issue with Description").expect("valid issue");
-    issue.update_description("This is a detailed description of the issue".to_string())
+    issue
+        .update_description("This is a detailed description of the issue".to_string())
         .expect("valid");
     issue.set_priority(Priority::P1);
-    issue.set_labels(vec!["bug".to_string(), "critical".to_string()])
+    issue
+        .set_labels(vec!["bug".to_string(), "critical".to_string()])
         .expect("valid");
-    issue.set_assignee("user@example.com".to_string()).expect("valid");
+    issue
+        .set_assignee("user@example.com".to_string())
+        .expect("valid");
     issue
 }
 
@@ -59,14 +64,16 @@ fn bench_issue_new(c: &mut Criterion) {
 
     group.bench_function("with_description", |b| {
         b.iter(|| {
-            let mut issue = Issue::new(black_box("test-1"), black_box("Test Issue")).expect("valid");
+            let mut issue =
+                Issue::new(black_box("test-1"), black_box("Test Issue")).expect("valid");
             issue.update_description("A description".to_string()).ok();
         });
     });
 
     group.bench_function("full", |b| {
         b.iter(|| {
-            let mut issue = Issue::new(black_box("test-1"), black_box("Test Issue")).expect("valid");
+            let mut issue =
+                Issue::new(black_box("test-1"), black_box("Test Issue")).expect("valid");
             issue.update_description("A description".to_string()).ok();
             issue.set_priority(Priority::P1);
             issue.set_labels(vec!["bug".to_string()]).ok();
@@ -141,7 +148,9 @@ fn bench_issue_field_updates(c: &mut Criterion) {
     group.bench_function("update_description", |b| {
         let mut issue = test_issue();
         b.iter(|| {
-            issue.update_description(black_box("Updated description")).ok();
+            issue
+                .update_description(black_box("Updated description"))
+                .ok();
         });
     });
 
@@ -173,7 +182,8 @@ fn bench_issue_field_updates(c: &mut Criterion) {
     group.bench_function("set_depends_on", |b| {
         let mut issue = test_issue();
         b.iter(|| {
-            issue.set_depends_on(black_box(vec!["dep-1".to_string(), "dep-2".to_string()]))
+            issue
+                .set_depends_on(black_box(vec!["dep-1".to_string(), "dep-2".to_string()]))
                 .ok();
         });
     });
@@ -264,7 +274,11 @@ fn bench_bead_operations(c: &mut Criterion) {
     group.bench_function("new", |b| {
         let id = BeadId::parse("test-bead").expect("valid");
         b.iter(|| {
-            let _bead = Bead::new(black_box(id.clone()), black_box("Test Bead"), None::<String>);
+            let _bead = Bead::new(
+                black_box(id.clone()),
+                black_box("Test Bead"),
+                None::<String>,
+            );
         });
     });
 
@@ -317,30 +331,38 @@ fn bench_bulk_issue_operations(c: &mut Criterion) {
         });
 
         // Update multiple issues
-        group.bench_with_input(BenchmarkId::new("update_title", count), count, |b, count| {
-            let issues: Result<Vec<_>, _> = (0..*count)
-                .map(|i| Issue::new(format!("test-{i}"), format!("Issue {i}")))
-                .collect();
-            let mut issues = issues.expect("valid issues");
+        group.bench_with_input(
+            BenchmarkId::new("update_title", count),
+            count,
+            |b, count| {
+                let issues: Result<Vec<_>, _> = (0..*count)
+                    .map(|i| Issue::new(format!("test-{i}"), format!("Issue {i}")))
+                    .collect();
+                let mut issues = issues.expect("valid issues");
 
-            b.iter(|| {
-                for issue in &mut issues {
-                    issue.update_title("Updated").ok();
-                }
-            });
-        });
+                b.iter(|| {
+                    for issue in &mut issues {
+                        issue.update_title("Updated").ok();
+                    }
+                });
+            },
+        );
 
         // Filter issues
-        group.bench_with_input(BenchmarkId::new("filter_active", count), count, |b, count| {
-            let issues: Result<Vec<_>, _> = (0..*count)
-                .map(|i| Issue::new(format!("test-{i}"), format!("Issue {i}")))
-                .collect();
-            let issues = issues.expect("valid issues");
+        group.bench_with_input(
+            BenchmarkId::new("filter_active", count),
+            count,
+            |b, count| {
+                let issues: Result<Vec<_>, _> = (0..*count)
+                    .map(|i| Issue::new(format!("test-{i}"), format!("Issue {i}")))
+                    .collect();
+                let issues = issues.expect("valid issues");
 
-            b.iter(|| {
-                let _active: Vec<_> = issues.iter().filter(|i| i.is_active()).collect();
-            });
-        });
+                b.iter(|| {
+                    let _active: Vec<_> = issues.iter().filter(|i| i.is_active()).collect();
+                });
+            },
+        );
     }
 
     group.finish();

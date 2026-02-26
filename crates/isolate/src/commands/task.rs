@@ -20,9 +20,9 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use isolate_core::json::SchemaEnvelope;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
-use isolate_core::json::SchemaEnvelope;
 
 use crate::{
     beads::{BeadMetadata, BeadRepository, BeadStatus},

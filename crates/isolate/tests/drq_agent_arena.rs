@@ -54,7 +54,10 @@ fn parse_json_output(output: &str) -> Result<serde_json::Value, Box<dyn std::err
 }
 
 /// Validate that output has schema envelope fields
-fn validate_schema_envelope(json: &serde_json::Value, command: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn validate_schema_envelope(
+    json: &serde_json::Value,
+    command: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     if json.get("$schema").is_none() {
         return Err(format!("{command}: Missing $schema field").into());
     }
@@ -116,7 +119,10 @@ fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Erro
 
     // All JSON outputs must have these fields
     assert!(json.get("$schema").is_some(), "Missing $schema field");
-    assert!(json.get("_schema_version").is_some(), "Missing _schema_version field");
+    assert!(
+        json.get("_schema_version").is_some(),
+        "Missing _schema_version field"
+    );
     assert!(json.get("success").is_some(), "Missing success field");
 
     Ok(())
@@ -383,7 +389,10 @@ fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::e
 
     let error_obj = json.get("error").unwrap();
     assert!(error_obj.get("code").is_some(), "Error should have code");
-    assert!(error_obj.get("message").is_some(), "Error should have message");
+    assert!(
+        error_obj.get("message").is_some(),
+        "Error should have message"
+    );
 
     Ok(())
 }
@@ -435,7 +444,10 @@ fn test_query_session_exists_for_missing_session() -> Result<(), Box<dyn std::er
     let json = parse_json_output(&result.stdout)?;
     validate_schema_envelope(&json, "query session-exists")?;
 
-    assert_eq!(json["success"], true, "session-exists should return success=true");
+    assert_eq!(
+        json["success"], true,
+        "session-exists should return success=true"
+    );
     assert_eq!(json["exists"], false, "Missing session should not exist");
 
     Ok(())
@@ -456,7 +468,10 @@ fn test_query_session_exists_for_existing_session() -> Result<(), Box<dyn std::e
     let json = parse_json_output(&result.stdout)?;
     validate_schema_envelope(&json, "query session-exists")?;
 
-    assert_eq!(json["success"], true, "session-exists should return success=true");
+    assert_eq!(
+        json["success"], true,
+        "session-exists should return success=true"
+    );
     assert_eq!(json["exists"], true, "Created session should exist");
 
     // Cleanup
@@ -503,11 +518,20 @@ fn test_query_suggest_name_finds_next_available_name() -> Result<(), Box<dyn std
 
     // Check pattern round-trips
     let pattern = json.get("pattern").and_then(|v| v.as_str()).unwrap_or("");
-    assert!(pattern.contains("feature"), "Pattern should contain 'feature'");
+    assert!(
+        pattern.contains("feature"),
+        "Pattern should contain 'feature'"
+    );
 
     let suggested = json.get("suggested").and_then(|v| v.as_str()).unwrap_or("");
-    assert!(suggested.starts_with("feature-"), "Suggested name should follow requested pattern");
-    assert_ne!(suggested, "feature-1", "Suggested name should avoid existing session names");
+    assert!(
+        suggested.starts_with("feature-"),
+        "Suggested name should follow requested pattern"
+    );
+    assert_ne!(
+        suggested, "feature-1",
+        "Suggested name should avoid existing session names"
+    );
 
     // Cleanup
     harness.assert_success(&["remove", "feature-1", "-f"]);

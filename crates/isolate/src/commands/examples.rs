@@ -3,8 +3,8 @@
 //! Provides copy-pastable examples for AI agents and users.
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use isolate_core::{OutputFormat, SchemaEnvelope};
+use serde::{Deserialize, Serialize};
 
 /// Options for the examples command
 #[derive(Debug, Clone)]
@@ -149,7 +149,10 @@ fn single_command_examples() -> Vec<Example> {
         Example {
             name: "List all sessions".to_string(),
             description: "View all active sessions with status".to_string(),
-            commands: vec!["isolate list".to_string(), "isolate list --json".to_string()],
+            commands: vec![
+                "isolate list".to_string(),
+                "isolate list --json".to_string(),
+            ],
             expected_output: None,
             use_case: "single-command".to_string(),
             prerequisites: vec!["isolate init".to_string()],
@@ -172,7 +175,10 @@ fn error_handling_examples() -> Vec<Example> {
         Example {
             name: "Undo a merge".to_string(),
             description: "Revert the last done operation".to_string(),
-            commands: vec!["isolate undo --dry-run".to_string(), "isolate undo".to_string()],
+            commands: vec![
+                "isolate undo --dry-run".to_string(),
+                "isolate undo".to_string(),
+            ],
             expected_output: Some("Reverted merge of 'feature-auth'".to_string()),
             use_case: "error-handling".to_string(),
             prerequisites: vec![
@@ -301,7 +307,10 @@ fn maintenance_examples() -> Vec<Example> {
     vec![Example {
         name: "Run health checks".to_string(),
         description: "Diagnose and fix issues".to_string(),
-        commands: vec!["isolate doctor".to_string(), "isolate doctor --fix".to_string()],
+        commands: vec![
+            "isolate doctor".to_string(),
+            "isolate doctor --fix".to_string(),
+        ],
         expected_output: None,
         use_case: "maintenance".to_string(),
         prerequisites: vec![],

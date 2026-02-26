@@ -21,8 +21,10 @@
 use chrono::{DateTime, Utc};
 use thiserror::Error;
 
-use crate::beads::{Description, DomainError, IssueState, Title};
-use crate::domain::identifiers::BeadId;
+use crate::{
+    beads::{Description, DomainError, IssueState, Title},
+    domain::identifiers::BeadId,
+};
 
 // ============================================================================
 // DOMAIN ERRORS
@@ -562,7 +564,10 @@ mod tests {
 
         assert!(updated.description.is_some());
         assert_eq!(
-            updated.description.as_ref().map(crate::beads::Description::as_str),
+            updated
+                .description
+                .as_ref()
+                .map(crate::beads::Description::as_str),
             Some("New description")
         );
     }

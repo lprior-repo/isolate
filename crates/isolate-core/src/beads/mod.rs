@@ -44,31 +44,26 @@ mod state_transition_tests;
 // Re-export public API
 
 // Domain types (DDD refactored)
-pub use domain::{
-    Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, IssueType,
-    Labels, ParentId, Priority, Title,
-};
-
-// Issue aggregate root
-pub use issue::{Issue, IssueBuilder};
-
-// Legacy types (for backward compatibility)
-pub use types::{
-    BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus,
-    SortDirection,
-};
-
-// Database operations
-pub use db::{delete_bead, ensure_schema, insert_bead, query_beads, update_bead};
-
-// Query operations
-pub use query::{apply_query, filter_issues, paginate, sort_issues};
-
 // Analysis operations
 pub use analysis::{
     all_match, any_match, calculate_critical_path, count_by_status, extract_labels, find_blocked,
     find_blockers, find_potential_duplicates, find_ready, find_stale, get_dependency_graph,
     get_issue, get_issues_by_id, group_by_status, group_by_type, summarize, to_ids, to_titles,
+};
+// Database operations
+pub use db::{delete_bead, ensure_schema, insert_bead, query_beads, update_bead};
+pub use domain::{
+    Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, IssueType,
+    Labels, ParentId, Priority, Title,
+};
+// Issue aggregate root
+pub use issue::{Issue, IssueBuilder};
+// Query operations
+pub use query::{apply_query, filter_issues, paginate, sort_issues};
+// Legacy types (for backward compatibility)
+pub use types::{
+    BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus,
+    SortDirection,
 };
 
 #[cfg(test)]

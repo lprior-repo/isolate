@@ -9,8 +9,8 @@
 #![allow(clippy::doc_markdown)]
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use isolate_core::OutputFormat;
+use serde::{Deserialize, Serialize};
 
 use crate::session::validate_session_name;
 

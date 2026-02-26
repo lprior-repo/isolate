@@ -14,11 +14,13 @@
 use chrono::{Duration, Utc};
 use proptest::prelude::*;
 
-use super::domain::{
-    Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, Labels,
-    Priority, Title,
+use super::{
+    domain::{
+        Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, Labels,
+        Priority, Title,
+    },
+    issue::{Issue, IssueBuilder},
 };
-use super::issue::{Issue, IssueBuilder};
 
 // ============================================================================
 // Test Strategy Generators

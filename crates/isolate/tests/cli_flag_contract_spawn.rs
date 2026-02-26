@@ -57,7 +57,9 @@ fn bdd_spawn_with_invalid_bead_still_works() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_isolate"));
-    cmd.arg("spawn").arg("--contract").arg("isolate-nonexistent");
+    cmd.arg("spawn")
+        .arg("--contract")
+        .arg("isolate-nonexistent");
 
     // Should succeed with contract output, not fail on bead validation
     cmd.assert()

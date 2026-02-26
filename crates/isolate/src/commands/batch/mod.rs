@@ -38,13 +38,13 @@
 mod tests;
 
 use futures::StreamExt;
-use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 use isolate_core::{
     checkpoint::{AutoCheckpoint, OperationRisk},
     json::SchemaEnvelope,
     Error, OutputFormat, Result,
 };
+use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 
 /// Request for atomic batch execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -393,7 +393,8 @@ async fn execute_command(command: &str, args: &[String]) -> Result<String> {
     // SECURITY: current_exe is acceptable here - we are invoking our own isolate binary
     // for batch command execution, not for security-critical path validation.
     // The command/args are controlled by our code, not external input.
-    let current_exe = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("isolate"));
+    let current_exe =
+        std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("isolate"));
 
     let output = tokio::process::Command::new(current_exe)
         .arg(actual_command)

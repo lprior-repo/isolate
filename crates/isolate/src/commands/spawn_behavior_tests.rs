@@ -16,9 +16,9 @@ mod brutal_edge_cases {
         sync::OnceLock,
     };
 
+    use isolate_core::OutputFormat;
     use tempfile::TempDir;
     use tokio::sync::Mutex;
-    use isolate_core::OutputFormat;
 
     use crate::commands::spawn::{execute_spawn, SpawnError, SpawnOptions};
 

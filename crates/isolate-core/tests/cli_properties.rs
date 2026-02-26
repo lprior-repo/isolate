@@ -1,4 +1,3 @@
-//!
 //! These tests define the contract that the CLI structure must satisfy.
 //! All tests verify invariants for the `isolate <object> <action>` pattern.
 //!
@@ -27,9 +26,9 @@
     clippy::doc_markdown
 )]
 
-use proptest::prelude::*;
-use proptest::{prop_oneof, proptest};
 use std::path::PathBuf;
+
+use proptest::{prelude::*, prop_oneof, proptest};
 
 // Integration tests have relaxed clippy settings for test ergonomics.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
@@ -870,10 +869,7 @@ fn prop_terminal_statuses_accepted() {
         WorkspaceState::Working,
         PathBuf::from("/tmp/test"),
     );
-    assert!(
-        failed_result.is_ok(),
-        "Failed status should be accepted"
-    );
+    assert!(failed_result.is_ok(), "Failed status should be accepted");
 }
 
 /// Property: Relative paths are rejected for SessionOutput::new

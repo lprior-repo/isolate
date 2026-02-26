@@ -18,9 +18,9 @@
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! use isolate_core::domain::builders::SessionOutputBuilder;
-//! use isolate_core::types::SessionStatus;
-//! use isolate_core::WorkspaceState;
+//! use isolate_core::{
+//!     domain::builders::SessionOutputBuilder, types::SessionStatus, WorkspaceState,
+//! };
 //!
 //! let session = SessionOutputBuilder::new()
 //!     .name("my-session")?
@@ -40,18 +40,17 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::session::BranchState;
-use crate::output::domain_types::{
-    IssueId, IssueScope, IssueTitle, Message, PlanDescription, PlanTitle,
+use crate::{
+    domain::session::BranchState,
+    output::{
+        domain_types::{IssueId, IssueScope, IssueTitle, Message, PlanDescription, PlanTitle},
+        Action, ActionResult as OutputActionResult, ActionStatus, ActionTarget,
+        ActionVerb as OutputActionVerb, ConflictDetail, Issue, IssueKind as OutputIssueKind,
+        IssueSeverity, Plan, PlanStep, SessionOutput, Summary, SummaryType as OutputSummaryType,
+    },
+    types::SessionStatus as TypesSessionStatus,
+    WorkspaceState as TypesWorkspaceState,
 };
-use crate::output::{
-    Action, ActionResult as OutputActionResult, ActionStatus, ActionTarget,
-    ActionVerb as OutputActionVerb, ConflictDetail, Issue, IssueKind as OutputIssueKind,
-    IssueSeverity, Plan, PlanStep, SessionOutput, Summary,
-    SummaryType as OutputSummaryType,
-};
-use crate::types::SessionStatus as TypesSessionStatus;
-use crate::WorkspaceState as TypesWorkspaceState;
 
 // ==============================================================================
 // BUILDER ERROR TYPES

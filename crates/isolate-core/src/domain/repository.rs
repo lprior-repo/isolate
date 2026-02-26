@@ -53,8 +53,10 @@
 
 use std::path::PathBuf;
 
-use crate::domain::identifiers::{AgentId, BeadId, SessionId, SessionName, WorkspaceName};
-use crate::domain::session::BranchState;
+use crate::domain::{
+    identifiers::{AgentId, BeadId, SessionId, SessionName, WorkspaceName},
+    session::BranchState,
+};
 
 // ============================================================================
 // SHARED ERROR TYPES
@@ -583,8 +585,9 @@ pub trait AgentRepository: Send + Sync {
 
 #[cfg(test)]
 mod mock_tests {
-    use super::*;
     use std::sync::{Arc, Mutex};
+
+    use super::*;
 
     /// In-memory session repository for testing.
     struct MockSessionRepo {

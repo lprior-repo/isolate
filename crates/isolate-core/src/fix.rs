@@ -51,7 +51,10 @@ impl Fix {
     /// ```
     /// use isolate_core::fix::Fix;
     ///
-    /// let fix = Fix::safe("Use different name", vec!["isolate add isolate-test-2".to_string()]);
+    /// let fix = Fix::safe(
+    ///     "Use different name",
+    ///     vec!["isolate add isolate-test-2".to_string()],
+    /// );
     /// assert!(fix.automatic);
     /// ```
     #[must_use]
@@ -219,7 +222,10 @@ mod tests {
 
     #[test]
     fn test_safe_fix_creation() {
-        let fix = Fix::safe("Use different name", vec!["isolate add isolate-test-2".to_string()]);
+        let fix = Fix::safe(
+            "Use different name",
+            vec!["isolate add isolate-test-2".to_string()],
+        );
 
         assert_eq!(fix.description, "Use different name");
         assert_eq!(fix.commands, vec!["isolate add isolate-test-2"]);

@@ -16,9 +16,8 @@
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! use isolate_core::domain::events::DomainEvent;
-//! use isolate_core::domain::identifiers::SessionName;
 //! use chrono::Utc;
+//! use isolate_core::domain::{events::DomainEvent, identifiers::SessionName};
 //!
 //! let event = DomainEvent::session_created(
 //!     "session-123".to_string(),
@@ -33,10 +32,12 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use crate::domain::identifiers::{BeadId, SessionName, WorkspaceName};
+use std::path::PathBuf;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+
+use crate::domain::identifiers::{BeadId, SessionName, WorkspaceName};
 
 // ============================================================================
 // Domain Event Enum

@@ -79,8 +79,8 @@ fn test_workspace_exists_without_db_entry() {
             list_after.stdout, list_after.stderr
         );
         // Check if session appears in output (either as session object or in summary)
-        let has_session = list_after.stdout.contains("zombie-session")
-            || list_after.stdout.contains("\"name\":");
+        let has_session =
+            list_after.stdout.contains("zombie-session") || list_after.stdout.contains("\"name\":");
         assert!(
             has_session || list_after.stdout.contains("success"),
             "Successful recovery should surface zombie-session in list output or indicate success: {}",
@@ -137,8 +137,8 @@ fn test_db_entry_exists_without_workspace() {
     assert!(query_result.success, "Query should succeed");
 
     // Parse JSON output - new format has exists at top level
-    let json: serde_json::Value = serde_json::from_str(&query_result.stdout)
-        .unwrap_or_else(|_| serde_json::json!({}));
+    let json: serde_json::Value =
+        serde_json::from_str(&query_result.stdout).unwrap_or_else(|_| serde_json::json!({}));
 
     // Current contract: existence check returns success even if workspace is missing
     // The exists field indicates whether the session record exists

@@ -17,18 +17,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use thiserror::Error;
-
 // Re-export BeadId from domain layer (single source of truth)
 //
 // BeadId is a type alias for TaskId in the domain layer, validating bd-{hex} format.
 pub use isolate_core::domain::BeadId;
-
 // Re-export WorkspaceName from domain layer (single source of truth)
 //
 // WorkspaceName validates workspace names (non-empty, no path separators, max 255 chars).
 // The canonical implementation uses `WorkspaceName::parse()` for construction.
 pub use isolate_core::domain::WorkspaceName;
+use thiserror::Error;
 
 /// Validation errors for `NewType` constructors
 #[expect(clippy::enum_variant_names)] // All validation errors should be "Invalid*"

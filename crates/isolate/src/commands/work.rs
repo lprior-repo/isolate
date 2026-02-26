@@ -11,8 +11,8 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use isolate_core::{json::SchemaEnvelope, OutputFormat};
+use serde::Serialize;
 
 use super::{add, context};
 use crate::{db::SessionDb, session::validate_session_name};

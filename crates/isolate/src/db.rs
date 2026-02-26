@@ -34,9 +34,11 @@ mod io {
     }
 }
 
+use isolate_core::{
+    log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState,
+};
 use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
-use isolate_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState};
 
 use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdate};
 
@@ -316,27 +318,25 @@ impl SessionDb {
                 last_synced: None,
                 metadata: None,
             }),
-            None => {
-                match query_session_by_name(&self.pool, name).await? {
-                    Some(existing) => {
-                        if existing.workspace_path == workspace_path {
-                            Err(Error::DatabaseError(format!(
-                                "Session '{name}' already exists"
-                            )))
-                        } else {
-                            Err(Error::DatabaseError(format!(
-                                "Session '{name}' already exists with different workspace path.\n\
+            None => match query_session_by_name(&self.pool, name).await? {
+                Some(existing) => {
+                    if existing.workspace_path == workspace_path {
+                        Err(Error::DatabaseError(format!(
+                            "Session '{name}' already exists"
+                        )))
+                    } else {
+                        Err(Error::DatabaseError(format!(
+                            "Session '{name}' already exists with different workspace path.\n\
                                  Existing: {}\n\
                                  Requested: {workspace_path}",
-                                existing.workspace_path
-                            )))
-                        }
+                            existing.workspace_path
+                        )))
                     }
-                    None => Err(Error::DatabaseError(format!(
-                        "Session '{name}' creation conflict detected but session not found"
-                    ))),
                 }
-            }
+                None => Err(Error::DatabaseError(format!(
+                    "Session '{name}' creation conflict detected but session not found"
+                ))),
+            },
         }
     }
 
@@ -545,7 +545,11 @@ impl SessionDb {
             return Ok(());
         }
 
-        let has_updates = update.status.is_some() || update.state.is_some() || update.branch.is_some() || update.last_synced.is_some() || update.metadata.is_some();
+        let has_updates = update.status.is_some()
+            || update.state.is_some()
+            || update.branch.is_some()
+            || update.last_synced.is_some()
+            || update.metadata.is_some();
 
         if !has_updates {
             if query_session_by_name_conn(&mut conn, name).await?.is_none() {
@@ -584,13 +588,18 @@ impl SessionDb {
         }
         if let Some(ref m) = update.metadata {
             separated.push("metadata = ");
-            separated.push_bind_unseparated(serde_json::to_string(m).map_err(|e| Error::Unknown(e.to_string()))?);
+            separated.push_bind_unseparated(
+                serde_json::to_string(m).map_err(|e| Error::Unknown(e.to_string()))?,
+            );
         }
 
         query_builder.push(" WHERE name = ");
         query_builder.push_bind(name);
 
-        let result = query_builder.build().execute(&mut *conn).await
+        let result = query_builder
+            .build()
+            .execute(&mut *conn)
+            .await
             .map_err(|e| Error::DatabaseError(format!("Failed to update session: {e}")))?;
 
         if result.rows_affected() == 0 {
@@ -894,40 +903,38 @@ async fn check_wal_integrity(
 
     let header = match io::read_exact_bytes::<32>(&wal_path).await {
         Ok(h) => h,
-        Err(e) => {
-            match config.policy {
-                RecoveryPolicy::FailFast => {
+        Err(e) => match config.policy {
+            RecoveryPolicy::FailFast => {
+                log_recovery(
+                    &format!(
+                        "WAL file inaccessible or corrupted: {p}. Error: {e}",
+                        p = wal_path.display()
+                    ),
+                    config,
+                )
+                .await
+                .ok();
+                return Err(Error::DatabaseError(format!(
+                    "WAL file is corrupted or inaccessible: {p}\n\
+                         Recovery logged. Run 'isolate doctor' for details.",
+                    p = wal_path.display()
+                )));
+            }
+            RecoveryPolicy::Warn | RecoveryPolicy::Silent => {
+                if should_log_recovery(config) {
                     log_recovery(
                         &format!(
-                            "WAL file inaccessible or corrupted: {p}. Error: {e}",
+                            "WAL file temporarily unreadable: {p}. Deferring to SQLite: {e}",
                             p = wal_path.display()
                         ),
                         config,
                     )
                     .await
                     .ok();
-                    return Err(Error::DatabaseError(format!(
-                        "WAL file is corrupted or inaccessible: {p}\n\
-                         Recovery logged. Run 'isolate doctor' for details.",
-                        p = wal_path.display()
-                    )));
                 }
-                RecoveryPolicy::Warn | RecoveryPolicy::Silent => {
-                    if should_log_recovery(config) {
-                        log_recovery(
-                            &format!(
-                                "WAL file temporarily unreadable: {p}. Deferring to SQLite: {e}",
-                                p = wal_path.display()
-                            ),
-                            config,
-                        )
-                        .await
-                        .ok();
-                    }
-                    return Ok(());
-                }
+                return Ok(());
             }
-        }
+        },
     };
 
     let wal_magic = header
@@ -1092,7 +1099,10 @@ async fn check_database_integrity(
     Ok(())
 }
 
-async fn recover_database(path: &Path, config: &isolate_core::config::RecoveryConfig) -> Result<()> {
+async fn recover_database(
+    path: &Path,
+    config: &isolate_core::config::RecoveryConfig,
+) -> Result<()> {
     let policy = config.policy;
     let should_log = should_log_recovery(config);
 
@@ -1645,24 +1655,32 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
 
 // REST OF FILE (helpers etc)
 async fn is_command_processed_pool(pool: &SqlitePool, command_id: &str) -> Result<bool> {
-    let row: Option<(String,)> = sqlx::query_as("SELECT command_id FROM processed_commands WHERE command_id = ?")
-        .bind(command_id)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to query processed command: {e}")))?;
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT command_id FROM processed_commands WHERE command_id = ?")
+            .bind(command_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to query processed command: {e}")))?;
     Ok(row.is_some())
 }
 
-async fn is_command_processed_conn(conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>, command_id: &str) -> Result<bool> {
-    let row: Option<(String,)> = sqlx::query_as("SELECT command_id FROM processed_commands WHERE command_id = ?")
-        .bind(command_id)
-        .fetch_optional(&mut **conn)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to query processed command: {e}")))?;
+async fn is_command_processed_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    command_id: &str,
+) -> Result<bool> {
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT command_id FROM processed_commands WHERE command_id = ?")
+            .bind(command_id)
+            .fetch_optional(&mut **conn)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to query processed command: {e}")))?;
     Ok(row.is_some())
 }
 
-async fn query_session_by_name_conn(conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>, name: &str) -> Result<Option<Session>> {
+async fn query_session_by_name_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    name: &str,
+) -> Result<Option<Session>> {
     sqlx::query(
         "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata
          FROM sessions WHERE name = ?"
@@ -1674,7 +1692,11 @@ async fn query_session_by_name_conn(conn: &mut sqlx::pool::PoolConnection<sqlx::
     .and_then(|opt_row| opt_row.map(parse_session_row).transpose())
 }
 
-async fn mark_command_processed_conn(conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>, command_id: &str, fingerprint: Option<&str>) -> Result<()> {
+async fn mark_command_processed_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    command_id: &str,
+    fingerprint: Option<&str>,
+) -> Result<()> {
     sqlx::query("INSERT INTO processed_commands (command_id, request_fingerprint) VALUES (?, ?)")
         .bind(command_id)
         .bind(fingerprint)
@@ -1713,7 +1735,9 @@ async fn update_session(pool: &SqlitePool, name: &str, update: SessionUpdate) ->
     }
     if let Some(ref m) = update.metadata {
         separated.push("metadata = ");
-        separated.push_bind_unseparated(serde_json::to_string(m).map_err(|e| Error::Unknown(e.to_string()))?);
+        separated.push_bind_unseparated(
+            serde_json::to_string(m).map_err(|e| Error::Unknown(e.to_string()))?,
+        );
         has_updates = true;
     }
 
@@ -1724,7 +1748,10 @@ async fn update_session(pool: &SqlitePool, name: &str, update: SessionUpdate) ->
     query_builder.push(" WHERE name = ");
     query_builder.push_bind(name);
 
-    let result = query_builder.build().execute(pool).await
+    let result = query_builder
+        .build()
+        .execute(pool)
+        .await
         .map_err(|e| Error::DatabaseError(format!("Failed to update session: {e}")))?;
 
     if result.rows_affected() == 0 {
@@ -1743,12 +1770,18 @@ async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
     Ok(result.rows_affected() > 0)
 }
 
-async fn query_command_fingerprint_conn(conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>, command_id: &str) -> Result<Option<Option<String>>> {
-    let row: Option<(Option<String>,)> = sqlx::query_as("SELECT request_fingerprint FROM processed_commands WHERE command_id = ?")
-        .bind(command_id)
-        .fetch_optional(&mut **conn)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to query command fingerprint: {e}")))?;
+async fn query_command_fingerprint_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    command_id: &str,
+) -> Result<Option<Option<String>>> {
+    let row: Option<(Option<String>,)> =
+        sqlx::query_as("SELECT request_fingerprint FROM processed_commands WHERE command_id = ?")
+            .bind(command_id)
+            .fetch_optional(&mut **conn)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to query command fingerprint: {e}"))
+            })?;
     Ok(row.map(|r| r.0))
 }
 
@@ -1761,11 +1794,12 @@ fn update_request_fingerprint(name: &str, update: &SessionUpdate) -> Result<Stri
         "last_synced": update.last_synced,
         "metadata": update.metadata,
     });
-    Ok(format!("{REQUEST_FINGERPRINT_VERSION}:{}", serde_json::to_string(&payload).map_err(|e| Error::Unknown(e.to_string()))?))
+    Ok(format!(
+        "{REQUEST_FINGERPRINT_VERSION}:{}",
+        serde_json::to_string(&payload).map_err(|e| Error::Unknown(e.to_string()))?
+    ))
 }
 
 fn normalize_fingerprint_for_compare(stored: &str) -> String {
     stored.to_string()
 }
-
-

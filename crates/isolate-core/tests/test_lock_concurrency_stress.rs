@@ -56,9 +56,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use isolate_core::{coordination::locks::LockManager, Error};
 use sqlx::sqlite::SqlitePoolOptions;
 use tokio::{sync::Barrier, task::JoinSet};
-use isolate_core::{coordination::locks::LockManager, Error};
 
 /// Test helper: Create in-memory database pool
 async fn test_pool() -> Result<sqlx::SqlitePool, Error> {

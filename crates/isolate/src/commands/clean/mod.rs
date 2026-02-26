@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use anyhow::Result;
 use futures::{StreamExt, TryStreamExt};
-use serde::Serialize;
 use isolate_core::{OutputFormat, SchemaEnvelope};
+use serde::Serialize;
 
 use crate::commands::get_session_db;
 
@@ -334,8 +334,8 @@ mod tests {
     #[test]
     fn test_clean_error_wrapped() -> Result<()> {
         // FAILING: Verify envelope wrapping includes error information
-        use serde_json::json;
         use isolate_core::json::SchemaEnvelope;
+        use serde_json::json;
 
         let error_response = json!({"error": "No sessions found"});
         let envelope = SchemaEnvelope::new("clean-response", "single", error_response);

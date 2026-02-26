@@ -16,15 +16,15 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use chrono::DateTime;
-use tracing::info;
 use isolate_core::{
     coordination::locks::LockManager,
     output::{
-        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb,
-        Message, OutputLine, ResultKind, ResultOutput, SessionOutput,
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Message, OutputLine,
+        ResultKind, ResultOutput, SessionOutput,
     },
     OutputFormat,
 };
+use tracing::info;
 
 use crate::{
     commands::get_session_db,
@@ -577,11 +577,7 @@ impl SessionCommand {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
-    pub async fn run_add(
-        &self,
-        name: &str,
-        workspace_path: &str,
-    ) -> Result<Session> {
+    pub async fn run_add(&self, name: &str, workspace_path: &str) -> Result<Session> {
         if self.options.dry_run {
             emit_action("create", name, ActionStatus::Pending)?;
             emit_result_success(&format!(
@@ -594,11 +590,7 @@ impl SessionCommand {
 
         let session = self
             .manager
-            .create_session(
-                name,
-                workspace_path,
-                self.options.agent_id.as_deref(),
-            )
+            .create_session(name, workspace_path, self.options.agent_id.as_deref())
             .await?;
 
         emit_action("create", name, ActionStatus::Completed)?;
@@ -900,12 +892,8 @@ mod tests {
     async fn test_list_sessions() -> Result<()> {
         let (manager, _dir) = setup_test_manager().await?;
 
-        manager
-            .create_session("session-1", "/tmp/1", None)
-            .await?;
-        manager
-            .create_session("session-2", "/tmp/2", None)
-            .await?;
+        manager.create_session("session-1", "/tmp/1", None).await?;
+        manager.create_session("session-2", "/tmp/2", None).await?;
 
         let sessions = manager.list_sessions(None, false).await?;
 

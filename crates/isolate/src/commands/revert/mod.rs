@@ -15,11 +15,11 @@
 
 use std::path::{Path, PathBuf};
 
-use tokio::process::Command;
 use isolate_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
 };
+use tokio::process::Command;
 
 use crate::{
     cli::jj_root,

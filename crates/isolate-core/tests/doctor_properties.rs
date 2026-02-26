@@ -38,8 +38,8 @@
     unused_imports
 )]
 
-use proptest::prelude::*;
 use isolate_core::introspection::{CheckStatus, DoctorCheck, DoctorOutput, FixResult};
+use proptest::prelude::*;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CUSTOM STRATEGIES FOR GENERATING TEST DATA
@@ -452,8 +452,7 @@ mod tests {
 
     /// This test MUST PASS to confirm the test harness works
     #[test]
-    fn test_harness_works() {
-    }
+    fn test_harness_works() {}
 
     /// This test confirms DoctorCheck can be created
     #[test]

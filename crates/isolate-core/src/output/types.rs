@@ -20,14 +20,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{types::SessionStatus, WorkspaceState};
-
 // Import domain types for semantic validation
 use super::domain_types::{
-    ActionResult, ActionTarget, ActionVerb,
-    IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription, PlanTitle,
-    RecoveryCapability, RecoveryExecution, SessionName, WarningCode,
+    ActionResult, ActionTarget, ActionVerb, IssueId, IssueScope, IssueTitle, Message, Outcome,
+    PlanDescription, PlanTitle, RecoveryCapability, RecoveryExecution, SessionName, WarningCode,
 };
+use crate::{types::SessionStatus, WorkspaceState};
 
 #[derive(Debug, Clone, Error)]
 pub enum OutputLineError {
@@ -165,6 +163,10 @@ impl SessionOutput {
         }
         if !workspace_path.is_absolute() {
             return Err(OutputLineError::RelativePath);
+        }
+        // Reject terminal states for new sessions
+        if matches!(status, SessionStatus::Completed | SessionStatus::Failed) {
+            return Err(OutputLineError::TerminalStatus(status));
         }
         let now = Utc::now();
         Ok(Self {

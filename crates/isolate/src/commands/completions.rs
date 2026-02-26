@@ -3,8 +3,8 @@
 //! Generates shell completion scripts for bash, zsh, fish, etc.
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use isolate_core::{OutputFormat, SchemaEnvelope};
+use serde::{Deserialize, Serialize};
 
 /// Options for the completions command
 #[derive(Debug, Clone)]

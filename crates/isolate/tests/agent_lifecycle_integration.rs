@@ -31,12 +31,10 @@
 
 use std::time::Duration;
 
-use tempfile::TempDir;
 use isolate_core::{
-    agents::registry::AgentRegistry,
-    coordination::locks::LockManager,
-    Error, Result,
+    agents::registry::AgentRegistry, coordination::locks::LockManager, Error, Result,
 };
+use tempfile::TempDir;
 
 /// Integration test context with persistent storage
 struct IntegrationTestContext {

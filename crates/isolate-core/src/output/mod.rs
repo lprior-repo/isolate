@@ -43,11 +43,14 @@
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! use isolate_core::output::{emit_stdout, OutputLine, SessionOutput};
-//! use isolate_core::types::SessionStatus;
-//! use isolate_core::WorkspaceState;
 //! use std::path::PathBuf;
+//!
 //! use chrono::Utc;
+//! use isolate_core::{
+//!     output::{emit_stdout, OutputLine, SessionOutput},
+//!     types::SessionStatus,
+//!     WorkspaceState,
+//! };
 //!
 //! let session = SessionOutput {
 //!     name: "my-session".to_string(),

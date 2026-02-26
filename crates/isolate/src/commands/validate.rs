@@ -3,8 +3,8 @@
 //! Allows AI agents to validate inputs without executing commands.
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use isolate_core::{OutputFormat, SchemaEnvelope, ValidationHint};
+use serde::{Deserialize, Serialize};
 
 /// Options for the validate command
 #[derive(Debug, Clone)]

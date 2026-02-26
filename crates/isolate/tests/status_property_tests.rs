@@ -1,4 +1,8 @@
-#![allow(clippy::uninlined_format_args, clippy::unnecessary_map_or, clippy::redundant_closure_for_method_calls)]
+#![allow(
+    clippy::uninlined_format_args,
+    clippy::unnecessary_map_or,
+    clippy::redundant_closure_for_method_calls
+)]
 //! Property-based tests for Status aggregation (RED Phase)
 //!
 //! These tests define invariants that must hold for all status outputs.

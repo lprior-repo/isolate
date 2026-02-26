@@ -61,10 +61,7 @@ fn test_clone_finds_existing_source_session() {
             == Some("source-session")
     });
 
-    assert!(
-        found,
-        "source-session should exist in database"
-    );
+    assert!(found, "source-session should exist in database");
 
     // Attempt to clone - this should succeed but currently fails with "not found"
     harness.assert_success(&["clone", "source-session", "cloned-session"]);

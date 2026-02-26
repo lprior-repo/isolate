@@ -27,7 +27,11 @@ fn test_checkpoint_size_limit_compressible_data() {
 
     // Create session
     let add_result = harness.isolate(&["add", "test-session"]);
-    assert!(add_result.success, "isolate add failed: {}", add_result.stderr);
+    assert!(
+        add_result.success,
+        "isolate add failed: {}",
+        add_result.stderr
+    );
 
     // Create compressible 150MB file (zeros)
     let workspace_path = harness.repo_path.join("workspaces").join("test-session");
@@ -73,7 +77,11 @@ fn test_checkpoint_size_limit_uncompressible_data() {
     );
 
     let add_result = harness.isolate(&["add", "test-session"]);
-    assert!(add_result.success, "isolate add failed: {}", add_result.stderr);
+    assert!(
+        add_result.success,
+        "isolate add failed: {}",
+        add_result.stderr
+    );
 
     // Create uncompressible 150MB file (random data)
     let workspace_path = harness.repo_path.join("workspaces").join("test-session");

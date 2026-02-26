@@ -4,8 +4,8 @@
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use isolate_core::{OutputFormat, SchemaEnvelope};
+use serde::{Deserialize, Serialize};
 
 use crate::{commands::get_session_db, db::SessionDb, session::Session};
 

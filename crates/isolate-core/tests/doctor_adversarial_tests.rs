@@ -33,8 +33,8 @@
     unused_imports
 )]
 
-use proptest::prelude::*;
 use isolate_core::introspection::{CheckStatus, DoctorCheck, DoctorOutput, FixResult};
+use proptest::prelude::*;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ADVERSARIAL TEST 1: EMPTY CHECKS

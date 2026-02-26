@@ -27,8 +27,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use sqlx::SqlitePool;
 //! use isolate_core::coordination::conflict_resolutions::*;
+//! use sqlx::SqlitePool;
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {

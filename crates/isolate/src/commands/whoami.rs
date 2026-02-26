@@ -7,8 +7,8 @@
 //! Also checks environment variables for agent context.
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use isolate_core::{json::SchemaEnvelope, OutputFormat};
+use serde::Serialize;
 
 /// Output for whoami command
 #[derive(Debug, Clone, Serialize)]

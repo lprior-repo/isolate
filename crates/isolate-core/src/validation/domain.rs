@@ -25,8 +25,7 @@
 //! validate_session_name("my-session")?;
 //!
 //! // Composed validation
-//! let result = validate_session_name("session")
-//!     .and_then(|_| validate_agent_id("agent-123"));
+//! let result = validate_session_name("session").and_then(|_| validate_agent_id("agent-123"));
 //! # Ok(())
 //! # }
 //! ```
@@ -70,7 +69,7 @@ use crate::domain::identifiers::IdentifierError;
 ///
 /// // Invalid names
 /// assert!(validate_session_name("123-session").is_err()); // doesn't start with letter
-/// assert!(validate_session_name("my.session").is_err());  // invalid character
+/// assert!(validate_session_name("my.session").is_err()); // invalid character
 /// assert!(validate_session_name(&"a".repeat(64)).is_err()); // too long
 /// ```
 ///
@@ -144,7 +143,7 @@ pub fn validate_session_name(s: &str) -> Result<(), IdentifierError> {
 /// assert!(validate_agent_id("agent.example").is_ok());
 ///
 /// // Invalid IDs
-/// assert!(validate_agent_id("agent/123").is_err());  // invalid character
+/// assert!(validate_agent_id("agent/123").is_err()); // invalid character
 /// assert!(validate_agent_id(&"a".repeat(129)).is_err()); // too long
 /// ```
 ///
@@ -205,10 +204,10 @@ pub fn validate_agent_id(s: &str) -> Result<(), IdentifierError> {
 /// assert!(validate_workspace_name("my_workspace").is_ok());
 ///
 /// // Invalid names
-/// assert!(validate_workspace_name("my/workspace").is_err());  // path separator
-/// assert!(validate_workspace_name("my\\workspace").is_err());  // path separator
-/// assert!(validate_workspace_name("my\0workspace").is_err());  // null byte
-/// assert!(validate_workspace_name(&"a".repeat(256)).is_err());  // too long
+/// assert!(validate_workspace_name("my/workspace").is_err()); // path separator
+/// assert!(validate_workspace_name("my\\workspace").is_err()); // path separator
+/// assert!(validate_workspace_name("my\0workspace").is_err()); // null byte
+/// assert!(validate_workspace_name(&"a".repeat(256)).is_err()); // too long
 /// ```
 ///
 /// # Pure Function
@@ -263,8 +262,8 @@ pub fn validate_workspace_name(s: &str) -> Result<(), IdentifierError> {
 /// assert!(validate_task_id("bd-1234567890abcdef").is_ok());
 ///
 /// // Invalid IDs
-/// assert!(validate_task_id("abc123").is_err());     // missing prefix
-/// assert!(validate_task_id("bd-xyz").is_err());     // non-hex
+/// assert!(validate_task_id("abc123").is_err()); // missing prefix
+/// assert!(validate_task_id("bd-xyz").is_err()); // non-hex
 /// assert!(validate_task_id("bd-123-456").is_err()); // non-hex
 /// ```
 ///
@@ -395,8 +394,8 @@ pub fn validate_session_id(s: &str) -> Result<(), IdentifierError> {
 /// assert!(validate_absolute_path("/").is_ok());
 ///
 /// // Invalid paths
-/// assert!(validate_absolute_path("relative/path").is_err());   // not absolute
-/// assert!(validate_absolute_path("./path").is_err());          // not absolute
+/// assert!(validate_absolute_path("relative/path").is_err()); // not absolute
+/// assert!(validate_absolute_path("./path").is_err()); // not absolute
 /// assert!(validate_absolute_path("/path\0with\0nulls").is_err()); // null bytes
 /// ```
 ///

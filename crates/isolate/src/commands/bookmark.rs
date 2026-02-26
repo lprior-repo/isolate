@@ -9,10 +9,10 @@
 #![warn(clippy::pedantic)]
 
 use anyhow::{Context, Result};
+use isolate_core::{json::SchemaEnvelope, OutputFormat};
 use serde::Serialize;
 use thiserror::Error;
 use tokio::process::Command;
-use isolate_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::get_session_db;
 

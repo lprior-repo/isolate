@@ -323,9 +323,10 @@ mod tests {
         let result = merge_to_main("test", "/path");
         // The function is implemented, so it won't return "not yet implemented"
         // It will fail because we're not in a jj repo, which is expected behavior
-        let is_impl = result
-            .as_ref()
-            .map_or_else(|e| !e.to_string().contains("not yet implemented"), |()| true);
+        let is_impl = result.as_ref().map_or_else(
+            |e| !e.to_string().contains("not yet implemented"),
+            |()| true,
+        );
         assert!(is_impl, "merge_to_main should be implemented");
     }
 

@@ -13,8 +13,8 @@ mod tests;
 
 use anyhow::Result;
 use chrono::{DateTime, FixedOffset, Utc};
-use sqlx::SqlitePool;
 use isolate_core::{coordination::locks::LockManager, json::SchemaEnvelope, OutputFormat};
+use sqlx::SqlitePool;
 
 use self::types::{
     AgentInfo, AgentStatusOutput, AgentsArgs, AgentsOutput, HeartbeatArgs, HeartbeatOutput,
@@ -337,7 +337,10 @@ pub async fn run_register(args: &RegisterArgs, format: OutputFormat) -> Result<(
         if let Some(ref session) = output.session {
             println!("  Session: {session}");
         }
-        println!("\nSet Isolate_AGENT_ID={} in your environment", output.agent_id);
+        println!(
+            "\nSet Isolate_AGENT_ID={} in your environment",
+            output.agent_id
+        );
     }
 
     Ok(())

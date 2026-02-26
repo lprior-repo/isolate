@@ -10,8 +10,8 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use chrono::{DateTime, FixedOffset, Utc};
-use sqlx::sqlite::SqlitePoolOptions;
 use isolate_core::{agents::registry::AgentRegistry, coordination::locks::LockManager};
+use sqlx::sqlite::SqlitePoolOptions;
 
 use super::types::{AgentInfo, LockSummary};
 

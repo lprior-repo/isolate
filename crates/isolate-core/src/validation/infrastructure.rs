@@ -30,11 +30,12 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
+use std::path::Path;
+
 use crate::{
     types::{Session, SessionStatus},
     Error, Result,
 };
-use std::path::Path;
 
 // ============================================================================
 // PATH VALIDATION
@@ -470,8 +471,9 @@ pub fn validate_any_path_exists(paths: &[&Path]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
+
+    use super::*;
 
     // ===== Path Validation Tests =====
 

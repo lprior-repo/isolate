@@ -34,12 +34,12 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use crate::domain::aggregates::bead::BeadError;
-use crate::domain::aggregates::session::SessionError;
-use crate::domain::aggregates::workspace::WorkspaceError;
-use crate::domain::builders::BuilderError;
-use crate::domain::identifiers::IdentifierError;
-use crate::domain::repository::RepositoryError;
+use crate::domain::{
+    aggregates::{bead::BeadError, session::SessionError, workspace::WorkspaceError},
+    builders::BuilderError,
+    identifiers::IdentifierError,
+    repository::RepositoryError,
+};
 
 // ============================================================================
 // IDENTIFIER ERROR CONVERSIONS
@@ -361,10 +361,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::identifiers::{SessionName, WorkspaceName};
-    use crate::domain::workspace::WorkspaceState;
     use std::path::PathBuf;
+
+    use super::*;
+    use crate::domain::{
+        identifiers::{SessionName, WorkspaceName},
+        workspace::WorkspaceState,
+    };
 
     // ===== IdentifierError to AggregateError conversions =====
 

@@ -11,8 +11,10 @@
 
 use chrono::{Duration, Utc};
 
-use super::domain::{DomainError, IssueId, IssueState};
-use super::issue::Issue;
+use super::{
+    domain::{DomainError, IssueId, IssueState},
+    issue::Issue,
+};
 
 // ============================================================================
 // Closed State Invariant Tests
@@ -201,10 +203,7 @@ fn test_all_state_transitions_from_in_progress() {
         issue.transition_to(IssueState::InProgress).unwrap();
 
         let result = issue.transition_to(new_state);
-        assert!(
-            result.is_ok(),
-            "InProgress -> {new_state:?} should succeed"
-        );
+        assert!(result.is_ok(), "InProgress -> {new_state:?} should succeed");
         assert_eq!(issue.state, new_state);
     }
 }

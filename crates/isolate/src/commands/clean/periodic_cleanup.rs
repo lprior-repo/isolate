@@ -19,10 +19,10 @@ use std::time::Duration;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
+use isolate_core::OutputFormat;
 use serde::Serialize;
 use serde_json::Value;
 use tokio::time::sleep;
-use isolate_core::OutputFormat;
 
 use crate::{
     commands::get_session_db,

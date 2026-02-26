@@ -662,7 +662,10 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     if has_active {
         actions.push(NextAction {
             action: "Review session status".to_string(),
-            commands: vec!["isolate status".to_string(), "isolate dashboard".to_string()],
+            commands: vec![
+                "isolate status".to_string(),
+                "isolate dashboard".to_string(),
+            ],
             risk: ActionRisk::Safe,
             description: None,
         });
@@ -797,8 +800,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        domain::session::BranchState,
-        domain::{AbsolutePath, SessionId},
+        domain::{session::BranchState, AbsolutePath, SessionId},
         output::ValidatedMetadata,
         types::SessionName,
         WorkspaceState,

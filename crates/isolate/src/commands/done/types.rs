@@ -4,8 +4,8 @@
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
 use isolate_core::OutputFormat;
+use serde::{Deserialize, Serialize};
 
 use super::conflict::ConflictDetectionResult;
 

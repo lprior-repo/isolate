@@ -1,4 +1,8 @@
-#![allow(clippy::uninlined_format_args, clippy::unnecessary_map_or, clippy::needless_collect)]
+#![allow(
+    clippy::uninlined_format_args,
+    clippy::unnecessary_map_or,
+    clippy::needless_collect
+)]
 //! Adversarial tests for Status aggregation (REVIEW Phase)
 //!
 //! These tests validate robustness under edge cases and partial state scenarios.

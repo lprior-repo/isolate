@@ -13,10 +13,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use super::OutputLineError;
 // Re-export from domain (single source of truth)
 pub use crate::domain::{BeadId, SessionName};
-
-use super::OutputLineError;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // IDENTIFIER NEWTYPES - Parse at boundaries, validate once

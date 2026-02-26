@@ -47,8 +47,8 @@ use std::{
     time::Duration,
 };
 
-use tokio::sync::Barrier;
 use isolate_core::{jj_operation_sync::create_workspace_synced, Error, Result};
+use tokio::sync::Barrier;
 
 /// Test concurrent workspace creation with 12 parallel tasks
 ///

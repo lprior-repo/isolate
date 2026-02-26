@@ -35,8 +35,8 @@
     clippy::manual_clamp,
 )]
 
-use tempfile::TempDir;
 use isolate_core::Result;
+use tempfile::TempDir;
 
 /// Set up a temporary directory with an initialized jj repository
 pub fn setup_test_repo() -> Result<TempDir> {

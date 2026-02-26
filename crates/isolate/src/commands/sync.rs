@@ -44,7 +44,6 @@ use std::{io::Write, path::Path, time::SystemTime};
 use anyhow::{Context, Result};
 use fs4::fs_std::FileExt;
 use futures::StreamExt;
-use tokio::process::Command;
 use isolate_core::{
     domain::SessionName,
     output::{
@@ -54,6 +53,7 @@ use isolate_core::{
     },
     OutputFormat,
 };
+use tokio::process::Command;
 
 use crate::{
     cli::run_command,
@@ -203,7 +203,9 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
             let main_repo_isolate = Path::new(&main_repo_path).join(".isolate");
 
             anyhow::ensure!(
-                tokio::fs::try_exists(&main_repo_isolate).await.is_ok_and(|e| e),
+                tokio::fs::try_exists(&main_repo_isolate)
+                    .await
+                    .is_ok_and(|e| e),
                 "Isolate not initialized in main repository at {main_repo_path}\n\n\
                  Run 'isolate init' in the main repository first."
             );
@@ -1115,8 +1117,10 @@ mod tests {
 
     #[test]
     fn test_sync_jsonl_issue_output() -> anyhow::Result<()> {
-        use isolate_core::domain::SessionName;
-        use isolate_core::output::{Issue, IssueId, IssueKind, IssueSeverity, IssueTitle, OutputLine};
+        use isolate_core::{
+            domain::SessionName,
+            output::{Issue, IssueId, IssueKind, IssueSeverity, IssueTitle, OutputLine},
+        };
 
         let issue = Issue::new(
             IssueId::new("SYNC-FAILED-test-session")?,

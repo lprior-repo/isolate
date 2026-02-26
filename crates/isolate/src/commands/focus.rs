@@ -140,11 +140,11 @@ mod tests {
 
     use std::path::PathBuf;
 
-    use tempfile::TempDir;
     use isolate_core::output::{
         Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, ResultKind,
         ResultOutput, SessionOutput,
     };
+    use tempfile::TempDir;
 
     use super::*;
     use crate::db::SessionDb;

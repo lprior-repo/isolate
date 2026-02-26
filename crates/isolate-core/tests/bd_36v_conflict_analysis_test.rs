@@ -1,7 +1,12 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
-#![allow(clippy::match_wild_err_arm, clippy::redundant_clone, clippy::uninlined_format_args, clippy::expect_used)]
+#![allow(
+    clippy::match_wild_err_arm,
+    clippy::redundant_clone,
+    clippy::uninlined_format_args,
+    clippy::expect_used
+)]
 
 //! - Analyze conflicts and generate structured output
 

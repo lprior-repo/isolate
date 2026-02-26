@@ -7,14 +7,13 @@
 
 use std::path::PathBuf;
 
-use isolate_core::domain::identifiers::{
-    AgentId, BeadId, SessionId, SessionName, WorkspaceName,
+use isolate_core::domain::{
+    identifiers::{AgentId, BeadId, SessionId, SessionName, WorkspaceName},
+    repository::{
+        AgentRepository, BeadRepository, RepositoryResult, SessionRepository, WorkspaceRepository,
+    },
+    session::BranchState,
 };
-use isolate_core::domain::repository::{
-    AgentRepository, BeadRepository,
-    RepositoryResult, SessionRepository, WorkspaceRepository,
-};
-use isolate_core::domain::session::BranchState;
 
 // ============================================================================
 // MOCK SESSION REPOSITORY
@@ -47,10 +46,7 @@ impl SessionRepository for MockSessionRepository {
         })
     }
 
-    fn save(
-        &self,
-        _session: &isolate_core::domain::repository::Session,
-    ) -> RepositoryResult<()> {
+    fn save(&self, _session: &isolate_core::domain::repository::Session) -> RepositoryResult<()> {
         // Mock save - no-op
         Ok(())
     }
@@ -65,9 +61,7 @@ impl SessionRepository for MockSessionRepository {
         Ok(Vec::new())
     }
 
-    fn get_current(
-        &self,
-    ) -> RepositoryResult<Option<isolate_core::domain::repository::Session>> {
+    fn get_current(&self) -> RepositoryResult<Option<isolate_core::domain::repository::Session>> {
         Ok(None)
     }
 
@@ -136,10 +130,7 @@ impl BeadRepository for MockBeadRepository {
         })
     }
 
-    fn save(
-        &self,
-        _bead: &isolate_core::domain::repository::Bead,
-    ) -> RepositoryResult<()> {
+    fn save(&self, _bead: &isolate_core::domain::repository::Bead) -> RepositoryResult<()> {
         Ok(())
     }
 
@@ -168,10 +159,7 @@ impl AgentRepository for MockAgentRepository {
         })
     }
 
-    fn save(
-        &self,
-        _agent: &isolate_core::domain::repository::Agent,
-    ) -> RepositoryResult<()> {
+    fn save(&self, _agent: &isolate_core::domain::repository::Agent) -> RepositoryResult<()> {
         Ok(())
     }
 

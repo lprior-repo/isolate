@@ -24,8 +24,6 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use futures::{StreamExt, TryStreamExt};
-use sqlx::Row;
-use tokio::process::Command;
 use isolate_core::{
     config::{load_config, Config},
     introspection::{CheckStatus, DoctorCheck, FixResult, UnfixableIssue},
@@ -35,6 +33,8 @@ use isolate_core::{
     },
     workspace_integrity::{CorruptionType, IntegrityValidator, ValidationResult},
 };
+use sqlx::Row;
+use tokio::process::Command;
 
 use crate::{
     cli::{is_command_available, is_jj_repo, jj_root},
@@ -1895,6 +1895,8 @@ mod tests {
 
         // They should have different purposes
         assert!(jj_check.message.contains("JJ") || jj_check.message.contains("installed"));
-        assert!(init_check.message.contains("isolate") || init_check.message.contains("initialized"));
+        assert!(
+            init_check.message.contains("isolate") || init_check.message.contains("initialized")
+        );
     }
 }

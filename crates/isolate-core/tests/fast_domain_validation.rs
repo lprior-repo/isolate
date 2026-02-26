@@ -18,7 +18,9 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use isolate_core::validation::domain::{validate_agent_id, validate_bead_id, validate_session_name};
+use isolate_core::validation::domain::{
+    validate_agent_id, validate_bead_id, validate_session_name,
+};
 
 // =============================================================================
 // Session Name Validation Tests
@@ -240,8 +242,7 @@ mod composed_validation {
         let agent = "agent-123";
 
         // Both valid
-        let result = validate_session_name(session)
-            .and_then(|()| validate_agent_id(agent));
+        let result = validate_session_name(session).and_then(|()| validate_agent_id(agent));
         assert!(result.is_ok());
     }
 
@@ -253,8 +254,7 @@ mod composed_validation {
         let session = "123-invalid"; // Invalid start
         let agent = "agent-123";
 
-        let result = validate_session_name(session)
-            .and_then(|()| validate_agent_id(agent));
+        let result = validate_session_name(session).and_then(|()| validate_agent_id(agent));
         assert!(result.is_err());
     }
 
@@ -296,8 +296,19 @@ mod property_tests {
     #[test]
     fn valid_names_are_idempotent() {
         let valid_names: [&str; 13] = [
-            "a", "ab", "abc", "session", "my-session", "my_session", "Session123",
-            "feature-branch-name", "bug_fix_123", "A", "ABC", "a1", "a-1",
+            "a",
+            "ab",
+            "abc",
+            "session",
+            "my-session",
+            "my_session",
+            "Session123",
+            "feature-branch-name",
+            "bug_fix_123",
+            "A",
+            "ABC",
+            "a1",
+            "a-1",
         ];
 
         for name in valid_names {
@@ -306,7 +317,11 @@ mod property_tests {
             // Second validation (should be identical)
             let second = validate_session_name(name);
 
-            assert_eq!(first.is_ok(), second.is_ok(), "Idempotency failed for '{name}'");
+            assert_eq!(
+                first.is_ok(),
+                second.is_ok(),
+                "Idempotency failed for '{name}'"
+            );
         }
     }
 
@@ -314,8 +329,16 @@ mod property_tests {
     #[test]
     fn invalid_names_always_rejected() {
         let invalid_names: [&str; 10] = [
-            "", "   ", "123", "-start", "_start", "has space", "has.dot",
-            "has/slash", "has@at", "#hash",
+            "",
+            "   ",
+            "123",
+            "-start",
+            "_start",
+            "has space",
+            "has.dot",
+            "has/slash",
+            "has@at",
+            "#hash",
         ];
 
         for name in invalid_names {
@@ -350,6 +373,7 @@ mod property_tests {
 #[cfg(test)]
 mod benchmarks {
     use std::time::Instant;
+
     use super::*;
 
     /// Benchmark: How fast can we validate 10,000 session names?
@@ -357,9 +381,7 @@ mod benchmarks {
     #[allow(clippy::cast_precision_loss)]
     fn benchmark_session_name_validation() {
         let iterations = 10_000;
-        let test_names: Vec<String> = (0..iterations)
-            .map(|i| format!("session-{i}"))
-            .collect();
+        let test_names: Vec<String> = (0..iterations).map(|i| format!("session-{i}")).collect();
 
         let start = Instant::now();
 

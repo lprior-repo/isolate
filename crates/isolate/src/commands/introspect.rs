@@ -326,12 +326,18 @@ fn create_list_filter_flags() -> Vec<FlagSpec> {
 fn create_list_examples() -> Vec<CommandExample> {
     vec![
         create_example("isolate list", "List active sessions"),
-        create_example("isolate list --all", "List all sessions including completed"),
+        create_example(
+            "isolate list --all",
+            "List all sessions including completed",
+        ),
         create_example(
             "isolate list --bead feature-123",
             "List sessions for bead feature-123",
         ),
-        create_example("isolate list --agent alice", "List sessions assigned to alice"),
+        create_example(
+            "isolate list --agent alice",
+            "List sessions assigned to alice",
+        ),
         create_example(
             "isolate list --bead feature-123 --agent alice",
             "List feature-123 sessions assigned to alice",
@@ -478,12 +484,18 @@ fn create_remove_flags() -> Vec<FlagSpec> {
 /// Remove command examples showing cleanup patterns
 fn create_remove_examples() -> Vec<CommandExample> {
     vec![
-        create_example("isolate remove my-session", "Remove session (no confirmation)"),
+        create_example(
+            "isolate remove my-session",
+            "Remove session (no confirmation)",
+        ),
         create_example(
             "isolate remove my-session -f",
             "Remove and skip pre_remove hooks",
         ),
-        create_example("isolate remove my-session -m", "Merge changes before removing"),
+        create_example(
+            "isolate remove my-session -m",
+            "Merge changes before removing",
+        ),
     ]
 }
 

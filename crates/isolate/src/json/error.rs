@@ -1,11 +1,11 @@
 //! JSON error conversion and handling
 
 use anyhow::Error;
-use serde::Serialize;
 use isolate_core::{
     json::{ErrorCode, ErrorDetail, JsonError, SchemaEnvelope},
     Error as ZjjError,
 };
+use serde::Serialize;
 
 use crate::commands::{spawn::types::SpawnError, undo::types::UndoError};
 
@@ -273,7 +273,8 @@ mod tests {
 
     #[test]
     fn given_not_initialized_when_classifying_then_exit_code_is_validation() {
-        let code = classify_exit_code_by_message("Isolate not initialized. Run 'isolate init' first.");
+        let code =
+            classify_exit_code_by_message("Isolate not initialized. Run 'isolate init' first.");
         assert_eq!(code, 1);
     }
 

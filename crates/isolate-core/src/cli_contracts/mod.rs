@@ -36,8 +36,8 @@ pub use config::ConfigContracts;
 pub use doctor::{CheckStatus, DoctorStatus};
 pub use domain_types::{
     AgentId, AgentStatus, AgentType, ConfigKey, ConfigScope, ConfigValue, FileStatus, Limit,
-    NonEmptyString, OutputFormat, Priority, SessionName, SessionStatus, TaskId,
-    TaskPriority, TaskStatus, TimeoutSeconds,
+    NonEmptyString, OutputFormat, Priority, SessionName, SessionStatus, TaskId, TaskPriority,
+    TaskStatus, TimeoutSeconds,
 };
 pub use error::ContractError;
 #[allow(unused_imports)]

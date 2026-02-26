@@ -180,10 +180,7 @@ fn submit_dry_run_auto_commit_does_not_mutate_workspace() {
     let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())
         .expect("submit dry-run should return valid JSON");
 
-    assert!(
-        result.success,
-        "dry-run auto-commit submit should succeed"
-    );
+    assert!(result.success, "dry-run auto-commit submit should succeed");
     assert_eq!(
         parsed.get("ok").and_then(serde_json::Value::as_bool),
         Some(true)
@@ -407,7 +404,10 @@ fn submit_repeated_auto_commit_keeps_json_contract() {
                 .get("error")
                 .and_then(|v| v.get("code"))
                 .and_then(serde_json::Value::as_str);
-            assert!(matches!(code, Some("PRECONDITION_FAILED" | "DIRTY_WORKSPACE")));
+            assert!(matches!(
+                code,
+                Some("PRECONDITION_FAILED" | "DIRTY_WORKSPACE")
+            ));
         }
     }
 }

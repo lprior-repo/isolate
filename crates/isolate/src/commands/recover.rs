@@ -11,9 +11,9 @@
 
 use anyhow::{Context, Result};
 use futures::StreamExt;
+use isolate_core::{json::SchemaEnvelope, OutputFormat};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
-use isolate_core::{json::SchemaEnvelope, OutputFormat};
 
 use super::{
     context::{detect_location, Location},
@@ -275,7 +275,8 @@ async fn try_fix_issue(issue: Issue) -> Issue {
             // Extract session name from fix command and attempt fix
             let session_name = issue.fix_command.as_ref().and_then(|cmd| {
                 let parts: Vec<&str> = cmd.split_whitespace().collect();
-                (parts.len() >= 3 && parts[0] == "isolate" && parts[1] == "remove").then(|| parts[2])
+                (parts.len() >= 3 && parts[0] == "isolate" && parts[1] == "remove")
+                    .then(|| parts[2])
             });
 
             if let Some(name) = session_name {
@@ -1174,7 +1175,10 @@ mod tests {
             assert!(output.has_command);
             assert!(output.command.is_some());
             assert!(
-                output.command.as_ref().is_some_and(|c| c.contains("isolate")),
+                output
+                    .command
+                    .as_ref()
+                    .is_some_and(|c| c.contains("isolate")),
                 "Command should contain 'isolate'"
             );
         }

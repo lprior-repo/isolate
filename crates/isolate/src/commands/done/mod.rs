@@ -28,8 +28,8 @@ use std::{
 };
 
 use anyhow::Result;
-pub use types::{DoneError, DoneOptions, DoneOutput, UndoEntry};
 use isolate_core::{json::SchemaEnvelope, WorkspaceState};
+pub use types::{DoneError, DoneOptions, DoneOutput, UndoEntry};
 
 use self::conflict::ConflictDetector;
 use crate::{

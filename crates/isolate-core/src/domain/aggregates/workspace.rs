@@ -25,8 +25,7 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-use crate::domain::identifiers::WorkspaceName;
-use crate::domain::workspace::WorkspaceState;
+use crate::domain::{identifiers::WorkspaceName, workspace::WorkspaceState};
 
 // ============================================================================
 // DOMAIN ERRORS
@@ -362,16 +361,12 @@ impl WorkspaceBuilder {
     /// - Required fields are missing
     /// - Path doesn't exist
     pub fn build(self) -> Result<Workspace, WorkspaceError> {
-        let name = self.name.ok_or(
-            WorkspaceError::CannotUse(
-                WorkspaceState::Creating, // Using existing error for missing name
-            )
-        )?;
-        let path = self.path.ok_or(
-            WorkspaceError::CannotUse(
-                WorkspaceState::Creating, // Using existing error for missing path
-            )
-        )?;
+        let name = self.name.ok_or(WorkspaceError::CannotUse(
+            WorkspaceState::Creating, // Using existing error for missing name
+        ))?;
+        let path = self.path.ok_or(WorkspaceError::CannotUse(
+            WorkspaceState::Creating, // Using existing error for missing path
+        ))?;
 
         match self.state {
             Some(state) => Workspace::reconstruct(name, path, state),

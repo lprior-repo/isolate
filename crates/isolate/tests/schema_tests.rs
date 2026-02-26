@@ -34,7 +34,12 @@ fn run_cue_export() -> Result<Option<String>, Box<dyn std::error::Error>> {
     }
 
     let output = Command::new("cue")
-        .args(["export", "cue-schemas/isolate_protocol.cue", "--out", "json"])
+        .args([
+            "export",
+            "cue-schemas/isolate_protocol.cue",
+            "--out",
+            "json",
+        ])
         .output()?;
 
     if !output.status.success() {

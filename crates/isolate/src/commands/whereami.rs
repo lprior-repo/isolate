@@ -7,8 +7,8 @@
 //! This is designed for AI agents that need to quickly orient themselves.
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use isolate_core::{json::SchemaEnvelope, OutputFormat};
+use serde::Serialize;
 
 use super::context;
 

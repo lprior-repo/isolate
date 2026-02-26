@@ -103,10 +103,12 @@ async fn scenario_single_agent_lifecycle() {
     ctx.track_session(session_name).await;
 
     // Step 1: Add session
-    ctx.harness.assert_success(&["add", session_name, "--no-hooks"]);
+    ctx.harness
+        .assert_success(&["add", session_name, "--no-hooks"]);
 
     // Step 2: Work on session (simulate)
-    ctx.harness.create_file(&format!("workspaces/{session_name}/work.txt"), "done")
+    ctx.harness
+        .create_file(&format!("workspaces/{session_name}/work.txt"), "done")
         .expect("Failed to create file");
 
     // Step 3: Complete work

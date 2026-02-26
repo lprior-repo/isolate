@@ -592,7 +592,8 @@ impl CommandResult {
     /// Functional pattern: Returns Result instead of panicking
     /// Uses Railway-Oriented Programming for error propagation
     pub fn verify_sessions(&self, expected_count: usize) -> Result<(), anyhow::Error> {
-        let lines = parse_jsonl_output(&self.stdout).with_context(|| "Failed to parse JSONL output")?;
+        let lines =
+            parse_jsonl_output(&self.stdout).with_context(|| "Failed to parse JSONL output")?;
 
         let sessions: Vec<_> = filter_jsonl_lines_by_type(&lines, "session")
             .filter_map(|line| line.get("session"))

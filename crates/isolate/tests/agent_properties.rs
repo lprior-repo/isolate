@@ -257,15 +257,13 @@ impl AgentRegistry {
         }
 
         // Bind the agent
-        self.agents
-            .get_mut(agent_id)
-            .map_or_else(
-                || Err(AgentError::NotFound(agent_id.to_string())),
-                |agent| {
-                    agent.bind_to_session(session_id, current_time, ttl);
-                    Ok(())
-                },
-            )
+        self.agents.get_mut(agent_id).map_or_else(
+            || Err(AgentError::NotFound(agent_id.to_string())),
+            |agent| {
+                agent.bind_to_session(session_id, current_time, ttl);
+                Ok(())
+            },
+        )
     }
 }
 

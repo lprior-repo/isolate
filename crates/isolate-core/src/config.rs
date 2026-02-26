@@ -1250,7 +1250,9 @@ impl Config {
         // Isolate_CONFLICT_RESOLUTION_MODE
         if let Ok(value) = std::env::var("Isolate_CONFLICT_RESOLUTION_MODE") {
             self.conflict_resolution.mode = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid Isolate_CONFLICT_RESOLUTION_MODE value: {e}"))
+                Error::InvalidConfig(format!(
+                    "Invalid Isolate_CONFLICT_RESOLUTION_MODE value: {e}"
+                ))
             })?;
         }
 

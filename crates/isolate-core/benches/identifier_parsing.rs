@@ -13,10 +13,7 @@
 //! during construction, ensuring the type cannot represent invalid states.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use isolate_core::domain::identifiers::{
-    AgentId, SessionName, TaskId, WorkspaceName,
-};
-
+use isolate_core::domain::identifiers::{AgentId, SessionName, TaskId, WorkspaceName};
 
 // ============================================================================
 // FIXTURES
@@ -249,53 +246,51 @@ fn bench_workspace_name_parse(c: &mut Criterion) {
 // BENCHMARKS: QueueEntryId
 // ============================================================================
 
-/*
-fn bench_queue_entry_id_new(c: &mut Criterion) {
-    let mut group = c.benchmark_group("queue_entry_id_new");
-
-    // Valid IDs
-    group.bench_function("valid_small", |b| {
-        b.iter(|| {
-            match QueueEntryId::new(black_box(42)) {
-                Ok(_id) => {
-                    // Successfully created
-                }
-                Err(_) => {
-                    // Should not happen with valid input
-                }
-            }
-        });
-    });
-
-    group.bench_function("valid_large", |b| {
-        b.iter(|| {
-            match QueueEntryId::new(black_box(i64::MAX)) {
-                Ok(_id) => {
-                    // Successfully created
-                }
-                Err(_) => {
-                    // Should not happen with valid input
-                }
-            }
-        });
-    });
-
-    // Invalid IDs
-    group.bench_function("invalid_zero", |b| {
-        b.iter(|| {
-            let _ = QueueEntryId::new(black_box(0));
-        });
-    });
-
-    group.bench_function("invalid_negative", |b| {
-        b.iter(|| {
-            let _ = QueueEntryId::new(black_box(-1));
-        });
-    });
-
-    group.finish();
-}
-*/
+// fn bench_queue_entry_id_new(c: &mut Criterion) {
+// let mut group = c.benchmark_group("queue_entry_id_new");
+//
+// Valid IDs
+// group.bench_function("valid_small", |b| {
+// b.iter(|| {
+// match QueueEntryId::new(black_box(42)) {
+// Ok(_id) => {
+// Successfully created
+// }
+// Err(_) => {
+// Should not happen with valid input
+// }
+// }
+// });
+// });
+//
+// group.bench_function("valid_large", |b| {
+// b.iter(|| {
+// match QueueEntryId::new(black_box(i64::MAX)) {
+// Ok(_id) => {
+// Successfully created
+// }
+// Err(_) => {
+// Should not happen with valid input
+// }
+// }
+// });
+// });
+//
+// Invalid IDs
+// group.bench_function("invalid_zero", |b| {
+// b.iter(|| {
+// let _ = QueueEntryId::new(black_box(0));
+// });
+// });
+//
+// group.bench_function("invalid_negative", |b| {
+// b.iter(|| {
+// let _ = QueueEntryId::new(black_box(-1));
+// });
+// });
+//
+// group.finish();
+// }
 
 // ============================================================================
 // BENCHMARKS: AsRef/Display overhead
@@ -326,28 +321,20 @@ fn bench_identifier_as_str_overhead(c: &mut Criterion) {
 // ============================================================================
 
 fn bench_bulk_session_name_parsing(c: &mut Criterion) {
-    let names: Vec<String> = (0..100)
-        .map(|i| format!("session-{:?}", i))
-        .collect();
+    let names: Vec<String> = (0..100).map(|i| format!("session-{:?}", i)).collect();
 
     let mut group = c.benchmark_group("bulk_parsing");
 
     group.bench_function("parse_100_session_names", |b| {
         b.iter(|| {
-            let _parsed: Result<Vec<_>, _> = names
-                .iter()
-                .map(|n| SessionName::parse(n))
-                .collect();
+            let _parsed: Result<Vec<_>, _> = names.iter().map(|n| SessionName::parse(n)).collect();
         });
     });
 
     // Compare with iterator approach (more idiomatic)
     group.bench_function("parse_100_session_names_iter", |b| {
         b.iter(|| {
-            let _parsed: Result<Vec<_>, _> = names
-                .iter()
-                .map(|n| SessionName::parse(n))
-                .collect();
+            let _parsed: Result<Vec<_>, _> = names.iter().map(|n| SessionName::parse(n)).collect();
         });
     });
 

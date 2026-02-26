@@ -11,16 +11,6 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{
-    contracts::{Constraint, ContextualHint, FieldContract, HasContract, HintType, TypeContract},
-    domain::{
-        session::BranchState,
-        AbsolutePath, SessionId,
-    },
-    output::ValidatedMetadata,
-    Error, Result, WorkspaceState,
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION NAME VALUE OBJECT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -31,6 +21,12 @@ use crate::{
 // rules (MAX_LENGTH = 63). This re-export provides backward compatibility for code
 // using `types::SessionName` and ensures all parts of the codebase use the same type.
 pub use crate::domain::SessionName;
+use crate::{
+    contracts::{Constraint, ContextualHint, FieldContract, HasContract, HintType, TypeContract},
+    domain::{session::BranchState, AbsolutePath, SessionId},
+    output::ValidatedMetadata,
+    Error, Result, WorkspaceState,
+};
 
 // Backward compatibility: provide new() method that delegates to parse()
 //

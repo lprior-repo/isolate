@@ -28,16 +28,15 @@
 //! This test module verifies that template storage handles concurrent
 //! access patterns correctly without deadlocks or data races.
 
-
 use std::sync::Arc;
 
-use tokio::task::JoinSet;
 use isolate_core::{
     templates::storage::{
         delete_template, list_templates, load_template, save_template, template_exists, Template,
     },
     Error,
 };
+use tokio::task::JoinSet;
 
 /// Test concurrent template read/write operations
 ///

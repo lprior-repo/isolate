@@ -7,9 +7,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use isolate_core::{domain::SessionName, output::*};
 use serde_json::Value;
-use isolate_core::domain::SessionName;
-use isolate_core::output::*;
 
 fn validate_json_structure(json: &Value, required_fields: &[&str]) {
     for field in required_fields {
@@ -235,13 +234,7 @@ fn test_output_line_enum_discriminator() {
     ];
 
     let allowed_wrappers = [
-        "summary",
-        "session",
-        "issue",
-        "plan",
-        "action",
-        "warning",
-        "result",
+        "summary", "session", "issue", "plan", "action", "warning", "result",
     ];
 
     for variant in variants {
@@ -330,6 +323,7 @@ fn test_recovery_type_serialization() {
 
     // Verify capability has the right structure
     let capability = assessment.get("capability").unwrap();
-    // In our manual structure check, we need to match how serde serializes the RecoveryCapability enum
+    // In our manual structure check, we need to match how serde serializes the RecoveryCapability
+    // enum
     assert!(capability.get("recoverable").is_some());
 }

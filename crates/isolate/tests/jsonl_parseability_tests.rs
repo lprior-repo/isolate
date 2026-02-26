@@ -1,4 +1,8 @@
-#![allow(clippy::unreadable_literal, clippy::unnecessary_map_or, clippy::filter_map_next)]
+#![allow(
+    clippy::unreadable_literal,
+    clippy::unnecessary_map_or,
+    clippy::filter_map_next
+)]
 //! JSONL Parseability Tests (bd-foy)
 //!
 //! These tests verify that all isolate commands produce valid JSONL output
@@ -319,8 +323,10 @@ fn test_session_output_has_required_fields() {
 #[test]
 fn test_issue_output_has_required_fields() {
     // Create an Issue manually and verify its structure
-    use isolate_core::domain::SessionName;
-    use isolate_core::output::{Issue, IssueId, IssueKind, IssueSeverity, IssueTitle};
+    use isolate_core::{
+        domain::SessionName,
+        output::{Issue, IssueId, IssueKind, IssueSeverity, IssueTitle},
+    };
 
     let issue = Issue::new(
         IssueId::new("TEST-001").expect("valid id"),

@@ -13,11 +13,11 @@ use std::{
 use anyhow::{Context, Result};
 use chrono::TimeZone;
 use futures::{StreamExt, TryStreamExt};
+use isolate_core::OutputFormat;
 use serde::Serialize;
 use sqlx::Row;
 use tar::Builder;
 use tracing::warn;
-use isolate_core::OutputFormat;
 
 use crate::{
     commands::get_session_db,

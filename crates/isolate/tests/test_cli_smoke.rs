@@ -161,7 +161,8 @@ async fn test_help_for_all_commands() {
 
             async move {
                 let _permit = semaphore.acquire().await;
-                let result = run_isolate_async(&isolate_bin, &current_dir, &[&command, "--help"]).await;
+                let result =
+                    run_isolate_async(&isolate_bin, &current_dir, &[&command, "--help"]).await;
                 (command, result)
             }
         })
@@ -219,7 +220,10 @@ async fn test_smoke_json_core_commands() {
 
             async move {
                 let Ok(_permit) = semaphore.acquire().await else {
-                    return (args.clone(), Err(std::io::Error::other("semaphore acquire failed")));
+                    return (
+                        args.clone(),
+                        Err(std::io::Error::other("semaphore acquire failed")),
+                    );
                 };
                 let result = run_isolate_async(&isolate_bin, &current_dir, &args).await;
                 (args, Ok(result))

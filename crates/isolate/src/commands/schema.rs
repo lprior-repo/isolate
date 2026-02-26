@@ -6,9 +6,9 @@
 //! - `isolate schema --list` - List available schemas
 
 use anyhow::{Context, Result};
+use isolate_core::{json::SchemaEnvelope, OutputFormat};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use isolate_core::{json::SchemaEnvelope, OutputFormat};
 
 /// Options for schema command
 #[derive(Debug, Clone)]

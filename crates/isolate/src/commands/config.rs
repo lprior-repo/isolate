@@ -8,9 +8,9 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
+use isolate_core::{config::Config, json::SchemaEnvelope, OutputFormat};
 use serde_json::Value as JsonValue;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-use isolate_core::{config::Config, json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     commands::config_ports::{ConfigReadPort, LocalConfigPort},
@@ -212,7 +212,9 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
     let current = parts.iter().try_fold(&json, |current_value, &part| {
         current_value.get(part).ok_or_else(|| {
             anyhow::Error::new(isolate_core::Error::ValidationError {
-                message: format!("Config key '{key}' not found. Use 'isolate config' to see all keys."),
+                message: format!(
+                    "Config key '{key}' not found. Use 'isolate config' to see all keys."
+                ),
                 field: None,
                 value: None,
                 constraints: Vec::new(),
@@ -667,8 +669,8 @@ mod tests {
     #[test]
     fn test_config_set_wrapped() -> Result<()> {
         // FAILING: Verify envelope wrapping when setting config values
-        use serde_json::json;
         use isolate_core::json::SchemaEnvelope;
+        use serde_json::json;
 
         let response = json!({"success": true, "key": "test.key", "value": "test_value"});
         let envelope = SchemaEnvelope::new("config-set", "single", response);
@@ -687,8 +689,8 @@ mod tests {
     #[test]
     fn test_config_get_wrapped() -> Result<()> {
         // FAILING: Verify envelope wrapping when getting config values
-        use serde_json::json;
         use isolate_core::json::SchemaEnvelope;
+        use serde_json::json;
 
         let response = json!({"value": "config_value"});
         let envelope = SchemaEnvelope::new("config-get", "single", response);

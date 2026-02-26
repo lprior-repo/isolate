@@ -881,7 +881,10 @@ impl Error {
         if msg.contains("JSON") || msg.contains("json") {
             vec!["echo '{}' | jq .".to_string(), "isolate doctor".to_string()]
         } else if msg.contains("TOML") || msg.contains("toml") {
-            vec!["isolate config list".to_string(), "isolate doctor".to_string()]
+            vec![
+                "isolate config list".to_string(),
+                "isolate doctor".to_string(),
+            ]
         } else {
             vec!["isolate doctor".to_string()]
         }
@@ -895,7 +898,10 @@ impl Error {
         match self {
             Self::NotFound(msg) => {
                 if msg.contains("session") {
-                    vec!["isolate list".to_string(), "isolate add <session-name>".to_string()]
+                    vec![
+                        "isolate list".to_string(),
+                        "isolate add <session-name>".to_string(),
+                    ]
                 } else {
                     vec!["isolate list".to_string()]
                 }
@@ -911,7 +917,10 @@ impl Error {
                 }
             }
             Self::DatabaseError(_) => {
-                vec!["isolate doctor".to_string(), "isolate doctor --fix".to_string()]
+                vec![
+                    "isolate doctor".to_string(),
+                    "isolate doctor --fix".to_string(),
+                ]
             }
             Self::JjCommandError {
                 is_not_found: true, ..
@@ -927,7 +936,10 @@ impl Error {
                 ..
             } => {
                 if operation.contains("workspace") {
-                    vec!["jj workspace list".to_string(), "isolate doctor".to_string()]
+                    vec![
+                        "jj workspace list".to_string(),
+                        "isolate doctor".to_string(),
+                    ]
                 } else {
                     vec!["jj status".to_string()]
                 }
@@ -1378,7 +1390,8 @@ mod tests {
 
     #[test]
     fn test_failure_context_with_command() {
-        let ctx = FailureContext::new().with_command("isolate add", vec!["test-session".to_string()]);
+        let ctx =
+            FailureContext::new().with_command("isolate add", vec!["test-session".to_string()]);
         assert_eq!(ctx.command, Some("isolate add".to_string()));
         assert_eq!(ctx.arguments, vec!["test-session"]);
     }
@@ -1508,7 +1521,8 @@ mod tests {
     #[test]
     fn test_rich_error_with_fix_commands() {
         let err = Error::Unknown("unknown".into());
-        let rich = RichError::from_error(&err).with_fix_commands(vec!["isolate doctor".to_string()]);
+        let rich =
+            RichError::from_error(&err).with_fix_commands(vec!["isolate doctor".to_string()]);
 
         assert_eq!(rich.fix_commands, vec!["isolate doctor"]);
     }

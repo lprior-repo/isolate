@@ -15,26 +15,24 @@
 
 //! Fast in-memory test utilities - no subprocess spawning
 
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use chrono::{DateTime, Utc};
+use isolate_core::{
+    output::{
+        domain_types::{
+            ActionTarget, ActionVerb, IssueId, IssueTitle, Message, Outcome, PlanDescription,
+            PlanTitle, SessionName, WarningCode,
+        },
+        Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, OutputLineError, Plan,
+        ResultOutput, SessionOutput, Summary, SummaryType, Warning,
+    },
+    types::SessionStatus,
+    WorkspaceState,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use isolate_core::output::{
-    domain_types::{
-        ActionTarget, ActionVerb, Message,
-        Outcome, PlanDescription, PlanTitle, SessionName, WarningCode,
-        IssueId, IssueTitle,
-    },
-    Action, ActionStatus, Issue, IssueKind, IssueSeverity, OutputLine, Plan,
-    ResultOutput, SessionOutput, Summary,
-    SummaryType, Warning, OutputLineError,
-};
-use isolate_core::types::SessionStatus;
-use isolate_core::WorkspaceState;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ERROR TYPES

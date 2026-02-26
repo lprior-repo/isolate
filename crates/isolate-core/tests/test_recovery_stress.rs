@@ -47,12 +47,12 @@
 // NOTE: Tests require --test-threads=1 due to log_recovery() using hardcoded
 // .isolate path. This is a pre-existing limitation, not introduced by optimizations.
 
-use tokio::{io::AsyncReadExt, task::JoinSet};
 use isolate_core::{
     config::{RecoveryConfig, RecoveryPolicy},
     recovery::log_recovery,
     Error,
 };
+use tokio::{io::AsyncReadExt, task::JoinSet};
 
 /// Test concurrent recovery logging with multiple writers
 #[tokio::test]

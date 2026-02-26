@@ -32,10 +32,10 @@
 
 use std::error::Error;
 
-use tempfile::TempDir;
 use isolate_core::workspace_integrity::{
     BackupManager, IntegrityValidator, RepairExecutor, ValidationResult,
 };
+use tempfile::TempDir;
 
 #[tokio::test(flavor = "current_thread")]
 async fn test_repair_nonexistent_workspace_returns_error() -> Result<(), Box<dyn Error>> {

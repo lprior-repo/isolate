@@ -1,4 +1,8 @@
-#![allow(clippy::uninlined_format_args, clippy::redundant_closure_for_method_calls, clippy::expect_used)]
+#![allow(
+    clippy::uninlined_format_args,
+    clippy::redundant_closure_for_method_calls,
+    clippy::expect_used
+)]
 //! BDD Acceptance Tests for Agent Management Feature
 //!
 //! Feature: Agent Management
@@ -528,7 +532,10 @@ async fn scenario_unknown_agent_heartbeat_fails() {
     // WHEN - Attempt heartbeat without Isolate_AGENT_ID
     // Note: We need to clear the env var from any previous registration
     let result = ctx
-        .run_isolate_with_env(&["agents", "heartbeat", "--json"], &[("Isolate_AGENT_ID", "")])
+        .run_isolate_with_env(
+            &["agents", "heartbeat", "--json"],
+            &[("Isolate_AGENT_ID", "")],
+        )
         .await;
 
     // THEN - Should fail (empty agent ID is treated as "not found")
@@ -621,7 +628,10 @@ async fn scenario_whoami_returns_identity() {
 
     // WHEN
     let result = ctx
-        .run_isolate_with_env(&["whoami", "--json"], &[("Isolate_AGENT_ID", "agent-whoami")])
+        .run_isolate_with_env(
+            &["whoami", "--json"],
+            &[("Isolate_AGENT_ID", "agent-whoami")],
+        )
         .await;
 
     // THEN

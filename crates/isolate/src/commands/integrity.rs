@@ -7,7 +7,6 @@
 //! - Restore: Rollback to previous backups
 
 use anyhow::Result;
-use serde::Serialize;
 use isolate_core::{
     config::Config,
     workspace_integrity::{
@@ -16,6 +15,7 @@ use isolate_core::{
     },
     OutputFormat, SchemaEnvelope,
 };
+use serde::Serialize;
 
 use crate::commands::{check_prerequisites, get_session_db, workspace_utils};
 

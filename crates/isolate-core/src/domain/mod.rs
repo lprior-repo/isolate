@@ -151,6 +151,8 @@ pub use aggregates::{
     Bead, BeadError, BeadState, Session, SessionBuilder, SessionError, Workspace, WorkspaceBuilder,
     WorkspaceError,
 };
+// Re-export error conversion traits for ergonomic error handling
+pub use error_conversion::{AggregateErrorExt, IdentifierErrorExt, IntoRepositoryError};
 pub use events::{
     DomainEvent, EventMetadata, SessionCompletedEvent, SessionCreatedEvent, SessionFailedEvent,
     StoredEvent,
@@ -160,16 +162,12 @@ pub use identifiers::{
     IdentifierError, SessionId, SessionIdError, SessionName, SessionNameError, TaskId, TaskIdError,
     WorkspaceName, WorkspaceNameError,
 };
-pub use workspace::WorkspaceState;
-
 // Re-export repository traits for convenience
 pub use repository::{
     AgentRepository, AgentState, BeadRepository, RepositoryError, RepositoryResult,
     SessionRepository, WorkspaceRepository,
 };
-
-// Re-export error conversion traits for ergonomic error handling
-pub use error_conversion::{AggregateErrorExt, IdentifierErrorExt, IntoRepositoryError};
+pub use workspace::WorkspaceState;
 
 // Include examples module for documentation and testing
 #[cfg(test)]

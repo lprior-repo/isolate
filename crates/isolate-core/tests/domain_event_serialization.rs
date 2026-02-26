@@ -1,16 +1,24 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
-#![allow(clippy::expect_used, clippy::match_wild_err_arm, clippy::uninlined_format_args, clippy::redundant_clone, clippy::useless_vec, clippy::redundant_closure_for_method_calls)]
+#![allow(
+    clippy::expect_used,
+    clippy::match_wild_err_arm,
+    clippy::uninlined_format_args,
+    clippy::redundant_clone,
+    clippy::useless_vec,
+    clippy::redundant_closure_for_method_calls
+)]
 
 //! Domain event serialization tests
 
-use chrono::Utc;
 use std::path::PathBuf;
-use isolate_core::domain::events::{
-    serialize_event, serialize_event_bytes, DomainEvent, EventMetadata, StoredEvent,
+
+use chrono::Utc;
+use isolate_core::domain::{
+    events::{serialize_event, serialize_event_bytes, DomainEvent, EventMetadata, StoredEvent},
+    identifiers::{BeadId, SessionName, WorkspaceName},
 };
-use isolate_core::domain::identifiers::{BeadId, SessionName, WorkspaceName};
 
 // ============================================================================
 // SESSION EVENTS
@@ -27,8 +35,7 @@ fn test_session_created_event_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "session_created");
@@ -45,8 +52,7 @@ fn test_session_completed_event_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "session_completed");
@@ -64,8 +70,7 @@ fn test_session_failed_event_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "session_failed");
@@ -93,8 +98,7 @@ fn test_workspace_created_event_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "workspace_created");
@@ -111,8 +115,7 @@ fn test_workspace_removed_event_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "workspace_removed");
@@ -134,8 +137,7 @@ fn test_bead_created_event_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "bead_created");
@@ -143,7 +145,10 @@ fn test_bead_created_event_serialization() {
     // Verify bead details
     if let DomainEvent::BeadCreated(e) = &deserialized {
         assert_eq!(e.title, "Fix the critical bug");
-        assert_eq!(e.description, Some("High priority issue affecting production".to_string()));
+        assert_eq!(
+            e.description,
+            Some("High priority issue affecting production".to_string())
+        );
     } else {
         panic!("Expected BeadCreated event");
     }
@@ -161,8 +166,7 @@ fn test_bead_created_without_description_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
 
@@ -188,8 +192,7 @@ fn test_bead_closed_event_serialization() {
 
     // Test JSON serialization
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     assert_eq!(event, deserialized);
     assert_eq!(event.event_type(), "bead_closed");
@@ -224,8 +227,8 @@ fn test_event_bytes_serialization() {
     for event in events {
         // Test bytes serialization
         let bytes = serialize_event_bytes(&event).expect("serialization failed");
-        let deserialized = serde_json::from_slice::<DomainEvent>(&bytes)
-            .expect("deserialization failed");
+        let deserialized =
+            serde_json::from_slice::<DomainEvent>(&bytes).expect("deserialization failed");
 
         assert_eq!(event, deserialized);
     }
@@ -255,8 +258,7 @@ fn test_stored_event_serialization() {
 
     // Test serialization of stored event
     let json = serde_json::to_string(&stored).expect("serialization failed");
-    let deserialized: StoredEvent =
-        serde_json::from_str(&json).expect("deserialization failed");
+    let deserialized: StoredEvent = serde_json::from_str(&json).expect("deserialization failed");
 
     assert_eq!(stored.event_number(), deserialized.event_number());
     assert_eq!(stored.stream_id(), deserialized.stream_id());
@@ -394,15 +396,15 @@ fn test_all_events_serialize_and_deserialize() {
     for event in events {
         // Test JSON serialization
         let json = serialize_event(&event).expect("serialization failed");
-        let deserialized = serde_json::from_str::<DomainEvent>(&json)
-            .expect("deserialization failed");
+        let deserialized =
+            serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
         assert_eq!(event, deserialized);
 
         // Test bytes serialization
         let bytes = serialize_event_bytes(&event).expect("serialization failed");
-        let deserialized_bytes = serde_json::from_slice::<DomainEvent>(&bytes)
-            .expect("deserialization failed");
+        let deserialized_bytes =
+            serde_json::from_slice::<DomainEvent>(&bytes).expect("deserialization failed");
 
         assert_eq!(event, deserialized_bytes);
     }
@@ -468,8 +470,7 @@ fn test_event_timestamps_preserved() {
 
     // Serialize and deserialize
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     if let DomainEvent::BeadClosed(e) = &deserialized {
         assert_eq!(e.closed_at, timestamp - chrono::Duration::seconds(10));
@@ -492,8 +493,7 @@ fn test_session_name_preserved_in_events() {
 
     // Serialize and deserialize
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     if let DomainEvent::SessionCreated(e) = &deserialized {
         assert_eq!(e.session_name, session_name);
@@ -515,8 +515,7 @@ fn test_workspace_name_preserved_in_events() {
 
     // Serialize and deserialize
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     if let DomainEvent::WorkspaceCreated(e) = &deserialized {
         assert_eq!(e.workspace_name, workspace_name);
@@ -530,17 +529,11 @@ fn test_bead_id_preserved_in_events() {
     let timestamp = Utc::now();
     let bead_id = BeadId::parse("bd-abc123def456").expect("valid id");
 
-    let event = DomainEvent::bead_created(
-        bead_id.clone(),
-        "Test".to_string(),
-        None,
-        timestamp,
-    );
+    let event = DomainEvent::bead_created(bead_id.clone(), "Test".to_string(), None, timestamp);
 
     // Serialize and deserialize
     let json = serialize_event(&event).expect("serialization failed");
-    let deserialized = serde_json::from_str::<DomainEvent>(&json)
-        .expect("deserialization failed");
+    let deserialized = serde_json::from_str::<DomainEvent>(&json).expect("deserialization failed");
 
     if let DomainEvent::BeadCreated(e) = &deserialized {
         assert_eq!(e.bead_id, bead_id);

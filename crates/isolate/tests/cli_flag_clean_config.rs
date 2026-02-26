@@ -122,7 +122,8 @@ fn given_global_and_project_values_when_reading_with_global_flag_then_global_val
         global_set.stdout, global_set.stderr
     );
 
-    let project_set = run_isolate_with_env(&harness, &["config", "main_branch", "feature-x"], &envs);
+    let project_set =
+        run_isolate_with_env(&harness, &["config", "main_branch", "feature-x"], &envs);
     assert!(
         project_set.success,
         "Project set should succeed\nStdout: {}\nStderr: {}",

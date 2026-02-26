@@ -4,8 +4,8 @@
 //! Provides status, workflows, and quick-start guidance.
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use isolate_core::{json::SchemaEnvelope, OutputFormat};
+use serde::Serialize;
 
 use super::{context, get_session_db, isolate_data_dir};
 
@@ -685,7 +685,12 @@ mod tests {
     #[test]
     fn test_quickstart_has_essential_commands() {
         // Essential commands that should be included
-        let essential_commands = ["isolate work", "isolate done", "isolate abort", "isolate whereami"];
+        let essential_commands = [
+            "isolate work",
+            "isolate done",
+            "isolate abort",
+            "isolate whereami",
+        ];
 
         assert!(!essential_commands.is_empty());
         assert!(essential_commands.len() >= 2);
@@ -822,7 +827,10 @@ mod tests {
                 priority: "high".to_string(),
             };
 
-            assert_eq!(output.command, "isolate init", "Should suggest init command");
+            assert_eq!(
+                output.command, "isolate init",
+                "Should suggest init command"
+            );
             assert_eq!(output.priority, "high", "Initialization is high priority");
         }
 

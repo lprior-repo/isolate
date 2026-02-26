@@ -5,11 +5,20 @@ use clap::ArgMatches;
 
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
     match sub_m.subcommand() {
-        Some(("list", _)) => handle_list().await,
-        Some(("status", _)) => handle_status().await,
-        Some(("enqueue", sm)) => handle_enqueue(sm).await,
-        Some(("dequeue", sm)) => handle_dequeue(sm).await,
-        Some(("process", _)) => handle_process().await,
+        Some(("list", _)) => {
+            handle_list();
+            Ok(())
+        }
+        Some(("status", _)) => {
+            handle_status();
+            Ok(())
+        }
+        Some(("enqueue", sm)) => handle_enqueue(sm),
+        Some(("dequeue", sm)) => handle_dequeue(sm),
+        Some(("process", _)) => {
+            handle_process();
+            Ok(())
+        }
         _ => {
             println!("Use 'isolate queue --help' for more information.");
             Ok(())
@@ -17,34 +26,36 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
     }
 }
 
-async fn handle_list() -> Result<()> {
+fn handle_list() {
     println!("Merge Queue:");
     println!("  (Empty)");
-    Ok(())
 }
 
-async fn handle_status() -> Result<()> {
+fn handle_status() {
     println!("Queue Status: Active");
-    Ok(())
 }
 
-async fn handle_enqueue(sub_m: &ArgMatches) -> Result<()> {
-    let session = sub_m.get_one::<String>("session").expect("required");
-    let _priority = sub_m.get_one::<String>("priority")
+fn handle_enqueue(sub_m: &ArgMatches) -> Result<()> {
+    let session = sub_m
+        .get_one::<String>("session")
+        .ok_or_else(|| anyhow::anyhow!("session is required"))?;
+    let _priority = sub_m
+        .get_one::<String>("priority")
         .and_then(|p| p.parse::<u32>().ok())
         .unwrap_or(5);
-    
+
     println!("Enqueued session '{session}'");
     Ok(())
 }
 
-async fn handle_dequeue(sub_m: &ArgMatches) -> Result<()> {
-    let session = sub_m.get_one::<String>("session").expect("required");
+fn handle_dequeue(sub_m: &ArgMatches) -> Result<()> {
+    let session = sub_m
+        .get_one::<String>("session")
+        .ok_or_else(|| anyhow::anyhow!("session is required"))?;
     println!("Dequeued session '{session}'");
     Ok(())
 }
 
-async fn handle_process() -> Result<()> {
+fn handle_process() {
     println!("Processing queue...");
-    Ok(())
 }

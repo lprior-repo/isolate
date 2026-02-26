@@ -18,12 +18,12 @@ use std::{
     time::SystemTime,
 };
 
-use num_traits::ToPrimitive;
-use tokio::process::Command;
 use isolate_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
 };
+use num_traits::ToPrimitive;
+use tokio::process::Command;
 
 use crate::{
     cli::jj_root,

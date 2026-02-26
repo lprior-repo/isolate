@@ -1,4 +1,8 @@
-#![allow(clippy::uninlined_format_args, clippy::useless_format, clippy::unnecessary_wraps)]
+#![allow(
+    clippy::uninlined_format_args,
+    clippy::useless_format,
+    clippy::unnecessary_wraps
+)]
 //! BDD Test: Session Creation Scenario
 //!
 //! Feature: Session Creation

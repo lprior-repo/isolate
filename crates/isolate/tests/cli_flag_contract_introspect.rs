@@ -24,7 +24,9 @@ fn bdd_introspect_contract_flag_does_not_panic() {
 
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("AI CONTRACT for isolate introspect"))
+        .stdout(predicate::str::contains(
+            "AI CONTRACT for isolate introspect",
+        ))
         .stdout(predicate::str::contains("command"))
         .stdout(predicate::str::contains("intent"))
         .stdout(predicate::str::contains("prerequisites"))

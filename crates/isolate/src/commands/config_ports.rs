@@ -11,7 +11,8 @@ use std::{future::Future, path::PathBuf, pin::Pin};
 use anyhow::{Context, Result};
 use isolate_core::config::Config;
 
-pub type ConfigLoadFuture<'a> = Pin<Box<dyn Future<Output = isolate_core::Result<Config>> + Send + 'a>>;
+pub type ConfigLoadFuture<'a> =
+    Pin<Box<dyn Future<Output = isolate_core::Result<Config>> + Send + 'a>>;
 
 /// Port for configuration reads and scope path resolution.
 pub trait ConfigReadPort: Send + Sync {
@@ -54,7 +55,9 @@ impl ConfigReadPort for LocalConfigPort {
         directories::ProjectDirs::from("", "", "isolate")
             .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
             .ok_or_else(|| {
-                isolate_core::Error::IoError("Failed to determine global config directory".to_string())
+                isolate_core::Error::IoError(
+                    "Failed to determine global config directory".to_string(),
+                )
             })
     }
 

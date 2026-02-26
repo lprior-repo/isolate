@@ -639,8 +639,7 @@ mod tests {
 
     /// This test MUST PASS to confirm the test harness works
     #[test]
-    fn test_harness_works() {
-    }
+    fn test_harness_works() {}
 
     /// This test validates that empty names are rejected
     #[test]
