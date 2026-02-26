@@ -655,9 +655,10 @@ mod tests {
         assert!(result.is_err(), "Empty name should be rejected");
     }
 
-    /// This test validates that terminal states are rejected for new sessions
+    /// This test validates that terminal states ARE accepted for output objects
+    /// (SessionOutput is for displaying session state, not creating new sessions)
     #[test]
-    fn test_terminal_state_cannot_transition() {
+    fn test_terminal_state_accepted_for_output() {
         let result = SessionOutput::new(
             "test".to_string(),
             SessionStatus::Completed,
@@ -665,10 +666,9 @@ mod tests {
             PathBuf::from("/tmp/test"),
         );
 
-        // GREEN PHASE: Terminal state (Completed) should be rejected for new sessions
         assert!(
-            result.is_err(),
-            "Terminal state (Completed) should not be creatable for new sessions"
+            result.is_ok(),
+            "Terminal state (Completed) should be accepted for session output"
         );
     }
 }

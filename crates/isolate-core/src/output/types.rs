@@ -43,8 +43,6 @@ pub enum OutputLineError {
     PlanStepOverflow,
     #[error("recovery action count exceeds u32::MAX")]
     RecoveryActionOverflow,
-    #[error("terminal status {0:?} cannot be used for new sessions")]
-    TerminalStatus(SessionStatus),
     #[error("workspace path must be absolute")]
     RelativePath,
     #[error("invalid warning code: {0}")]
@@ -163,10 +161,6 @@ impl SessionOutput {
         }
         if !workspace_path.is_absolute() {
             return Err(OutputLineError::RelativePath);
-        }
-        // Reject terminal states for new sessions
-        if matches!(status, SessionStatus::Completed | SessionStatus::Failed) {
-            return Err(OutputLineError::TerminalStatus(status));
         }
         let now = Utc::now();
         Ok(Self {
