@@ -510,17 +510,19 @@ proptest! {
             PathBuf::from("/tmp/test"),
         );
 
-        if invalid_patterns.contains(&name.as_str()) {
+        // Check if name is invalid: in explicit list OR whitespace-only
+        let is_whitespace_only = name.trim().is_empty();
+        if invalid_patterns.contains(&name.as_str()) || is_whitespace_only {
             // Invalid name - should fail to create
             prop_assert!(
                 session_result.is_err(),
-                "RED PHASE: Invalid session name '{name}' should be rejected"
+                "Invalid session name '{name}' should be rejected"
             );
         } else {
             // Valid name - should succeed
             prop_assert!(
                 session_result.is_ok(),
-                "RED PHASE: Valid session name '{name}' should be accepted"
+                "Valid session name '{name}' should be accepted"
             );
         }
 
