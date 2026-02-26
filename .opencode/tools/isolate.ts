@@ -99,7 +99,7 @@ function extractSessionName(parsed: unknown): string | null {
 function confirmationError(action: string): ToolError {
   return {
     code: "INVALID_CONFIRMATION",
-    message: `Refusing to run zjj ${action} without confirm=true.`,
+    message: `Refusing to run isolate ${action} without confirm=true.`,
   }
 }
 
@@ -203,7 +203,7 @@ function runZjjEffect(
     if (!ALLOWED_SUBCOMMANDS.has(subcommand)) {
       return makeErrorResult(
         cwd,
-        ["zjj", subcommand, ...args],
+        ["isolate", subcommand, ...args],
         2,
         `Subcommand '${subcommand}' is not allowlisted.`,
         {
@@ -214,16 +214,16 @@ function runZjjEffect(
       )
     }
 
-    const binary = Bun.which("zjj")
+    const binary = Bun.which("isolate")
     if (!binary) {
       return makeErrorResult(
         cwd,
-        ["zjj", subcommand, ...args],
+        ["isolate", subcommand, ...args],
         127,
-        "zjj binary not found on PATH.",
+        "isolate binary not found on PATH.",
         {
           code: "BINARY_NOT_FOUND",
-          message: "zjj binary not found on PATH.",
+          message: "isolate binary not found on PATH.",
         },
         Date.now() - started,
       )
@@ -243,7 +243,7 @@ function runZjjEffect(
       )
       return makeErrorResult(
         cwd,
-        ["zjj", subcommand, ...args],
+        ["isolate", subcommand, ...args],
         1,
         message,
         {
@@ -263,7 +263,7 @@ function runZjjEffect(
 
     return {
       ok: processResult.exitCode === 0,
-      command: ["zjj", subcommand, ...args],
+      command: ["isolate", subcommand, ...args],
       cwd,
       exitCode: processResult.exitCode,
       stdout,
@@ -274,7 +274,7 @@ function runZjjEffect(
         ? {
             error: {
               code: "TIMEOUT" as const,
-              message: `zjj ${subcommand} timed out after ${timeout}ms.`,
+              message: `isolate ${subcommand} timed out after ${timeout}ms.`,
             },
           }
         : {}),
@@ -310,7 +310,7 @@ function runWithVerificationEffect(
 }
 
 export const status = tool({
-  description: "Get zjj status for all sessions or one session",
+  description: "Get isolate status for all sessions or one session",
   args: {
     name: tool.schema
       .string()
@@ -325,7 +325,7 @@ export const status = tool({
 })
 
 export const list = tool({
-  description: "List zjj sessions with optional filters",
+  description: "List isolate sessions with optional filters",
   args: {
     all: tool.schema
       .boolean()
@@ -361,12 +361,12 @@ export const list = tool({
 })
 
 export const add = tool({
-  description: "Create a manual zjj workspace session",
+  description: "Create a manual isolate workspace session",
   args: {
     name: tool.schema
       .string()
       .optional()
-      .describe("Session name. Omit to let zjj choose interactively where supported."),
+      .describe("Session name. Omit to let isolate choose interactively where supported."),
     beadId: tool.schema
       .string()
       .optional()
@@ -408,7 +408,7 @@ export const add = tool({
 })
 
 export const work = tool({
-  description: "Unified AI/manual workflow start for zjj sessions",
+  description: "Unified AI/manual workflow start for isolate sessions",
   args: {
     name: tool.schema.string().optional().describe("Session name to create/use"),
     beadId: tool.schema
@@ -447,9 +447,9 @@ export const work = tool({
 })
 
 export const spawn = tool({
-  description: "Spawn a zjj workspace for autonomous agent bead work",
+  description: "Spawn a isolate workspace for autonomous agent bead work",
   args: {
-    beadId: tool.schema.string().describe("Bead id, for example zjj-ab123"),
+    beadId: tool.schema.string().describe("Bead id, for example isolate-ab123"),
     background: tool.schema
       .boolean()
       .default(false)
@@ -494,7 +494,7 @@ export const spawn = tool({
 })
 
 export const sync = tool({
-  description: "Sync zjj workspace(s) with main",
+  description: "Sync isolate workspace(s) with main",
   args: {
     name: tool.schema
       .string()
@@ -521,7 +521,7 @@ export const sync = tool({
 })
 
 export const focus = tool({
-  description: "Focus a zjj session tab (non-interactive safe)",
+  description: "Focus a isolate session tab (non-interactive safe)",
   args: {
     name: tool.schema.string().describe("Session name to focus"),
     noZellij: tool.schema
@@ -538,7 +538,7 @@ export const focus = tool({
 })
 
 export const done = tool({
-  description: "Complete zjj workspace and merge to main (guarded)",
+  description: "Complete isolate workspace and merge to main (guarded)",
   args: {
     confirm: tool.schema
       .boolean()
@@ -571,7 +571,7 @@ export const done = tool({
       return formatToolOutput({
         ok: false,
         action: "done",
-        result: makeErrorResult(getCwd(context), ["zjj", "done"], 2, err.message, err),
+        result: makeErrorResult(getCwd(context), ["isolate", "done"], 2, err.message, err),
       })
     }
 
@@ -587,7 +587,7 @@ export const done = tool({
 })
 
 export const abort = tool({
-  description: "Abort a zjj workspace and abandon changes (guarded)",
+  description: "Abort a isolate workspace and abandon changes (guarded)",
   args: {
     confirm: tool.schema
       .boolean()
@@ -600,7 +600,7 @@ export const abort = tool({
     keepWorkspace: tool.schema
       .boolean()
       .default(false)
-      .describe("Keep workspace files while removing zjj tracking"),
+      .describe("Keep workspace files while removing isolate tracking"),
     noBeadUpdate: tool.schema
       .boolean()
       .default(false)
@@ -616,7 +616,7 @@ export const abort = tool({
       return formatToolOutput({
         ok: false,
         action: "abort",
-        result: makeErrorResult(getCwd(context), ["zjj", "abort"], 2, err.message, err),
+        result: makeErrorResult(getCwd(context), ["isolate", "abort"], 2, err.message, err),
       })
     }
 
@@ -631,7 +631,7 @@ export const abort = tool({
 })
 
 export const whereami = tool({
-  description: "Get current zjj location context",
+  description: "Get current isolate location context",
   args: {},
   async execute(_, context) {
     const result = await Effect.runPromise(runZjjEffect("whereami", withJson([]), context))
@@ -640,7 +640,7 @@ export const whereami = tool({
 })
 
 export const whoami = tool({
-  description: "Get current zjj agent identity context",
+  description: "Get current isolate agent identity context",
   args: {},
   async execute(_, context) {
     const result = await Effect.runPromise(runZjjEffect("whoami", withJson([]), context))
