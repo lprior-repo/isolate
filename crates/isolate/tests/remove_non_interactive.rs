@@ -22,6 +22,15 @@ use std::{fs, path::PathBuf};
 
 use tempfile::TempDir;
 
+/// Return the path to the isolate binary under test.
+///
+/// `CARGO_BIN_EXE_isolate` is set at compile time by cargo for integration
+/// tests so we always invoke the same binary that was just built, even in
+/// environments where `isolate` is not on PATH.
+fn isolate_bin() -> PathBuf {
+    PathBuf::from(env!("CARGO_BIN_EXE_isolate"))
+}
+
 // Test helper functions
 mod test_helpers {
     use std::path::Path;
@@ -38,23 +47,38 @@ fn setup_test_repo() -> anyhow::Result<(TempDir, PathBuf)> {
     let temp_dir = TempDir::new()?;
     let repo_path = temp_dir.path().to_path_buf();
 
-    // Initialize a jj repository
-    std::process::Command::new("jj")
-        .args(["init", "--git", repo_path.to_str().unwrap()])
+    // Initialize a jj repository using the current API (jj git init)
+    let jj_out = std::process::Command::new("jj")
+        .args(["git", "init"])
+        .current_dir(&repo_path)
         .output()?;
 
-    // Initialize isolate
-    let _output = std::process::Command::new("isolate")
+    if !jj_out.status.success() {
+        anyhow::bail!(
+            "jj git init failed: {}",
+            String::from_utf8_lossy(&jj_out.stderr)
+        );
+    }
+
+    // Initialize isolate using the compiled binary, not one found on PATH
+    let iso_out = std::process::Command::new(isolate_bin())
         .args(["init"])
         .current_dir(&repo_path)
         .output()?;
+
+    if !iso_out.status.success() {
+        anyhow::bail!(
+            "isolate init failed: {}",
+            String::from_utf8_lossy(&iso_out.stderr)
+        );
+    }
 
     Ok((temp_dir, repo_path))
 }
 
 /// Helper to create a test session and return the actual workspace path
 fn create_test_session(repo_path: &PathBuf, session_name: &str) -> anyhow::Result<PathBuf> {
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["add", session_name])
         .current_dir(repo_path)
         .output()?;
@@ -66,12 +90,13 @@ fn create_test_session(repo_path: &PathBuf, session_name: &str) -> anyhow::Resul
         );
     }
 
-    // Get the workspace path from the session status JSON
-    // Note: JSON output goes to stderr due to INFO logs, so we read both streams
-    let output = std::process::Command::new("isolate")
+    // Get the workspace path from the session status JSON.
+    // The command emits JSONL (one JSON object per line).  We look for the
+    // line that contains a "session" key and extract workspace_path from it.
+    let output = std::process::Command::new(isolate_bin())
         .args(["status", session_name, "--json"])
         .current_dir(repo_path)
-        .env("RUST_LOG", "error")  // Suppress INFO logs so JSON goes to stdout
+        .env("RUST_LOG", "error") // Suppress INFO logs
         .output()?;
 
     if !output.status.success() {
@@ -81,23 +106,26 @@ fn create_test_session(repo_path: &PathBuf, session_name: &str) -> anyhow::Resul
         );
     }
 
-    // Try stdout first, fallback to stderr for backwards compatibility
-    let json_str = if output.stdout.is_empty() {
-        String::from_utf8_lossy(&output.stderr).to_string()
-    } else {
-        String::from_utf8_lossy(&output.stdout).to_string()
-    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Parse JSON to extract workspace_path
-    let json: serde_json::Value = serde_json::from_str(&json_str)
-        .map_err(|e| anyhow::anyhow!("Failed to parse JSON: {e}"))?;
+    // Parse JSONL: find the line containing the "session" object
+    let workspace_path = stdout
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .find_map(|json| {
+            json.get("session")
+                .and_then(|s| s.get("workspace_path"))
+                .and_then(|p| p.as_str())
+                .map(PathBuf::from)
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "workspace_path not found in JSONL output: {}",
+                stdout.trim()
+            )
+        })?;
 
-    // Extract workspace_path from sessions array
-    let workspace_path = json["sessions"][0]["workspace_path"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!("workspace_path not found in JSON"))?;
-
-    Ok(PathBuf::from(workspace_path))
+    Ok(workspace_path)
 }
 
 // ============================================================================
@@ -121,7 +149,7 @@ fn test_hp001_non_interactive_remove_succeeds() {
     );
 
     // WHEN user runs `isolate remove feature-auth`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name])
         .current_dir(&repo_path)
         .output()
@@ -157,7 +185,7 @@ fn test_hp002_force_flag_is_no_op() {
         create_test_session(&repo_path, session_name).expect("Failed to create session");
 
     // WHEN user runs `isolate remove bugfix-123 --force`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "--force"])
         .current_dir(&repo_path)
         .output()
@@ -196,7 +224,7 @@ fn test_hp004_idempotent_remove_existing_session() {
         create_test_session(&repo_path, session_name).expect("Failed to create session");
 
     // WHEN user runs `isolate remove test-session --idempotent`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "--idempotent"])
         .current_dir(&repo_path)
         .output()
@@ -230,7 +258,7 @@ fn test_hp005_idempotent_remove_missing_session_succeeds() {
     let session_name = "missing-session";
 
     // WHEN user runs `isolate remove missing-session --idempotent`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "--idempotent"])
         .current_dir(&repo_path)
         .output()
@@ -276,7 +304,7 @@ fn test_hp006_dry_run_shows_preview_without_changes() {
         create_test_session(&repo_path, session_name).expect("Failed to create session");
 
     // WHEN user runs `isolate remove preview-session --dry-run`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "--dry-run"])
         .current_dir(&repo_path)
         .output()
@@ -290,7 +318,7 @@ fn test_hp006_dry_run_shows_preview_without_changes() {
 
     // AND NO changes are made to database (session still exists)
     // We verify this by trying to get the session
-    let status_output = std::process::Command::new("isolate")
+    let status_output = std::process::Command::new(isolate_bin())
         .args(["status", session_name])
         .current_dir(&repo_path)
         .output()
@@ -328,7 +356,7 @@ fn test_hp007_json_output_has_correct_schema() {
         create_test_session(&repo_path, session_name).expect("Failed to create session");
 
     // WHEN user runs `isolate remove json-test --json`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "--json"])
         .current_dir(&repo_path)
         .output()
@@ -337,45 +365,35 @@ fn test_hp007_json_output_has_correct_schema() {
     // THEN session is removed
     assert!(output.status.success(), "Remove with --json should succeed");
 
-    // AND output is valid JSON
+    // AND output is valid JSONL (one JSON object per line)
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value =
-        serde_json::from_str(&stdout).expect("Output should be valid JSON");
+    let lines: Vec<serde_json::Value> = stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|line| {
+            serde_json::from_str::<serde_json::Value>(line)
+                .unwrap_or_else(|e| panic!("Output line should be valid JSON: {e}\nLine: {line}"))
+        })
+        .collect();
 
-    // AND JSON is wrapped in SchemaEnvelope
     assert!(
-        json.get("$schema").is_some(),
-        "JSON should have $schema field"
-    );
-    assert!(
-        json.get("_schema_version").is_some(),
-        "JSON should have _schema_version field"
-    );
-    assert!(
-        json.get("schema_type").is_some(),
-        "JSON should have schema_type field"
+        !lines.is_empty(),
+        "Output should contain at least one JSON line"
     );
 
-    // AND `$schema` field is "isolate://remove/v1"
-    let schema = json.get("$schema").and_then(|v| v.as_str()).unwrap();
-    assert!(
-        schema.starts_with("isolate://"),
-        "$schema should start with 'isolate://'"
-    );
-    assert!(schema.contains("remove"), "$schema should contain 'remove'");
+    // AND a result line indicates success
+    let result_line = lines
+        .iter()
+        .find(|v| v.get("result").is_some())
+        .expect("Output should contain a result line");
+    let outcome = result_line["result"]["outcome"].as_str().unwrap_or("");
+    assert_eq!(outcome, "success", "Result outcome should be 'success'");
 
-    // AND `schema_type` field is "single"
-    let schema_type = json.get("schema_type").and_then(|v| v.as_str()).unwrap();
-    assert_eq!(schema_type, "single", "schema_type should be 'single'");
-
-    // AND JSON contains `name` and `message` fields at top level (flattened by SchemaEnvelope)
+    // AND the message mentions the session name
+    let message = result_line["result"]["message"].as_str().unwrap_or("");
     assert!(
-        json.get("name").is_some(),
-        "JSON should have name field at top level"
-    );
-    assert!(
-        json.get("message").is_some(),
-        "JSON should have message field at top level"
+        message.contains(session_name),
+        "Result message should contain session name, got: {message}"
     );
 
     // AND exit code is 0
@@ -402,7 +420,7 @@ fn test_hp008_remove_succeeds_when_workspace_already_missing() {
     let _ = fs::remove_dir_all(&workspace_path);
 
     // WHEN user runs `isolate remove orphan-session`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name])
         .current_dir(&repo_path)
         .output()
@@ -444,7 +462,7 @@ fn test_hp010_multiple_idempotent_removals_all_succeed() {
     // WHEN user runs `isolate remove retry-test --idempotent` three times consecutively
     let results: Vec<_> = (0..3)
         .map(|_| {
-            std::process::Command::new("isolate")
+            std::process::Command::new(isolate_bin())
                 .args(["remove", session_name, "--idempotent"])
                 .current_dir(&repo_path)
                 .output()
@@ -497,7 +515,7 @@ fn test_cv005_session_removed_from_database_postcondition() {
         create_test_session(&repo_path, session_name).expect("Failed to create session");
 
     // Verify session exists before removal
-    let status_before = std::process::Command::new("isolate")
+    let status_before = std::process::Command::new(isolate_bin())
         .args(["status", session_name])
         .current_dir(&repo_path)
         .output()
@@ -509,7 +527,7 @@ fn test_cv005_session_removed_from_database_postcondition() {
     );
 
     // WHEN user runs `isolate remove verify-removal`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name])
         .current_dir(&repo_path)
         .output()
@@ -519,7 +537,7 @@ fn test_cv005_session_removed_from_database_postcondition() {
 
     // THEN `db.get("verify-removal").await` returns `None`
     // AND session is not in database
-    let status_after = std::process::Command::new("isolate")
+    let status_after = std::process::Command::new(isolate_bin())
         .args(["status", session_name])
         .current_dir(&repo_path)
         .output()
@@ -552,7 +570,7 @@ fn test_cv006_workspace_deleted_postcondition() {
     );
 
     // WHEN user runs `isolate remove workspace-test`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name])
         .current_dir(&repo_path)
         .output()
@@ -583,14 +601,14 @@ fn test_cv010_force_flag_no_op_invariant() {
         create_test_session(&repo_path, session2_name).expect("Failed to create session2");
 
     // WHEN user runs `isolate remove force-test --force`
-    let output1 = std::process::Command::new("isolate")
+    let output1 = std::process::Command::new(isolate_bin())
         .args(["remove", session1_name, "--force"])
         .current_dir(&repo_path)
         .output()
         .expect("Failed to run remove command");
 
     // AND `isolate remove force-test` (without --force)
-    let output2 = std::process::Command::new("isolate")
+    let output2 = std::process::Command::new(isolate_bin())
         .args(["remove", session2_name])
         .current_dir(&repo_path)
         .output()
@@ -642,7 +660,7 @@ fn test_cv011_no_interactive_prompting_invariant() {
 
     // WHEN user runs `isolate remove no-prompt-test`
     // We'll use a timeout to ensure the command doesn't hang waiting for input
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name])
         .current_dir(&repo_path)
         .output()
@@ -677,7 +695,7 @@ fn test_cv020_backwards_compatibility_force_flag() {
         create_test_session(&repo_path, session_name).expect("Failed to create session");
 
     // WHEN user runs `isolate remove compat-test -f`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "-f"])
         .current_dir(&repo_path)
         .output()
@@ -707,7 +725,7 @@ fn test_ep001_remove_nonexistent_session_fails() {
     let session_name = "missing";
 
     // WHEN user runs `isolate remove missing`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name])
         .current_dir(&repo_path)
         .output()
@@ -759,7 +777,7 @@ fn test_ep004_remove_fails_when_not_initialized() {
         .expect("Failed to initialize jj");
 
     // WHEN user runs `isolate remove test-session`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", "test-session"])
         .current_dir(repo_path)
         .output()
@@ -794,7 +812,7 @@ fn test_ep010_dry_run_fails_on_nonexistent_session() {
     let session_name = "dry-missing";
 
     // WHEN user runs `isolate remove dry-missing --dry-run`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "--dry-run"])
         .current_dir(&repo_path)
         .output()
@@ -829,7 +847,7 @@ fn test_ep025_json_error_output_format() {
     let session_name = "json-error";
 
     // WHEN user runs `isolate remove json-error --json`
-    let output = std::process::Command::new("isolate")
+    let output = std::process::Command::new(isolate_bin())
         .args(["remove", session_name, "--json"])
         .current_dir(&repo_path)
         .output()

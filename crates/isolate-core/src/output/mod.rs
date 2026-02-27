@@ -58,6 +58,7 @@
 //!     state: WorkspaceState::Working,
 //!     workspace_path: PathBuf::from("/path/to/workspace"),
 //!     branch: None,
+//!     metadata: None,
 //!     created_at: Utc::now(),
 //!     updated_at: Utc::now(),
 //! };

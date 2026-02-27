@@ -1137,30 +1137,41 @@ fn given_doctor_json_in_workspace_root_when_reporting_context_then_uses_workspac
     // We don't assert success here because doctor might exit with 1 if checks fail,
     // but it should always output valid JSON if --json is passed.
 
-    let parsed: serde_json::Value = serde_json::from_str(&result.stdout).unwrap_or_else(|_| {
-        panic!(
-            "doctor output should be valid JSON. Stdout: '{}', Stderr: '{}'",
-            result.stdout, result.stderr
-        )
-    });
-    let checks = payload(&parsed)["checks"]
-        .as_array()
-        .expect("checks array should exist");
+    // doctor --json emits JSONL: one {"issue":{...}} per check + a {"summary":{...}} line.
+    // Parse all issue lines and find the workspace_context check.
+    let issues: Vec<serde_json::Value> = result
+        .stdout
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter_map(|v| v.get("issue").cloned())
+        .collect();
 
-    let workspace_context = checks
-        .iter()
-        .find(|check| check["name"] == "Workspace Context")
-        .expect("Workspace Context check should exist");
-
-    let message = workspace_context["message"]
-        .as_str()
-        .expect("workspace context message should be string");
     assert!(
-        message.contains("doctor-root"),
-        "message should include workspace name, got: {message}"
+        !issues.is_empty(),
+        "doctor --json should emit at least one issue line. stdout: '{}', stderr: '{}'",
+        result.stdout,
+        result.stderr
+    );
+
+    let workspace_context = issues
+        .iter()
+        .find(|issue| {
+            issue["id"]
+                .as_str()
+                .is_some_and(|id| id.contains("workspace"))
+        })
+        .expect("Workspace context issue should exist");
+
+    // The "title" field carries the human-readable message for the check.
+    let title = workspace_context["title"]
+        .as_str()
+        .expect("workspace context issue should have a title");
+    assert!(
+        title.contains("doctor-root"),
+        "title should include workspace name, got: {title}"
     );
     assert!(
-        !message.contains(" for workspaces"),
-        "message should not use literal parent directory name"
+        !title.contains(" for workspaces"),
+        "title should not use literal parent directory name"
     );
 }

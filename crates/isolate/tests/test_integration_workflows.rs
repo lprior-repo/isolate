@@ -30,7 +30,7 @@
 
 mod common;
 
-use common::{payload, TestHarness};
+use common::TestHarness;
 
 // ============================================================================
 // Complete User Workflows
@@ -153,26 +153,36 @@ fn test_json_output_automation_workflow() {
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
     assert!(parsed.is_ok(), "init --json should output valid JSON");
 
-    // Test list JSON output
+    // Test list JSON output - emits JSONL (one object per line)
     let result = harness.isolate(&["list", "--json"]);
     assert!(result.success);
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(parsed.is_ok(), "list --json should output valid JSON");
+    let all_valid = result
+        .stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .all(|line| serde_json::from_str::<serde_json::Value>(line).is_ok());
+    assert!(all_valid, "list --json should output valid JSONL");
 
-    // Test status JSON output
+    // Test status JSON output - emits JSONL (one object per line)
     let result = harness.isolate(&["status", "automated-session", "--json"]);
     assert!(result.success);
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(parsed.is_ok(), "status --json should output valid JSON");
+    let all_valid = result
+        .stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .all(|line| serde_json::from_str::<serde_json::Value>(line).is_ok());
+    assert!(all_valid, "status --json should output valid JSONL");
 
-    // Verify JSON structure includes session data
-    if let Ok(json) = parsed {
-        assert!(json.is_object());
-        assert!(
-            payload(&json).is_object(),
-            "status --json payload should be an object"
-        );
-    }
+    // Verify session data is present in JSONL output
+    let session_line: Option<serde_json::Value> = result
+        .stdout
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .find(|v| v.get("session").is_some());
+    assert!(
+        session_line.is_some(),
+        "status --json should include a session line in JSONL output"
+    );
 }
 
 // ============================================================================

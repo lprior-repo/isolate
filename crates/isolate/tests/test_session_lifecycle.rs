@@ -227,9 +227,16 @@ fn test_list_json_format() {
     let result = harness.isolate(&["list", "--json"]);
     assert!(result.success);
 
-    // Verify it's valid JSON
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(parsed.is_ok(), "Output should be valid JSON");
+    // list --json emits JSONL (one JSON object per line); verify every line parses
+    let all_valid = result
+        .stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .all(|line| serde_json::from_str::<serde_json::Value>(line).is_ok());
+    assert!(
+        all_valid,
+        "All output lines should be valid JSON (JSONL format)"
+    );
 }
 
 #[test]
@@ -293,9 +300,16 @@ fn test_status_json_format() {
     let result = harness.isolate(&["status", "test", "--json"]);
     assert!(result.success);
 
-    // Verify it's valid JSON
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(parsed.is_ok(), "Output should be valid JSON");
+    // status --json emits JSONL (one JSON object per line); verify every line parses
+    let all_valid = result
+        .stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .all(|line| serde_json::from_str::<serde_json::Value>(line).is_ok());
+    assert!(
+        all_valid,
+        "All output lines should be valid JSON (JSONL format)"
+    );
 }
 
 // ============================================================================

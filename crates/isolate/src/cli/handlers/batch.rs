@@ -63,7 +63,13 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
                 return Ok(());
             }
 
-            let output = tokio::process::Command::new("isolate")
+            // Use the current executable path so batch works even when
+            // `isolate` is not on PATH (e.g., during cargo tests).
+            // SAFETY: current_exe() is safe here - we invoke our own binary.
+            let current_exe =
+                std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("isolate"));
+
+            let output = tokio::process::Command::new(current_exe)
                 .arg(cmd)
                 .args(args)
                 .output()

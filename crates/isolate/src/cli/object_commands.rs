@@ -757,11 +757,19 @@ pub fn cmd_pane() -> ClapCommand {
                         .help("Session name to focus"),
                 )
                 .arg(
+                    Arg::new("pane")
+                        .required(false)
+                        .value_name("PANE_ID")
+                        .help("Pane ID to focus within the session")
+                        .conflicts_with("direction"),
+                )
+                .arg(
                     Arg::new("direction")
                         .long("direction")
                         .short('d')
                         .value_name("DIR")
-                        .help("Direction to move (left, right, up, down)"),
+                        .help("Direction to move (left, right, up, down)")
+                        .conflicts_with("pane"),
                 )
                 .arg(
                     Arg::new("contract")

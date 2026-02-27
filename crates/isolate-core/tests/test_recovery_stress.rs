@@ -44,18 +44,22 @@
 // - Reduced path cloning by using references where possible
 // - Removed unused futures dependency
 //
-// NOTE: Tests require --test-threads=1 due to log_recovery() using hardcoded
-// .isolate path. This is a pre-existing limitation, not introduced by optimizations.
+// Round 3:
+// - Added #[serial] attribute to all tests to prevent race conditions caused by
+//   std::env::set_current_dir() being a global operation
+// - Tests now run sequentially, eliminating flaky I/O failures
 
 use isolate_core::{
     config::{RecoveryConfig, RecoveryPolicy},
     recovery::log_recovery,
     Error,
 };
+use serial_test::serial;
 use tokio::{io::AsyncReadExt, task::JoinSet};
 
 /// Test concurrent recovery logging with multiple writers
 #[tokio::test]
+#[serial]
 async fn test_concurrent_recovery_logging() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
@@ -126,6 +130,7 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
 
 /// Test handling of large recovery logs
 #[tokio::test]
+#[serial]
 async fn test_large_recovery_log_handling() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
@@ -185,6 +190,7 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
 
 /// Test concurrent logging with integrity checks
 #[tokio::test]
+#[serial]
 async fn test_concurrent_logging_integrity() -> Result<(), Error> {
     const NUM_WORKERS: usize = 50;
     const ENTRIES_PER_WORKER: usize = 10;
@@ -267,6 +273,7 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
 
 /// Test recovery logging when disabled
 #[tokio::test]
+#[serial]
 async fn test_recovery_log_disabled() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
@@ -306,6 +313,7 @@ async fn test_recovery_log_disabled() -> Result<(), Error> {
 
 /// Test that recovery logging appends rather than overwrites
 #[tokio::test]
+#[serial]
 async fn test_recovery_log_append_behavior() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
@@ -366,6 +374,7 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
 
 /// Test recovery logging with special characters and unicode
 #[tokio::test]
+#[serial]
 async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
@@ -439,6 +448,7 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
 
 /// Test recovery logging with empty and whitespace messages
 #[tokio::test]
+#[serial]
 async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
