@@ -110,7 +110,8 @@ tasks:
       runInCI: true
 
   coverage-check:
-    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
+    script: |
+      ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'
     description: "Check if coverage meets minimum threshold (80%)"
     deps:
       - "build"
@@ -232,13 +233,19 @@ tasks:
   # ============================================================================
 
   quick:
-    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn"
+    script: |
+      ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check
+      ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn
     description: "Fast lint check (format + clippy in one command)"
     options:
       cache: false
 
   ci:
-    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets -- -D warnings && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo check --workspace --all-features && mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"
+    script: |
+      ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check
+      ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets -- -D warnings
+      ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo check --workspace --all-features
+      mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast
     description: "Full CI pipeline (all tests, all warnings fail)"
     options:
       cache: false
@@ -249,7 +256,12 @@ tasks:
   # ============================================================================
 
   install:
-    command: "mkdir -p ~/.local/bin && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo build --release --bin isolate --package isolate && cp ${MOON_WORKSPACE_ROOT}/target/release/isolate ~/.local/bin/isolate && chmod +x ~/.local/bin/isolate && echo '✅ Installed isolate to ~/.local/bin/isolate'"
+    script: |
+      mkdir -p ~/.local/bin
+      ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo build --release --bin isolate --package isolate
+      cp ${MOON_WORKSPACE_ROOT}/target/release/isolate ~/.local/bin/isolate
+      chmod +x ~/.local/bin/isolate
+      echo '✅ Installed isolate to ~/.local/bin/isolate'
     description: "Install isolate binary to ~/.local/bin (system-wide)"
     options:
       cache: false
@@ -301,7 +313,12 @@ tasks:
       runInCI: true
 
   bench-filter:
-    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo bench --bench --"
+    command:
+      - "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh"
+      - "cargo"
+      - "bench"
+      - "--bench"
+      - "--"
     description: "Run benchmarks with filter (e.g., moon run bench-filter -- identifier_parsing)"
     inputs:
       - "crates/isolate-core/benches/**/*.rs"
@@ -314,7 +331,14 @@ tasks:
       mergeArgs: "append"  # Allow appending filter arguments
 
   bench-save-baseline:
-    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo bench --bench -- --save-baseline main"
+    command:
+      - "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh"
+      - "cargo"
+      - "bench"
+      - "--bench"
+      - "--"
+      - "--save-baseline"
+      - "main"
     description: "Save benchmark baseline for comparison"
     inputs:
       - "crates/isolate-core/benches/**/*.rs"
