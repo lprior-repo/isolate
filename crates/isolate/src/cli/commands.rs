@@ -3052,7 +3052,6 @@ pub fn build_cli() -> ClapCommand {
         // Object-based commands (new pattern: isolate <object> <action>)
         .subcommand(object_commands::cmd_task())
         .subcommand(object_commands::cmd_session())
-        .subcommand(object_commands::cmd_queue())
         .subcommand(object_commands::cmd_pane())
     // Note: The following are already defined above:
     // - cmd_agent() via cmd_agents() with "agent" alias

@@ -4,7 +4,7 @@
 //! This module defines the new object-based command structure following
 //! the pattern: `isolate <object> <action>`
 //!
-//! Objects are nouns (Task, Session, Queue, etc.) and actions are verbs.
+//! Objects are nouns (Task, Session, Agent, etc.) and actions are verbs.
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
@@ -30,8 +30,6 @@ pub enum ZjjObject {
     Config,
     /// Diagnostics and health checks
     Doctor,
-    /// Merge queue management
-    Queue,
     /// Pane and window management
     Pane,
 }
@@ -46,7 +44,6 @@ impl ZjjObject {
             Self::Status,
             Self::Config,
             Self::Doctor,
-            Self::Queue,
             Self::Pane,
         ]
     }
@@ -60,7 +57,6 @@ impl ZjjObject {
             Self::Status => "status",
             Self::Config => "config",
             Self::Doctor => "doctor",
-            Self::Queue => "queue",
             Self::Pane => "pane",
         }
     }
@@ -74,7 +70,6 @@ impl ZjjObject {
             Self::Status => "Query system and session status",
             Self::Config => "Manage isolate configuration",
             Self::Doctor => "Run diagnostics and health checks",
-            Self::Queue => "Manage the merge queue",
             Self::Pane => "Manage terminal panes and windows",
         }
     }
@@ -699,48 +694,6 @@ pub fn cmd_doctor() -> ClapCommand {
         )
 }
 
-/// Build the Queue object command with all subcommands
-pub fn cmd_queue() -> ClapCommand {
-    ClapCommand::new("queue")
-        .about("Manage the merge queue")
-        .subcommand_required(true)
-        .arg(json_arg())
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List all queue entries")
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("status")
-                .about("Show queue status")
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("enqueue")
-                .about("Add a session to the queue")
-                .arg(json_arg())
-                .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(
-                    Arg::new("priority")
-                        .long("priority")
-                        .short('p')
-                        .value_name("N")
-                        .help("Priority level (0-1000)"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("dequeue")
-                .about("Remove a session from the queue")
-                .arg(json_arg())
-                .arg(Arg::new("session").required(true).help("Session name")),
-        )
-        .subcommand(
-            ClapCommand::new("process")
-                .about("Process the next entry in the queue")
-                .arg(json_arg()),
-        )
-}
-
 /// Build the Pane object command with all subcommands
 pub fn cmd_pane() -> ClapCommand {
     ClapCommand::new("pane")
@@ -804,7 +757,6 @@ pub fn build_object_cli() -> ClapCommand {
              \n  isolate status <action>   Query system status\n\
              \n  isolate config <action>   Manage configuration\n\
              \n  isolate doctor <action>   Run diagnostics\n\
-             \n  isolate queue <action>    Manage merge queue\n\
              \n  isolate pane <action>     Manage terminal panes\n",
         )
         .subcommand_required(true)
@@ -816,7 +768,6 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(cmd_status())
         .subcommand(cmd_config())
         .subcommand(cmd_doctor())
-        .subcommand(cmd_queue())
         .subcommand(cmd_pane())
 }
 
@@ -836,7 +787,7 @@ mod tests {
 
     #[test]
     fn test_isolate_object_all_count() {
-        assert_eq!(ZjjObject::all().len(), 8);
+        assert_eq!(ZjjObject::all().len(), 7);
     }
 
     #[test]
