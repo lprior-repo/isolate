@@ -9,6 +9,7 @@ All Isolate documentation in one place, token-efficient and searchable.
 | Document | Purpose | Read Time |
 |----------|---------|-----------|
 | **[00_START_HERE.md](00_START_HERE.md)** | 5-minute crash course + navigation | 5 min |
+| **[COMMANDS.md](COMMANDS.md)** | Complete CLI command reference | Reference |
 | **[AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md)** | Complete AI agent reference (rules, workflow, completion) | 20 min |
 | **[MIGRATION.md](MIGRATION.md)** | CLI migration guide (old to new commands) | 10 min |
 
@@ -72,9 +73,13 @@ All Isolate documentation in one place, token-efficient and searchable.
 
 ### I'm New Here
 1. Read [00_START_HERE.md](00_START_HERE.md) (5 min)
-2. Read [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) (20 min)
-3. Read [02_MOON_BUILD.md](02_MOON_BUILD.md) (15 min)
-4. Bookmark [06_COMBINATORS.md](06_COMBINATORS.md) for reference
+2. Read [COMMANDS.md](COMMANDS.md) - **Quick command reference**
+3. Read [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) (20 min)
+4. Read [02_MOON_BUILD.md](02_MOON_BUILD.md) (15 min)
+5. Bookmark [06_COMBINATORS.md](06_COMBINATORS.md) for reference
+
+### I Need a Command
+→ [COMMANDS.md](COMMANDS.md) - **Complete CLI command reference**
 
 ### I'm an AI Agent
 1. Read [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) (20 min) - **Everything you need**
@@ -194,13 +199,17 @@ jj log                              # View history
 
 ### Isolate (Workspace Management)
 ```bash
- isolate add <name>           # Create session + workspace + Zellij tab
+# See COMMANDS.md for complete reference
+isolate add <name>           # Create session + workspace
 isolate work <name>          # Simpler workspace creation
 isolate whereami             # Check current location
 isolate focus <name>         # Switch to session's tab
 isolate done                 # Complete and merge work
-isolate remove <name>        # Clean up session
+isolate sync                 # Sync with main
+isolate abort                # Abort and cleanup
 isolate list                 # List all sessions
+
+# For complete command reference, see COMMANDS.md
 ```
 
 ### Isolate Object Commands (New)
@@ -296,6 +305,7 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 
 | Concept | Location | Summary |
 |---------|----------|---------|
+| CLI Commands | [COMMANDS.md](COMMANDS.md) | Complete command reference |
 | Zero Unwrap Law | [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md) | No panics enforced by compiler |
 | Result Pattern | [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) | All fallible ops return Result |
 | Combinators | [06_COMBINATORS.md](06_COMBINATORS.md) | map, filter, fold, and_then, etc. |
@@ -322,6 +332,7 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 
 ## ✅ What TO Do
 
+- Use Isolate commands ([COMMANDS.md](COMMANDS.md))
 - Return `Result<T, Error>` for fallible ops ([01_ERROR_HANDLING.md](01_ERROR_HANDLING.md))
 - Use `?` operator, match, or combinators ([01_ERROR_HANDLING.md](01_ERROR_HANDLING.md))
 - Build with `moon run` ([02_MOON_BUILD.md](02_MOON_BUILD.md))
@@ -334,13 +345,14 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 
 ## 📞 Getting Help
 
-1. **Quick question?** → Find in [00_START_HERE.md](00_START_HERE.md)
-2. **AI Agent?** → [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) has everything
-3. **Error handling?** → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md)
-4. **Specific error?** → [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md)
-5. **Which combinator?** → [06_COMBINATORS.md](06_COMBINATORS.md)
-6. **Build issue?** → [02_MOON_BUILD.md](02_MOON_BUILD.md)
-7. **Workflow question?** → [03_WORKFLOW.md](03_WORKFLOW.md)
+1. **Need a command?** → [COMMANDS.md](COMMANDS.md) - Complete CLI reference
+2. **Quick question?** → Find in [00_START_HERE.md](00_START_HERE.md)
+3. **AI Agent?** → [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) has everything
+4. **Error handling?** → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md)
+5. **Specific error?** → [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md)
+6. **Which combinator?** → [06_COMBINATORS.md](06_COMBINATORS.md)
+7. **Build issue?** → [02_MOON_BUILD.md](02_MOON_BUILD.md)
+8. **Workflow question?** → [03_WORKFLOW.md](03_WORKFLOW.md)
 
 ---
 
@@ -353,6 +365,7 @@ Everything in these docs supports this principle.
 ---
 
 **Start Here**: [00_START_HERE.md](00_START_HERE.md)  
+**Command Reference**: [COMMANDS.md](COMMANDS.md)  
 **AI Agents Start Here**: [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md)
 
 **The Law**: No unwraps, no panics, no unsafe. Period.

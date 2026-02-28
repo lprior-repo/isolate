@@ -152,6 +152,8 @@ codanna index && codanna documents index --collection docs
 {"cmd": "isolate done", "use": "Complete and merge work", "frequency": "Finish work"}
 ```
 
+**For complete command reference, see [COMMANDS.md](COMMANDS.md)**
+
 ---
 
 ## 7-Step Parallel Agent Workflow
