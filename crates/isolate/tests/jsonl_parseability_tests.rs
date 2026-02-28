@@ -63,10 +63,10 @@ fn test_all_jsonl_lines_are_valid_json() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Run a command that produces JSONL output
-    let result = harness.isolate(&["list"]);
+    let result = harness.isolate(&["session", "list"]);
 
     // Verify each line that looks like JSON is parseable
     for line in result.stdout.lines() {
@@ -92,10 +92,10 @@ fn test_all_jsonl_lines_have_type_discriminator() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Run a command that produces JSONL output
-    let result = harness.isolate(&["list"]);
+    let result = harness.isolate(&["session", "list"]);
 
     let mut found_json_lines = 0;
     for line in result.stdout.lines() {
@@ -140,10 +140,10 @@ fn test_output_parseable_by_jq() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Test commands that produce JSONL output (exclude status which may have different format)
-    let commands_to_test: Vec<&[&str]> = vec![&["list"]];
+    let commands_to_test: Vec<&[&str]> = vec![&["session", "list"]];
 
     for cmd in commands_to_test {
         let result = harness.isolate(cmd);
@@ -179,11 +179,11 @@ fn test_output_has_consistent_schema() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Run the same command multiple times
-    let result1 = harness.isolate(&["list"]);
-    let result2 = harness.isolate(&["list"]);
+    let result1 = harness.isolate(&["session", "list"]);
+    let result2 = harness.isolate(&["session", "list"]);
 
     // Extract schemas (set of top-level keys) from both runs
     let schemas1 = extract_schemas(&result1.stdout);
@@ -237,10 +237,10 @@ fn test_session_output_has_required_fields() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Create a session to get SessionOutput
-    let result = harness.isolate(&["add", "test-session-fields", "--no-hooks"]);
+    let result = harness.isolate(&["session", "add", "test-session-fields", "--no-hooks"]);
     assert!(
         result.success,
         "Failed to create session: {}",
@@ -303,7 +303,7 @@ fn test_session_output_has_required_fields() {
     }
 
     // Cleanup
-    let _ = harness.isolate(&["remove", "test-session-fields", "--merge"]);
+    let _ = harness.isolate(&["session", "remove", "test-session-fields", "--merge"]);
 }
 
 // =============================================================================
@@ -400,10 +400,10 @@ fn test_result_output_has_required_fields() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Run a command that produces ResultOutput (add produces result at end)
-    let result = harness.isolate(&["add", "test-result-fields", "--no-hooks"]);
+    let result = harness.isolate(&["session", "add", "test-result-fields", "--no-hooks"]);
 
     // Find ResultOutput in the output (lowercase key: "result")
     let result_output = find_json_line_by_type(&result.stdout, "result");
@@ -452,7 +452,7 @@ fn test_result_output_has_required_fields() {
     }
 
     // Cleanup
-    let _ = harness.isolate(&["remove", "test-result-fields", "--merge"]);
+    let _ = harness.isolate(&["session", "remove", "test-result-fields", "--merge"]);
 }
 
 // =============================================================================
@@ -472,10 +472,10 @@ fn test_result_output_is_final_line_for_add() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Test add command which produces result at end
-    let result = harness.isolate(&["add", "test-final-result", "--no-hooks"]);
+    let result = harness.isolate(&["session", "add", "test-final-result", "--no-hooks"]);
 
     // Get all JSON lines
     let json_lines: Vec<JsonValue> = result
@@ -506,7 +506,7 @@ fn test_result_output_is_final_line_for_add() {
     }
 
     // Cleanup
-    let _ = harness.isolate(&["remove", "test-final-result", "--merge"]);
+    let _ = harness.isolate(&["session", "remove", "test-final-result", "--merge"]);
 }
 
 // =============================================================================
@@ -523,10 +523,10 @@ fn test_all_output_variants_have_correct_structure() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Test Summary variant (from list command with no sessions)
-    let result = harness.isolate(&["list"]);
+    let result = harness.isolate(&["session", "list"]);
     let has_valid_lines = result.stdout.lines().any(|line| {
         let trimmed = line.trim();
         trimmed.starts_with('{') && serde_json::from_str::<JsonValue>(trimmed).is_ok()
@@ -534,7 +534,7 @@ fn test_all_output_variants_have_correct_structure() {
     assert!(has_valid_lines, "list command should produce valid JSONL");
 
     // Test Action variant (from add command, lowercase key: "action")
-    let result = harness.isolate(&["add", "test-action-variant", "--no-hooks"]);
+    let result = harness.isolate(&["session", "add", "test-action-variant", "--no-hooks"]);
     let action_output = find_json_line_by_type(&result.stdout, "action");
     if let Some(json) = action_output {
         // Action should have: verb, target, status, timestamp
@@ -544,7 +544,7 @@ fn test_all_output_variants_have_correct_structure() {
     }
 
     // Cleanup
-    let _ = harness.isolate(&["remove", "test-action-variant", "--merge"]);
+    let _ = harness.isolate(&["session", "remove", "test-action-variant", "--merge"]);
 }
 
 // =============================================================================
@@ -561,9 +561,9 @@ fn test_timestamps_are_valid() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
-    let result = harness.isolate(&["list"]);
+    let result = harness.isolate(&["session", "list"]);
 
     // Find all timestamp fields in output
     for line in result.stdout.lines() {
@@ -602,10 +602,10 @@ fn test_enums_serialize_to_snake_case() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Create a session
-    let result = harness.isolate(&["add", "test-enum-serialization", "--no-hooks"]);
+    let result = harness.isolate(&["session", "add", "test-enum-serialization", "--no-hooks"]);
 
     // Check Session status field (lowercase key: "session")
     if let Some(session) = find_json_line_by_type(&result.stdout, "session") {
@@ -623,7 +623,7 @@ fn test_enums_serialize_to_snake_case() {
     }
 
     // Trigger an Issue and check its fields (lowercase key: "issue")
-    let result = harness.isolate(&["add", ""]);
+    let result = harness.isolate(&["session", "add", ""]);
     if let Some(issue) = find_json_line_by_type(&result.stdout, "issue") {
         for field in ["kind", "severity"] {
             if let Some(value) = issue.get(field).and_then(JsonValue::as_str) {
@@ -640,7 +640,7 @@ fn test_enums_serialize_to_snake_case() {
     }
 
     // Cleanup
-    let _ = harness.isolate(&["remove", "test-enum-serialization", "--merge"]);
+    let _ = harness.isolate(&["session", "remove", "test-enum-serialization", "--merge"]);
 }
 
 // =============================================================================
@@ -683,9 +683,9 @@ fn test_success_command_has_success_true() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
-    let result = harness.isolate(&["list"]);
+    let result = harness.isolate(&["session", "list"]);
 
     if let Some(result_output) = find_json_line_by_type(&result.stdout, "result") {
         if let Some(success) = result_output.get("success").and_then(JsonValue::as_bool) {
@@ -774,7 +774,7 @@ fn test_idempotent_remove_no_issue_on_missing() {
     };
 
     // Initialize isolate
-    harness.assert_success(&["init"]);
+    harness.assert_success(&["session", "init"]);
 
     // Idempotent remove of nonexistent session
     let result = harness.isolate(&[

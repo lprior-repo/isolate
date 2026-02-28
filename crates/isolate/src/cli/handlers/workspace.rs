@@ -6,6 +6,7 @@ use isolate_core::json::SchemaEnvelope;
 
 use super::json_format::get_format;
 use crate::{
+    cli::handlers::introspection::{handle_context, handle_whereami, handle_whoami},
     commands::{add, init, list, remove, rename, session_mgmt, spawn, status, switch, work},
     json,
 };
@@ -130,23 +131,48 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first (global flag)
     if sub_m.get_flag("contract") {
         println!("{}", crate::cli::json_docs::ai_contracts::status());
         return Ok(());
     }
 
+    // Handle --ai-hints flag
     if sub_m.get_flag("ai-hints") {
         println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
         return Ok(());
     }
 
-    let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let watch = sub_m.get_flag("watch");
-
-    if watch {
-        status::run_watch_mode(name).await
-    } else {
-        status::run(name).await
+    // Route to subcommand handlers
+    match sub_m.subcommand() {
+        Some(("show", show_m)) => {
+            let name = show_m.get_one::<String>("session").map(String::as_str);
+            let watch = sub_m.get_flag("watch");
+            if watch {
+                status::run_watch_mode(name).await
+            } else {
+                status::run(name).await
+            }
+        }
+        Some(("whereami", whereami_m)) => handle_whereami(whereami_m).await,
+        Some(("whoami", whoami_m)) => handle_whoami(whoami_m),
+        Some(("context", context_m)) => handle_context(context_m).await,
+        None => {
+            // Legacy: isolate status (no subcommand)
+            // Show deprecation warning
+            eprintln!("warning: 'isolate status' without subcommand is deprecated, use 'isolate status show' instead.");
+            let name = sub_m.get_one::<String>("name").map(String::as_str);
+            let watch = sub_m.get_flag("watch");
+            if watch {
+                status::run_watch_mode(name).await
+            } else {
+                status::run(name).await
+            }
+        }
+        Some((unknown, _)) => Err(anyhow::anyhow!(
+            "Unknown status subcommand: '{}'. Use 'show', 'whereami', 'whoami', or 'context'",
+            unknown
+        )),
     }
 }
 

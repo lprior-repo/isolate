@@ -886,10 +886,10 @@ mod tests {
         };
 
         // Initialize isolate first
-        harness.assert_success(&["init"]);
+        harness.assert_success(&["session", "init"]);
 
         // Create a session to trigger workspace creation
-        let result = harness.isolate(&["add", "test-workspace-path", "--no-hooks"]);
+        let result = harness.isolate(&["session", "add", "test-workspace-path", "--no-hooks"]);
 
         // The command should succeed
         assert!(
@@ -910,7 +910,7 @@ mod tests {
         );
 
         // Cleanup
-        let _ = harness.isolate(&["remove", "test-workspace-path", "--merge"]);
+        let _ = harness.isolate(&["session", "remove", "test-workspace-path", "--merge"]);
     }
 
     /// RED Phase: Test that workspace path is inside the test repo (not elsewhere)
@@ -924,11 +924,11 @@ mod tests {
         };
 
         // Initialize isolate first
-        harness.assert_success(&["init"]);
+        harness.assert_success(&["session", "init"]);
 
         // Create a session
         let session_name = "test-workspace-containment";
-        let result = harness.isolate(&["add", session_name, "--no-hooks"]);
+        let result = harness.isolate(&["session", "add", session_name, "--no-hooks"]);
 
         assert!(result.success, "isolate add failed: {}", result.stderr);
 
@@ -948,7 +948,7 @@ mod tests {
         );
 
         // Cleanup
-        let _ = harness.isolate(&["remove", session_name, "--merge"]);
+        let _ = harness.isolate(&["session", "remove", session_name, "--merge"]);
     }
 
     /// RED Phase: Test that `workspace_dir` can be configured per test
@@ -962,14 +962,14 @@ mod tests {
         };
 
         // Initialize isolate first
-        harness.assert_success(&["init"]);
+        harness.assert_success(&["session", "init"]);
 
         // Custom workspace directory for this test
         let custom_workspace = "custom-workspaces";
 
         // Add a session with custom workspace dir
         let result = harness.isolate_with_env(
-            &["add", "test-custom-workspace", "--no-hooks"],
+            &["session", "add", "test-custom-workspace", "--no-hooks"],
             &[("Isolate_WORKSPACE_DIR", custom_workspace)],
         );
 
@@ -991,6 +991,6 @@ mod tests {
         );
 
         // Cleanup
-        let _ = harness.isolate(&["remove", "test-custom-workspace", "--merge"]);
+        let _ = harness.isolate(&["session", "remove", "test-custom-workspace", "--merge"]);
     }
 }

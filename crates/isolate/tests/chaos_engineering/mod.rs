@@ -486,7 +486,7 @@ impl ChaosTestHarness {
     /// };
     ///
     /// // May inject I/O error during 'list' command
-    /// let result = harness.isolate_with_chaos(&["list"]);
+    /// let result = harness.isolate_with_chaos(&["session", "list"]);
     /// ```
     pub fn isolate_with_chaos(&self, args: &[&str]) -> super::common::CommandResult {
         // Create RNG from executor config
@@ -549,7 +549,7 @@ impl ChaosTestHarness {
 /// ```no_run
 /// use chaos_engineering::{chaos_test_suite, FailureMode};
 ///
-/// chaos_test_suite!(test_init_with_chaos, &["init"], 0.1, 0.5, 10);
+/// chaos_test_suite!(test_init_with_chaos, &["session", "init"], 0.1, 0.5, 10);
 /// ```
 #[macro_export]
 macro_rules! chaos_test_suite {

@@ -190,6 +190,22 @@ fn dry_run_arg() -> Arg {
         .help("Preview without executing")
 }
 
+/// Create the contract argument (AI: Show machine-readable contract)
+fn contract_arg() -> Arg {
+    Arg::new("contract")
+        .long("contract")
+        .action(clap::ArgAction::SetTrue)
+        .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)")
+}
+
+/// Create the ai-hints argument (AI: Show execution hints)
+fn ai_hints_arg() -> Arg {
+    Arg::new("ai-hints")
+        .long("ai-hints")
+        .action(clap::ArgAction::SetTrue)
+        .help("AI: Show execution hints and common patterns")
+}
+
 /// Build the Task object command with all subcommands
 pub fn cmd_task() -> ClapCommand {
     ClapCommand::new("task")
@@ -480,28 +496,62 @@ pub fn cmd_session() -> ClapCommand {
 pub fn cmd_status() -> ClapCommand {
     ClapCommand::new("status")
         .about("Query system and session status")
-        .subcommand_required(true)
+        .subcommand_required(false)
         .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+        .arg(
+            Arg::new("name")
+                .required(false)
+                .help("Session name to show status for (shows all if omitted)"),
+        )
+        .arg(
+            Arg::new("watch")
+                .long("watch")
+                .action(clap::ArgAction::SetTrue)
+                .help("Continuously update status (1s refresh)"),
+        )
         .subcommand(
             ClapCommand::new("show")
                 .about("Show current status")
                 .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg())
                 .arg(Arg::new("session").help("Session name (uses current if omitted)")),
         )
         .subcommand(
             ClapCommand::new("whereami")
                 .about("Show current location")
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("whoami")
                 .about("Show current identity")
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("context")
                 .about("Show context information")
                 .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg())
+                .arg(Arg::new("field").help("Specific field to display"))
+                .arg(
+                    Arg::new("no-beads")
+                        .long("no-beads")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Don't show beads in context"),
+                )
+                .arg(
+                    Arg::new("no-health")
+                        .long("no-health")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Don't show health checks in context"),
+                )
                 .arg(Arg::new("session").help("Session name (uses current if omitted)")),
         )
 }
@@ -680,58 +730,132 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(cmd_status())
         .subcommand(cmd_config())
         .subcommand(cmd_doctor())
-        // Legacy commands (deprecated - use object commands instead)
-        // These provide backward compatibility for tests
+        // Legacy commands - route to same handlers
         .subcommand(
             ClapCommand::new("init")
                 .about("Initialize isolate")
-                .visible_alias("add")
-                .visible_alias("list")
-                .visible_alias("remove")
-                .visible_alias("spawn")
-                .visible_alias("sync")
-                .visible_alias("clone")
-                .visible_alias("rename")
-                .visible_alias("pause")
-                .visible_alias("resume")
-                .visible_alias("focus")
                 .arg(dry_run_arg())
                 .arg(json_arg())
-                .arg(Arg::new("name").required(false))
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("add")
+                .about("Add session")
+                .arg(Arg::new("name").required(true))
+                .arg(dry_run_arg())
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg())
                 .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
                 .arg(Arg::new("template").long("template").short('t').value_name("TEMPLATE"))
                 .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue))
                 .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue)),
+        )
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List sessions")
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg())
                 .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue))
                 .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue)),
         )
-        // Legacy 'whoami', 'whereami', 'context' commands
+        .subcommand(
+            ClapCommand::new("remove")
+                .about("Remove session")
+                .arg(Arg::new("name").required(true))
+                .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("spawn")
+                .about("Spawn session")
+                .arg(Arg::new("bead").required(true))
+                .arg(dry_run_arg())
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg())
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("agent").long("agent").value_name("AGENT")),
+        )
+        .subcommand(
+            ClapCommand::new("sync")
+                .about("Sync session")
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("focus")
+                .about("Focus session")
+                .arg(Arg::new("name").required(true))
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("clone")
+                .about("Clone session")
+                .arg(Arg::new("name").required(true))
+                .arg(Arg::new("new-name").long("new-name").value_name("NAME"))
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("rename")
+                .about("Rename session")
+                .arg(Arg::new("old-name").required(true))
+                .arg(Arg::new("new-name").required(true))
+                .arg(json_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("pause")
+                .about("Pause session")
+                .arg(Arg::new("name").required(false))
+                .arg(json_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("resume")
+                .about("Resume session")
+                .arg(Arg::new("name").required(false))
+                .arg(json_arg()),
+        )
         .subcommand(
             ClapCommand::new("whoami")
                 .about("Who am I")
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("whereami")
                 .about("Where am I")
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("context")
                 .about("Show context")
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
-        // Legacy 'done' command
         .subcommand(
             ClapCommand::new("done")
                 .about("Done (complete work)")
                 .visible_alias("submit")
                 .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg())
                 .arg(Arg::new("name").required(false)),
         )
-        // Legacy 'work' command  
         .subcommand(
             ClapCommand::new("work")
                 .about("Start work on a task")
@@ -740,7 +864,6 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
                 .arg(json_arg()),
         )
-        // Legacy 'abort' command
         .subcommand(
             ClapCommand::new("abort")
                 .about("Abort work")
@@ -748,7 +871,6 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
                 .arg(json_arg()),
         )
-        // Legacy 'checkpoint' command
         .subcommand(
             ClapCommand::new("checkpoint")
                 .about("Create checkpoint")
@@ -756,20 +878,17 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(Arg::new("name").required(false))
                 .arg(json_arg()),
         )
-        // Legacy 'undo' command
         .subcommand(
             ClapCommand::new("undo")
                 .about("Undo last operation")
                 .arg(json_arg()),
         )
-        // Legacy 'revert' command
         .subcommand(
             ClapCommand::new("revert")
                 .about("Revert changes")
                 .arg(Arg::new("name").required(false))
                 .arg(json_arg()),
         )
-        // Legacy 'claim' and 'yield' commands
         .subcommand(
             ClapCommand::new("claim")
                 .about("Claim a task")
@@ -783,7 +902,6 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(Arg::new("resource").required(true))
                 .arg(json_arg()),
         )
-        // Legacy 'lock' and 'unlock' commands
         .subcommand(
             ClapCommand::new("lock")
                 .about("Acquire lock")

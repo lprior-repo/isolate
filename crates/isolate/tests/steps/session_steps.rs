@@ -74,7 +74,7 @@ impl SessionTestContext {
 
     /// Initialize the Isolate database
     pub fn init_isolate(&self) -> Result<()> {
-        self.harness.assert_success(&["init"]);
+        self.harness.assert_success(&["session", "init"]);
         if !self.harness.isolate_dir().exists() {
             anyhow::bail!("Isolate initialization failed - .isolate directory not created");
         }
@@ -108,7 +108,8 @@ pub mod given_steps {
 
     /// Given a session named "NAME" exists
     pub async fn session_named_exists(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        ctx.harness.assert_success(&["add", name, "--no-open"]);
+        ctx.harness
+            .assert_success(&["session", "add", name, "--no-open"]);
         ctx.track_session(name).await;
         Ok(())
     }
@@ -121,7 +122,8 @@ pub mod given_steps {
     ) -> Result<()> {
         // Simplified: most status transitions happen via internal commands
         // For testing, we create and simulate the state
-        ctx.harness.assert_success(&["add", name, "--no-open"]);
+        ctx.harness
+            .assert_success(&["session", "add", name, "--no-open"]);
         ctx.track_session(name).await;
 
         if status != "active" {
@@ -143,20 +145,20 @@ pub mod given_steps {
     /// Given no session named "NAME" exists
     pub async fn no_session_named_exists(ctx: &SessionTestContext, name: &str) -> Result<()> {
         // Ensure it doesn't exist
-        let _ = ctx.harness.isolate(&["remove", name, "--merge"]);
+        let _ = ctx.harness.isolate(&["session", "remove", name, "--merge"]);
         Ok(())
     }
 
     /// Given no session exists
     pub async fn no_session_exists(ctx: &SessionTestContext) -> Result<()> {
         // List and remove all
-        let list_result = ctx.harness.isolate(&["list", "--json"]);
+        let list_result = ctx.harness.isolate(&["session", "list", "--json"]);
         if list_result.success {
             let lines = parse_jsonl_output(&list_result.stdout)?;
             for line in lines {
                 if let Some(session) = line.get("session") {
                     if let Some(name) = session.get("name").and_then(|n| n.as_str()) {
-                        let _ = ctx.harness.isolate(&["remove", name, "--merge"]);
+                        let _ = ctx.harness.isolate(&["session", "remove", name, "--merge"]);
                     }
                 }
             }
@@ -211,7 +213,9 @@ pub mod when_steps {
 
     /// When I create a session named "NAME"
     pub async fn create_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.isolate(&["add", name, "--no-open", "--json"]);
+        let result = ctx
+            .harness
+            .isolate(&["session", "add", name, "--no-open", "--json"]);
         *ctx.last_result.lock().await = Some(result);
         ctx.track_session(name).await;
         Ok(())
@@ -219,7 +223,9 @@ pub mod when_steps {
 
     /// When I remove the session "NAME"
     pub async fn remove_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.isolate(&["remove", name, "--merge", "--json"]);
+        let result = ctx
+            .harness
+            .isolate(&["session", "remove", name, "--merge", "--json"]);
         *ctx.last_result.lock().await = Some(result);
         Ok(())
     }
@@ -231,7 +237,7 @@ pub mod when_steps {
 
     /// When I focus the session "NAME"
     pub async fn focus_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.isolate(&["focus", name, "--json"]);
+        let result = ctx.harness.isolate(&["session", "focus", name, "--json"]);
         *ctx.last_result.lock().await = Some(result);
         Ok(())
     }
@@ -243,14 +249,14 @@ pub mod when_steps {
 
     /// When I list all sessions
     pub async fn list_sessions(ctx: &SessionTestContext) -> Result<()> {
-        let result = ctx.harness.isolate(&["list", "--json"]);
+        let result = ctx.harness.isolate(&["session", "list", "--json"]);
         *ctx.last_result.lock().await = Some(result);
         Ok(())
     }
 
     /// When I show the session "NAME"
     pub async fn show_session(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.isolate(&["status", name, "--json"]);
+        let result = ctx.harness.isolate(&["status", "show", name, "--json"]);
         *ctx.last_result.lock().await = Some(result);
         Ok(())
     }
@@ -419,14 +425,14 @@ pub mod then_steps {
 
     /// Then the session "NAME" should exist
     pub async fn session_should_exist(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.isolate(&["list", "--json"]);
+        let result = ctx.harness.isolate(&["session", "list", "--json"]);
         assert!(result.stdout.contains(name), "Session {name} should exist");
         Ok(())
     }
 
     /// Then the session "NAME" should not exist
     pub async fn session_should_not_exist(ctx: &SessionTestContext, name: &str) -> Result<()> {
-        let result = ctx.harness.isolate(&["list", "--json"]);
+        let result = ctx.harness.isolate(&["session", "list", "--json"]);
         assert!(
             !result.stdout.contains(name),
             "Session {} should not exist",
