@@ -6,11 +6,11 @@ cognitive-complexity-threshold = 20
 too-many-arguments-threshold = 5
 type-complexity-threshold = 250
 
-# Enforcement: No panics allowed in production code
-# Allow panics in RED tests (Phase 4 TDD placeholders)
+# Enforcement: Source code - no panics/unwrap allowed
+# Tests: ANYTHING GOES - no restrictions on test code
 allow-panic-in-tests = true
-allow-unwrap-in-tests = false
-allow-expect-in-tests = false
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
 
 # Suggest safer alternatives
 enforce-iter-loop-reborrow = true

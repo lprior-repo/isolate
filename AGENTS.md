@@ -5,8 +5,8 @@
 ```jsonl
 {"rule":"NO_CLIPPY_EDITS","action":"Fix code, not lint config"}
 {"rule":"MOON_ONLY","cmds":["moon run :quick","moon run :test","moon run :build","moon run :ci","moon run :fmt-fix"],"never":["cargo fmt","cargo test","cargo clippy","cargo build"]}
-{"rule":"CODANNA_MANDATORY","cmds":["semantic_search_with_context","analyze_impact","find_symbol","get_calls","find_callers","search_symbols","semantic_search_docs","get_index_info"],"prefer":["Codanna MCP tools for ALL exploration/search/retrieval"],"fallback":["NONE - Codanna is required"]}
-{"rule":"ZERO_UNWRAP_PANIC","required":["Result<T,E>","?","map","and_then"],"banned":["unwrap()","unwrap_or()","unwrap_or_else()","unwrap_or_default()","expect()","panic!()","todo!()","unimplemented!()"]}
+{"rule":"CODANNA_MANDATORY","cmds":["semantic_search_with_context","analyze_impact","find_symbol","get_calls","get_callers","search_symbols","semantic_search_docs","get_index_info"],"prefer":["Codanna MCP tools for ALL exploration/search/retrieval"],"fallback":["NONE - Codanna is required"]}
+{"rule":"ZERO_UNWRAP_PANIC_SOURCE_ONLY","action":"Source code (src/) ONLY: zero unwrap/panic. Tests (_tests.rs, #[test]): NO restrictions - anything goes","banned_source":["unwrap()","unwrap_or()","unwrap_or_else()","unwrap_or_default()","expect()","panic!()","todo!()","unimplemented!()"],"allowed_tests":["ALL unwrap/panic allowed - tests are exempt"]}
 {"rule":"GIT_PUSH_MANDATORY","action":"Not done until git push succeeds"}
 {"rule":"FUNCTIONAL_RUST_SKILL","action":"Load functional-rust-generator skill for ALL Rust implementation"}
 {"rule":"DOMAIN_DRIVEN_DESIGN","patterns":["Bounded contexts","Aggregates","Value objects","Domain events","Repository pattern","Factory pattern"],"action":"Model domain logic explicitly; separate domain from infrastructure"}

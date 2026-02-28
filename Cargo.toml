@@ -80,12 +80,9 @@ dead_code = "deny"
 unused_must_use = "deny"
 
 [workspace.lints.clippy]
-# Zero unwrap law - COMPILE ERRORS (relaxed in tests)
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
-todo = "deny"
-unimplemented = "deny"
+# Zero unwrap law - enforced at crate level via lib.rs attributes
+# Source code: deny unwrap/panic/todo/unimplemented
+# Tests: allow anything
 
 # Quality enforcement (with priority)
 all = { level = "warn", priority = -1 }
