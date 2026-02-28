@@ -77,8 +77,6 @@ pub struct SessionRemoveOutput {
     pub workspace_path: PathBuf,
     /// Whether the workspace was actually deleted (vs preserved)
     pub workspace_deleted: bool,
-    /// Whether the Zellij tab was closed
-    pub zellij_tab_closed: bool,
 }
 
 impl SessionRemoveOutput {
@@ -88,13 +86,11 @@ impl SessionRemoveOutput {
         session_name: SessionName,
         workspace_path: PathBuf,
         workspace_deleted: bool,
-        zellij_tab_closed: bool,
     ) -> Self {
         Self {
             session_name,
             workspace_path,
             workspace_deleted,
-            zellij_tab_closed,
         }
     }
 }
@@ -320,11 +316,10 @@ mod tests {
     fn test_session_remove_output_new() {
         let name = SessionName::parse("test-session").expect("valid name");
         let path = PathBuf::from("/tmp/test-workspace");
-        let output = SessionRemoveOutput::new(name.clone(), path.clone(), true, true);
+        let output = SessionRemoveOutput::new(name.clone(), path.clone(), true);
 
         assert_eq!(output.session_name, name);
         assert_eq!(output.workspace_path, path);
         assert!(output.workspace_deleted);
-        assert!(output.zellij_tab_closed);
     }
 }

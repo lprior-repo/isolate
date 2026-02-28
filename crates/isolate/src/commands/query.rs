@@ -514,7 +514,6 @@ fn is_known_command(command: &str) -> bool {
             | "clean"
             | "config"
             | "context"
-            | "dashboard"
             | "diff"
             | "doctor"
             | "introspect"

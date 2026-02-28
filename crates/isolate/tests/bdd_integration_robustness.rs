@@ -7,11 +7,6 @@
 //! !   I want isolate commands to be robust and skip integration when appropriate
 //! !   So that my workflows don't fail due to environment mismatches.
 //! !
-//! ! Feature: TUI Dashboard
-//! !   As a user in a terminal
-//! !   I want the dashboard to launch only when a TTY is available
-//! !   So that I don't get obscure OS errors in non-interactive environments.
-//! !
 //! ! Feature: Batch Execution
 //! !   As an automation script
 //! !   I want to execute multiple isolate commands in batch

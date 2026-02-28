@@ -70,7 +70,6 @@ fn test_init_creates_config_toml() {
     };
     assert!(content.contains("workspace_dir"));
     assert!(content.contains("[watch]"));
-    assert!(content.contains("[dashboard]"));
     assert!(content.contains("[agent]"));
 }
 
@@ -157,10 +156,6 @@ fn test_init_creates_valid_toml_config() {
     assert!(
         parsed.get("watch").is_some(),
         "Config should have [watch] section"
-    );
-    assert!(
-        parsed.get("dashboard").is_some(),
-        "Config should have [dashboard] section"
     );
 }
 

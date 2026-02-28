@@ -65,12 +65,6 @@ post_create = []
 pre_remove = []
 post_merge = []
 
-[dashboard]
-refresh_ms = 1000
-theme = "default"
-columns = ["name", "status", "branch", "changes", "beads"]
-vim_keys = true
-
 [agent]
 command = "claude"
 

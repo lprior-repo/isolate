@@ -2,6 +2,6 @@ $schema: "https://moonrepo.dev/schemas/project.json"
 
 tasks:
   test:
-    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run -p zjj-core --all-features --no-fail-fast"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run -p isolate-core --all-features --no-fail-fast"
   test-doc:
-    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo test --doc -p zjj-core"
+    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo test --doc -p isolate-core"

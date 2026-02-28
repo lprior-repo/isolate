@@ -11,7 +11,7 @@
 //!
 //! # Hot-Reload
 //!
-//! For long-running commands (e.g., `dashboard --watch`), use [`ConfigManager`]
+//! For long-running commands that need hot-reload, use [`ConfigManager`]
 //! to get automatic config reloading when files change.
 //!
 //! # Example Config
@@ -203,7 +203,6 @@ pub struct Config {
     pub state_db: String,
     pub watch: WatchConfig,
     pub hooks: HooksConfig,
-    pub dashboard: DashboardConfig,
     pub agent: AgentConfig,
     pub session: SessionConfig,
     pub recovery: RecoveryConfig,
@@ -250,14 +249,6 @@ pub struct HooksConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DashboardConfig {
-    pub refresh_ms: u32,
-    pub theme: String,
-    pub columns: Vec<String>,
-    pub vim_keys: ValidatedBool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AgentConfig {
     pub command: String,
     pub env: HashMap<String, String>,
@@ -283,7 +274,6 @@ impl Default for Config {
             state_db: ".isolate/state.db".to_string(),
             watch: WatchConfig::default(),
             hooks: HooksConfig::default(),
-            dashboard: DashboardConfig::default(),
             agent: AgentConfig::default(),
             session: SessionConfig::default(),
             recovery: RecoveryConfig::default(),
@@ -309,23 +299,6 @@ impl Default for HooksConfig {
             post_create: Vec::new(),
             pre_remove: Vec::new(),
             post_merge: Vec::new(),
-        }
-    }
-}
-
-impl Default for DashboardConfig {
-    fn default() -> Self {
-        Self {
-            refresh_ms: 1000,
-            theme: "default".to_string(),
-            columns: vec![
-                "name".to_string(),
-                "status".to_string(),
-                "branch".to_string(),
-                "changes".to_string(),
-                "beads".to_string(),
-            ],
-            vim_keys: ValidatedBool(true),
         }
     }
 }
@@ -384,8 +357,6 @@ pub struct PartialConfig {
     #[serde(default)]
     pub hooks: Option<PartialHooksConfig>,
     #[serde(default)]
-    pub dashboard: Option<PartialDashboardConfig>,
-    #[serde(default)]
     pub agent: Option<PartialAgentConfig>,
     #[serde(default)]
     pub session: Option<PartialSessionConfig>,
@@ -413,18 +384,6 @@ pub struct PartialHooksConfig {
     pub pre_remove: Option<Vec<String>>,
     #[serde(default)]
     pub post_merge: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PartialDashboardConfig {
-    #[serde(default)]
-    pub refresh_ms: Option<u32>,
-    #[serde(default)]
-    pub theme: Option<String>,
-    #[serde(default)]
-    pub columns: Option<Vec<String>>,
-    #[serde(default)]
-    pub vim_keys: Option<ValidatedBool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -633,7 +592,6 @@ const VALID_KEYS: &[&str] = &[
     "state_db",
     "watch",
     "hooks",
-    "dashboard",
     "agent",
     "session",
     "recovery",
@@ -644,10 +602,6 @@ const VALID_KEYS: &[&str] = &[
     "hooks.post_create",
     "hooks.pre_remove",
     "hooks.post_merge",
-    "dashboard.refresh_ms",
-    "dashboard.theme",
-    "dashboard.columns",
-    "dashboard.vim_keys",
     "agent.command",
     "agent.env",
     "session.auto_commit",
@@ -700,9 +654,6 @@ pub fn validate_key(key: &str) -> Result<()> {
         error_msg.push_str("  workspace_dir, main_branch, default_template, state_db\n");
         error_msg.push_str("  watch.enabled, watch.debounce_ms, watch.paths\n");
         error_msg.push_str("  hooks.post_create, hooks.pre_remove, hooks.post_merge\n");
-        error_msg.push_str(
-            "  dashboard.refresh_ms, dashboard.theme, dashboard.columns, dashboard.vim_keys\n",
-        );
         error_msg.push_str("  agent.command, agent.env\n");
         error_msg.push_str("  session.auto_commit, session.commit_prefix, session.max_sessions\n");
         error_msg.push_str("  recovery.policy, recovery.log_recovered, recovery.auto_recover_corrupted_wal, recovery.delete_corrupted_database\n");
@@ -966,16 +917,6 @@ impl HooksConfig {
     }
 }
 
-impl DashboardConfig {
-    #[allow(dead_code)]
-    fn merge(&mut self, other: Self) {
-        self.refresh_ms = other.refresh_ms;
-        self.theme = other.theme;
-        self.columns = other.columns;
-        self.vim_keys = other.vim_keys;
-    }
-}
-
 impl AgentConfig {
     #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
@@ -1033,24 +974,6 @@ impl HooksConfig {
         }
         if let Some(post_merge) = partial.post_merge {
             self.post_merge = post_merge;
-        }
-    }
-}
-
-impl DashboardConfig {
-    /// Merge partial config, only updating fields that are `Some(value)`.
-    fn merge_partial(&mut self, partial: PartialDashboardConfig) {
-        if let Some(refresh_ms) = partial.refresh_ms {
-            self.refresh_ms = refresh_ms;
-        }
-        if let Some(theme) = partial.theme {
-            self.theme = theme;
-        }
-        if let Some(columns) = partial.columns {
-            self.columns = columns;
-        }
-        if let Some(vim_keys) = partial.vim_keys {
-            self.vim_keys = vim_keys;
         }
     }
 }
@@ -1125,7 +1048,6 @@ impl Config {
         // Merge nested configs
         self.watch.merge(other.watch);
         self.hooks.merge(other.hooks);
-        self.dashboard.merge(other.dashboard);
         self.agent.merge(other.agent);
         self.session.merge(other.session);
         self.recovery.merge(other.recovery);
@@ -1161,9 +1083,6 @@ impl Config {
         }
         if let Some(hooks) = partial.hooks {
             self.hooks.merge_partial(hooks);
-        }
-        if let Some(dashboard) = partial.dashboard {
-            self.dashboard.merge_partial(dashboard);
         }
         if let Some(agent) = partial.agent {
             self.agent.merge_partial(agent);
@@ -1211,20 +1130,6 @@ impl Config {
         if let Ok(value) = std::env::var("Isolate_WATCH_DEBOUNCE_MS") {
             self.watch.debounce_ms = value.parse().map_err(|e| {
                 Error::InvalidConfig(format!("Invalid Isolate_WATCH_DEBOUNCE_MS value: {e}"))
-            })?;
-        }
-
-        // Isolate_DASHBOARD_REFRESH_MS
-        if let Ok(value) = std::env::var("Isolate_DASHBOARD_REFRESH_MS") {
-            self.dashboard.refresh_ms = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid Isolate_DASHBOARD_REFRESH_MS value: {e}"))
-            })?;
-        }
-
-        // Isolate_DASHBOARD_VIM_KEYS
-        if let Ok(value) = std::env::var("Isolate_DASHBOARD_VIM_KEYS") {
-            self.dashboard.vim_keys = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid Isolate_DASHBOARD_VIM_KEYS value: {e}"))
             })?;
         }
 
@@ -1296,16 +1201,6 @@ impl Config {
         if self.watch.debounce_ms < 10 || self.watch.debounce_ms > 5000 {
             return Err(Error::ValidationError {
                 message: "debounce_ms must be 10-5000".to_string(),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            });
-        }
-
-        // Validate refresh_ms range [100-10000]
-        if self.dashboard.refresh_ms < 100 || self.dashboard.refresh_ms > 10000 {
-            return Err(Error::ValidationError {
-                message: "refresh_ms must be 100-10000".to_string(),
                 field: None,
                 value: None,
                 constraints: Vec::new(),
@@ -1463,21 +1358,6 @@ mod tests {
         }
     }
 
-    // Test 8: Invalid refresh - refresh_ms = 50000 → Error
-    #[test]
-    fn test_invalid_refresh_ms_too_high() {
-        let mut config = Config::default();
-        config.dashboard.refresh_ms = 50000;
-
-        let result = config.validate();
-        assert!(result.is_err());
-
-        if let Err(e) = result {
-            let error_msg = e.to_string();
-            assert!(error_msg.contains("100-10000"));
-        }
-    }
-
     // Test 9: Missing global config - No error, uses defaults
     #[tokio::test]
     async fn test_missing_global_config_no_error() {
@@ -1631,12 +1511,6 @@ post_create = []
 pre_remove = []
 post_merge = []
 
-[dashboard]
-refresh_ms = 1000
-theme = "default"
-columns = ["name", "status", "branch", "changes", "beads"]
-vim_keys = {}
-
 [agent]
 command = "claude"
 env = {{}}
@@ -1658,7 +1532,7 @@ autonomy = 80
 security_keywords = ["api-key", "secret", "password"]
 log_resolutions = true
 "#,
-                bool_str, bool_str, bool_str
+                bool_str, bool_str
             );
             tokio::fs::write(&config_path, &content)
                 .await
@@ -1697,12 +1571,6 @@ paths = [".beads/beads.db"]
 post_create = []
 pre_remove = []
 post_merge = []
-
-[dashboard]
-refresh_ms = 1000
-theme = "default"
-columns = ["name", "status", "branch", "changes", "beads"]
-vim_keys = true
 
 [agent]
 command = "claude"
@@ -1799,7 +1667,6 @@ log_resolutions = true
         assert_eq!(config.state_db, ".isolate/state.db");
         assert!(config.watch.enabled.as_bool());
         assert_eq!(config.watch.debounce_ms, 100);
-        assert_eq!(config.dashboard.refresh_ms, 1000);
     }
 
     #[test]
@@ -1847,27 +1714,6 @@ log_resolutions = true
         assert!(config.validate().is_ok());
     }
 
-    #[test]
-    fn test_validation_refresh_ms_valid() {
-        let mut config = Config::default();
-        config.dashboard.refresh_ms = 1000;
-        assert!(config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validation_refresh_ms_min() {
-        let mut config = Config::default();
-        config.dashboard.refresh_ms = 100;
-        assert!(config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validation_refresh_ms_max() {
-        let mut config = Config::default();
-        config.dashboard.refresh_ms = 10000;
-        assert!(config.validate().is_ok());
-    }
-
     // Test: Valid top-level keys pass validation
     #[test]
     fn test_validate_key_valid_top_level() {
@@ -1878,7 +1724,6 @@ log_resolutions = true
             "state_db",
             "watch",
             "hooks",
-            "dashboard",
             "agent",
             "session",
             "recovery",
@@ -1899,10 +1744,6 @@ log_resolutions = true
             "hooks.post_create",
             "hooks.pre_remove",
             "hooks.post_merge",
-            "dashboard.refresh_ms",
-            "dashboard.theme",
-            "dashboard.columns",
-            "dashboard.vim_keys",
             "agent.command",
             "agent.env",
             "session.auto_commit",
@@ -2066,12 +1907,12 @@ log_resolutions = true
     #[test]
     fn test_merge_partial_nested_only_overrides_set_fields() {
         let mut base = Config::default();
-        let original_theme = base.dashboard.theme.clone();
-        let original_refresh_ms = base.dashboard.refresh_ms;
+        let original_enabled = base.watch.enabled;
+        let original_debounce_ms = base.watch.debounce_ms;
 
         let partial = PartialConfig {
-            dashboard: Some(PartialDashboardConfig {
-                columns: Some(vec!["name".to_string(), "status".to_string()]),
+            watch: Some(PartialWatchConfig {
+                paths: Some(vec!["custom.db".to_string()]),
                 ..Default::default()
             }),
             ..Default::default()
@@ -2079,18 +1920,15 @@ log_resolutions = true
 
         base.merge_partial(partial);
 
-        assert_eq!(
-            base.dashboard.columns,
-            vec!["name".to_string(), "status".to_string()]
-        );
+        assert_eq!(base.watch.paths, vec!["custom.db".to_string()]);
 
         assert_eq!(
-            base.dashboard.theme, original_theme,
-            "theme should not be changed"
+            base.watch.enabled, original_enabled,
+            "enabled should not be changed"
         );
         assert_eq!(
-            base.dashboard.refresh_ms, original_refresh_ms,
-            "refresh_ms should not be changed"
+            base.watch.debounce_ms, original_debounce_ms,
+            "debounce_ms should not be changed"
         );
     }
 

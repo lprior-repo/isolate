@@ -72,7 +72,7 @@ impl IntegrationTestContext {
 
     /// Register an agent
     async fn register_agent(&self, agent_id: &str) -> Result<()> {
-        self.agent_registry.register(agent_id).await
+        self.agent_registry.register(agent_id).await.map(|_| ())
     }
 
     /// Get agent count

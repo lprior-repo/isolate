@@ -107,7 +107,6 @@ async fn test_help_for_all_commands() {
         "diff",
         "config",
         "clean",
-        "dashboard",
         "introspect",
         "doctor",
         "integrity",

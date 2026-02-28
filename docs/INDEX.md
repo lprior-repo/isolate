@@ -191,7 +191,7 @@ jj log                              # View history
 
 ### Isolate (Workspace Management)
 ```bash
-isolate add <name>           # Create session + workspace + Zellij tab
+ isolate add <name>           # Create session + workspace + Zellij tab
 isolate work <name>          # Simpler workspace creation
 isolate whereami             # Check current location
 isolate focus <name>         # Switch to session's tab

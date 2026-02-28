@@ -99,7 +99,6 @@ async fn test_init_creates_config_toml() -> Result<()> {
     let content = tokio::fs::read_to_string(&config_path).await?;
     assert!(content.contains("workspace_dir"));
     assert!(content.contains("[watch]"));
-    assert!(content.contains("[dashboard]"));
 
     Ok(())
 }
@@ -242,7 +241,6 @@ fn test_default_config_is_valid_toml() -> Result<()> {
 
     // Verify key sections exist
     assert!(parsed.get("watch").is_some());
-    assert!(parsed.get("dashboard").is_some());
     assert!(parsed.get("agent").is_some());
     assert!(parsed.get("session").is_some());
 

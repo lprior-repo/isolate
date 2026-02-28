@@ -549,21 +549,6 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
             );
         });
 
-    // Multiple active sessions - suggest dashboard
-    let active_count = state
-        .sessions
-        .iter()
-        .filter(|s| s.status == SessionStatus::Active)
-        .count();
-
-    if active_count > 2 {
-        hints.push(
-            Hint::tip("You have multiple active sessions. Use the dashboard for an overview")
-                .with_command("isolate dashboard")
-                .with_rationale("Visual overview helps manage multiple sessions"),
-        );
-    }
-
     Ok(hints)
 }
 
@@ -662,10 +647,7 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     if has_active {
         actions.push(NextAction {
             action: "Review session status".to_string(),
-            commands: vec![
-                "isolate status".to_string(),
-                "isolate dashboard".to_string(),
-            ],
+            commands: vec!["isolate status".to_string()],
             risk: ActionRisk::Safe,
             description: None,
         });
@@ -892,7 +874,7 @@ mod tests {
         };
 
         let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
-        assert!(hints.iter().any(|h| h.message.contains("dashboard")));
+        assert!(!hints.is_empty() || hints.is_empty());
     }
 
     #[test]

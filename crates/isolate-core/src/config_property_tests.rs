@@ -202,7 +202,6 @@ mod validation_tests {
         let valid_keys = vec![
             "workspace_dir",
             "main_branch",
-            "dashboard.theme",
             "watch.enabled",
             "hooks.post_create",
         ];
