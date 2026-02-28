@@ -1,26 +1,90 @@
 # Isolate
 
-Isolate is a workspace isolation tool built on top of [JJ (Jujutsu)](https://github.com/jj-vcs/jj) version control. It provides a robust solution for managing isolated development workspaces, particularly designed for AI agents working in parallel.
+Workspace isolation for AI agent swarms. Built on JJ.
 
 ## The Problem
 
-Running agents in swarms is painful. When you have multiple agents working simultaneously:
+Running 8-12 agents in parallel is chaos. Without proper isolation:
 
-- **Code gets lost** — agents overwrite each other's changes
-- **File locks** — agents block each other out
-- **Merge conflicts** — agents step on each other's toes constantly
-- **Noisy state** — agents see each other's work-in-progress
-- **Chaos** — total fucking chaos
+- **Lost code** — changes overwritten, gone forever
+- **Duplicate work** — the same feature re-implemented 3-4x
+- **Bead stealing** — agents claiming work already in progress
+- **Detached HEAD** — constantly stuck in broken states
+- **Broken main** — always blocked, always broken
+
+We tried to fix this:
+
+- **File locking (Agentail/MCP)** — good first attempt, but didn't work. Too fragile. Doesn't prevent duplicate work, doesn't help when things go wrong, doesn't scale.
+- **Git Worktrees** — work fine at 1-3 agents. Break completely at 4+.
 
 ## The Solution
 
-Isolate solves this by creating clean, isolated workspaces where each agent has:
+**File locking treats symptoms, not causes.**
 
-- **Complete isolation** — no file locks, no conflicts, no stepping on toes
-- **Clean state** — each workspace sees only its own changes
-- **Proper versioning** — built on JJ's powerful undo/changeset model
-- **Session tracking** — knows who's working where and when
-- **Clean merge path** — easy to sync and merge back to main
+Real solution: **complete workspace isolation**. Each agent gets their own isolated environment. No shared state to corrupt, no coordination needed between agents.
+
+---
+
+## FAQ: JJ, Git, and Why This Matters
+
+### Why JJ instead of Git?
+
+JJ is a fundamentally better VCS for multi-agent workflows:
+
+| Feature | Git | JJ (Why it matters) |
+|---------|-----|---------------------|
+| **Concurrency** | Locking required, can corrupt at scale | Lock-free — multiple agents can run in parallel without repo corruption. They just see "divergent changes" and resolve later. |
+| **Undo** | Destructive — reset is permanent | Operation log — undo ANY operation, even non-recent ones. Recover from any mistake. |
+| **Conflicts** | Block merges until resolved | First-class — can commit conflicts, resolve later. No blocking. |
+| **Branches** | Required for everything (branch pollution) | Anonymous — workspaces don't need branch names. No namespace pollution at 8-12 agents. |
+| **State** | Index/staging area is confusing | Working copy auto-committed — simpler, consistent model |
+| **Rebasing** | Manual, can lose work | Auto-rebase — descendants automatically follow rewritten commits |
+| **Merges** | Evil merges exist | No evil merges — merge commits handled correctly |
+
+**The big ones for agent swarms:**
+
+- **Lock-free concurrency** means agents don't corrupt each other's work
+- **Operation log** means you can always recover from mistakes
+- **Anonymous commits** means no branch name collisions at scale
+
+### Why not Git Worktrees?
+
+Git Worktrees work great at small scale. They break at agent scale:
+
+| Problem | What happens |
+|---------|-------------|
+| **Detached HEAD** | At 4+ agents, you spend half your time in detached HEAD state |
+| **Branch pollution** | 8-12 agents = 8-12 branches to manage. Name collisions are constant. |
+| **No concurrency** | Concurrent worktrees can corrupt the repo |
+| **No operation log** | Mistake = permanent loss |
+| **File locking doesn't scale** | We tried it. It didn't work. |
+
+**The honest threshold:**
+- 1-3 agents with human coordination: Git Worktrees are fine
+- 4+ autonomous agents: You're hitting a wall. We know because we lived it.
+
+### Why not file locking?
+
+File locking treats symptoms, not causes:
+
+- **Doesn't prevent duplicate work** — two agents can implement the same feature on different files
+- **Doesn't prevent logical conflicts** — agents stepping on each other's toes across the codebase
+- **Doesn't help when things go wrong** — no recovery mechanism
+- **Doesn't scale** — more agents = more contention, more contention = more failures
+
+We tried Agentail/MCP. It was a good first crack at the problem. But file locking is fundamentally the wrong abstraction for multi-agent coordination.
+
+**Real solution:** Complete workspace isolation. Each agent has their own environment. No shared state to corrupt.
+
+---
+
+## What Isolate Adds on Top of JJ
+
+- **CLI ergonomics** — `spawn`, `done`, `sync`, `abort` commands
+- **Session state tracking** — knows who's working where
+- **Bead claiming** — atomic ownership of tasks
+- **Recovery logic** — robust handling of interrupted sessions
+- **Clean merge workflow** — easy to sync and merge back to main
 
 ## Key Commands
 
@@ -55,25 +119,21 @@ isolate status
 - **JJ (Jujutsu)** must be installed. Isolate is built on top of JJ and requires it to function.
 - Install via: `cargo install jj-cli` or `brew install jj`
 
-## Architecture
+## Tradeoffs
 
-Isolate leverages JJ's workspace model to provide:
-
-1. **Multiple workspaces** — each agent gets its own JJ workspace
-2. **Bookmarks** — track which workspace maps to which "bead" (task)
-3. **Session state** — SQLite-backed tracking of workspace metadata
-4. **Sync operations** — intelligent merging between isolated workspaces and main
-5. **Recovery** — robust handling of interrupted sessions
+- **JJ learning curve** — new mental model, different from Git
+- **Ecosystem integration** — GitHub, CI, code review tools expect Git (JJ interop exists but isn't first-class everywhere)
+- **But:** your main stays clean, your agents don't destroy each other's work, and you can actually run 8-12 agents in parallel without losing code
 
 ## Why JJ?
 
 JJ provides the perfect foundation for isolation:
 
 - **Anonymous commits** — workspaces don't need to share branch names
-- **Undo capability** — completely safe operations with easy rollback
+- **Undo capability** — completely safe operations with easy rollback via operation log
 - **Sparse checkouts** — only see what you need
-- **Conflict resolution** — sane merge handling
-- **Operation log** — full history of workspace changes
+- **Conflict resolution** — sane merge handling with first-class conflicts
+- **Operation log** — full history of workspace changes, can recover from any state
 
 ## Installation
 
