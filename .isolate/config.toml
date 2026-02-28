@@ -23,7 +23,7 @@ command = "claude"
 
 [session]
 auto_commit = false
-commit_prefix = "test:"
+commit_prefix = "qa:"
 
 [recovery]
 policy = "warn"
