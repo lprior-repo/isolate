@@ -77,6 +77,7 @@ pub mod result;
 pub mod session_state;
 #[cfg(test)]
 mod session_state_tests;
+pub mod session_sync;
 pub mod shutdown;
 pub mod taskregistry;
 pub mod templates;

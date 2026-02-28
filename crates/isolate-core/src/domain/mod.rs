@@ -145,6 +145,9 @@ pub mod identifiers;
 pub mod macros;
 pub mod repository;
 pub mod session;
+pub mod session_create;
+pub mod session_focus;
+pub mod session_remove;
 pub mod workspace;
 
 pub use aggregates::{
@@ -166,6 +169,20 @@ pub use identifiers::{
 pub use repository::{
     AgentRepository, AgentState, BeadRepository, RepositoryError, RepositoryResult,
     SessionRepository, WorkspaceRepository,
+};
+// Re-export session creation types
+pub use session_create::{
+    SessionCreateError, SessionCreateInput, SessionCreateOutput, SessionCreator, SessionLimits,
+};
+// Re-export session focus types
+pub use session_focus::{
+    validate_focus_preconditions, SessionFocusError, SessionFocusInput, SessionFocusOutput,
+    SessionFocusState, SessionFocusableState,
+};
+// Re-export session removal types
+pub use session_remove::{
+    validate_removal_preconditions, SessionRemoveError, SessionRemoveInput, SessionRemoveOutput,
+    WorkspaceCleanupStrategy,
 };
 pub use workspace::WorkspaceState;
 
