@@ -28,8 +28,6 @@ pub enum ZjjObject {
     Config,
     /// Diagnostics and health checks
     Doctor,
-    /// Pane and window management
-    Pane,
 }
 
 impl ZjjObject {
@@ -41,7 +39,6 @@ impl ZjjObject {
             Self::Status,
             Self::Config,
             Self::Doctor,
-            Self::Pane,
         ]
     }
 
@@ -53,7 +50,6 @@ impl ZjjObject {
             Self::Status => "status",
             Self::Config => "config",
             Self::Doctor => "doctor",
-            Self::Pane => "pane",
         }
     }
 
@@ -65,7 +61,6 @@ impl ZjjObject {
             Self::Status => "Query system and session status",
             Self::Config => "Manage isolate configuration",
             Self::Doctor => "Run diagnostics and health checks",
-            Self::Pane => "Manage terminal panes and windows",
         }
     }
 }
@@ -613,52 +608,6 @@ pub fn cmd_doctor() -> ClapCommand {
         )
 }
 
-/// Build the Pane object command with all subcommands
-pub fn cmd_pane() -> ClapCommand {
-    ClapCommand::new("pane")
-        .about("Manage terminal panes and windows")
-        .subcommand_required(true)
-        .arg(json_arg())
-        .arg(verbose_arg())
-        .subcommand(
-            ClapCommand::new("focus")
-                .about("Focus a specific pane")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("session")
-                        .required(true)
-                        .help("Session name to focus"),
-                )
-                .arg(
-                    Arg::new("pane")
-                        .required(false)
-                        .value_name("PANE_ID")
-                        .help("Pane ID to focus within the session")
-                        .conflicts_with("direction"),
-                )
-                .arg(
-                    Arg::new("direction")
-                        .long("direction")
-                        .short('d')
-                        .value_name("DIR")
-                        .help("Direction to move (left, right, up, down)")
-                        .conflicts_with("pane"),
-                )
-                .arg(
-                    Arg::new("contract")
-                        .long("contract")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("AI: Show machine-readable contract"),
-                )
-                .arg(
-                    Arg::new("ai-hints")
-                        .long("ai-hints")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("AI: Show execution hints"),
-                ),
-        )
-}
-
 /// Build the complete object-based CLI
 ///
 /// This creates the new `isolate <object> <action>` command structure
@@ -669,7 +618,7 @@ pub fn build_object_cli() -> ClapCommand {
         .author("Isolate Contributors")
         .about("Isolate - Isolated workspace manager (object-based CLI)")
         .long_about(
-            "Isolate creates isolated JJ workspaces paired with Zellij sessions.\n\n\
+            "Isolate creates isolated JJ workspaces.\n\n\
              Object-based command structure:\n\
              \n\
   isolate task <action>     Manage tasks and work items\n\
@@ -680,9 +629,7 @@ pub fn build_object_cli() -> ClapCommand {
              \n\
   isolate config <action>   Manage configuration\n\
              \n\
-  isolate doctor <action>   Run diagnostics\n\
-             \n\
-  isolate pane <action>     Manage terminal panes\n",
+  isolate doctor <action>   Run diagnostics\n",
         )
         .subcommand_required(true)
         .arg(json_arg().global(true))
@@ -714,7 +661,6 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(cmd_status())
         .subcommand(cmd_config())
         .subcommand(cmd_doctor())
-        .subcommand(cmd_pane())
 }
 
 #[cfg(test)]
@@ -732,7 +678,7 @@ mod tests {
 
     #[test]
     fn test_isolate_object_all_count() {
-        assert_eq!(ZjjObject::all().len(), 6);
+        assert_eq!(ZjjObject::all().len(), 5);
     }
 
     #[test]

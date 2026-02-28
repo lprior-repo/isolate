@@ -36,7 +36,6 @@ pub mod domain;
 pub mod integrity;
 pub mod introspection;
 pub mod json_format;
-pub mod pane;
 pub mod session;
 pub mod sync;
 pub mod utility;
@@ -56,7 +55,6 @@ pub use self::{
         handle_ai, handle_can_i, handle_context, handle_contract, handle_examples, handle_help,
         handle_introspect, handle_validate, handle_whatif, handle_whereami, handle_whoami,
     },
-    pane::handle_pane,
     session::handle_session,
     sync::{handle_abort, handle_diff, handle_done, handle_submit, handle_sync},
     utility::{handle_completions, handle_config, handle_query, handle_schema, handle_wait},
@@ -250,7 +248,6 @@ pub async fn run_cli() -> Result<()> {
             Some(("rollback", sub_m)) => handle_rollback(sub_m).await,
             Some(("task", sub_m)) => handle_task(sub_m).await,
             Some(("session", sub_m)) => handle_session(sub_m).await,
-            Some(("pane", sub_m)) => handle_pane(sub_m).await,
             _ => {
                 build_cli().print_help()?;
                 Ok(())
