@@ -254,14 +254,7 @@ pub fn cmd_task() -> ClapCommand {
             ClapCommand::new("start")
                 .about("Start work on a task (creates session)")
                 .arg(json_arg())
-                .arg(Arg::new("id").required(true).help("Task/bead ID to start"))
-                .arg(
-                    Arg::new("template")
-                        .long("template")
-                        .short('t')
-                        .value_name("TEMPLATE")
-                        .help("Layout template"),
-                ),
+                .arg(Arg::new("id").required(true).help("Task/bead ID to start")),
         )
         .subcommand(
             ClapCommand::new("done")
@@ -339,13 +332,6 @@ pub fn cmd_session() -> ClapCommand {
                         .short('b')
                         .value_name("BEAD_ID")
                         .help("Associate with a bead ID"),
-                )
-                .arg(
-                    Arg::new("template")
-                        .long("template")
-                        .short('t')
-                        .value_name("TEMPLATE")
-                        .help("Layout template (minimal, standard, full)"),
                 )
                 .arg(
                     Arg::new("no-open")
@@ -763,7 +749,6 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(contract_arg())
                 .arg(ai_hints_arg())
                 .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
-                .arg(Arg::new("template").long("template").short('t').value_name("TEMPLATE"))
                 .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue))
                 .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue))
                 .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue)),

@@ -256,10 +256,6 @@ fn test_default_config_has_correct_values() -> Result<()> {
         parsed.get("workspace_dir").and_then(|v| v.as_str()),
         Some("../{repo}__workspaces")
     );
-    assert_eq!(
-        parsed.get("default_template").and_then(|v| v.as_str()),
-        Some("standard")
-    );
 
     // Check watch config
     let watch = parsed.get("watch").and_then(|v| v.as_table());

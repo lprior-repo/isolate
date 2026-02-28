@@ -7,8 +7,6 @@ pub struct AddOptions {
     pub name: String,
     /// Optional bead/issue ID to associate with this session
     pub bead_id: Option<String>,
-    /// Optional template name
-    pub template: Option<String>,
     /// Skip executing hooks
     pub no_hooks: bool,
     /// Create workspace but don't open
@@ -28,7 +26,6 @@ impl AddOptions {
         Self {
             name,
             bead_id: None,
-            template: None,
             no_hooks: false,
             no_open: false,
             format: OutputFormat::Json,

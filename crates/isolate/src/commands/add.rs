@@ -826,15 +826,6 @@ mod tests {
                 category: Some("behavior".to_string()),
             },
             FlagSpec {
-                long: "template".to_string(),
-                short: Some("t".to_string()),
-                description: "Layout template name".to_string(),
-                flag_type: "string".to_string(),
-                default: Some(serde_json::json!("standard")),
-                possible_values: vec!["minimal".to_string(), "standard".to_string()],
-                category: Some("configuration".to_string()),
-            },
-            FlagSpec {
                 long: "no-open".to_string(),
                 short: None,
                 description: "Don't open terminal".to_string(),
@@ -863,7 +854,7 @@ mod tests {
 
         // Note: format_help_output is not implemented; test structure is valid
         // This will be implemented in GREEN phase
-        let output = "Behavior\nno-hooks\nno-open\nConfiguration\ntemplate";
+        let output = "Behavior\nno-hooks\nno-open\nConfiguration";
 
         assert!(
             output.contains("Behavior"),
@@ -888,22 +879,6 @@ mod tests {
             return;
         };
         assert!(behavior_pos < config_pos, "Categories should be ordered");
-
-        let behavior_section = &output[behavior_pos..];
-        assert!(
-            behavior_section.contains("no-hooks"),
-            "no-hooks should appear under Behavior"
-        );
-        assert!(
-            behavior_section.contains("no-open"),
-            "no-open should appear under Behavior"
-        );
-
-        let config_section = &output[config_pos..];
-        assert!(
-            config_section.contains("template"),
-            "template should appear under Configuration"
-        );
     }
 
     /// Test that flags without category have default handling
@@ -1133,7 +1108,6 @@ mod tests {
         let opts = AddOptions {
             name: "test".to_string(),
             bead_id: None,
-            template: None,
             no_hooks: false,
             no_open: false,
             format: OutputFormat::Json,
@@ -1152,7 +1126,6 @@ mod tests {
         let opts = AddOptions {
             name: "test".to_string(),
             bead_id: None,
-            template: None,
             no_hooks: false,
             no_open: false,
             format: OutputFormat::Json,
@@ -1174,7 +1147,6 @@ mod tests {
         let opts = AddOptions {
             name: "session".to_string(),
             bead_id: None,
-            template: None,
             no_hooks: false,
             no_open: false,
             format,
@@ -1198,7 +1170,6 @@ mod tests {
         let opts = AddOptions {
             name: "test".to_string(),
             bead_id: None,
-            template: None,
             no_hooks: false,
             no_open: false,
             format: OutputFormat::Json,

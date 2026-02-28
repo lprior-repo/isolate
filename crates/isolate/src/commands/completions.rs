@@ -110,10 +110,6 @@ _isolate() {
             COMPREPLY=( $(compgen -W "${sessions}" -- "${cur}") )
             return 0
             ;;
-        --template|-t)
-            COMPREPLY=( $(compgen -W "minimal standard full" -- "${cur}") )
-            return 0
-            ;;
         --shell)
             COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish" -- "${cur}") )
             return 0
@@ -123,7 +119,7 @@ _isolate() {
     # Flag completion
     case "${COMP_WORDS[1]}" in
         add|work)
-            COMPREPLY=( $(compgen -W "--no-hooks --no-open --template --json --idempotent --dry-run" -- "${cur}") )
+            COMPREPLY=( $(compgen -W "--no-hooks --no-open --json --idempotent --dry-run" -- "${cur}") )
             ;;
         remove)
             COMPREPLY=( $(compgen -W "--force --merge --keep-branch --json --idempotent" -- "${cur}") )

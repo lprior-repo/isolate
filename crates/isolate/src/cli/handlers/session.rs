@@ -39,7 +39,6 @@ async fn handle_session_add(args: &ArgMatches) -> Result<()> {
 
     let options = add::AddOptions {
         name: name.clone(),
-        template: None,
         bead_id: args.get_one::<String>("bead").cloned(),
         no_hooks,
         no_open,

@@ -294,18 +294,6 @@ fn build_add_contract() -> CommandContract {
                 examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
             },
             ArgContract {
-                name: "template".to_string(),
-                arg_type: "string".to_string(),
-                description: "Layout template".to_string(),
-                pattern: Some("^(minimal|standard|full)$".to_string()),
-                default: None,
-                examples: vec![
-                    "minimal".to_string(),
-                    "standard".to_string(),
-                    "full".to_string(),
-                ],
-            },
-            ArgContract {
                 name: "bead".to_string(),
                 arg_type: "string".to_string(),
                 description: "Associate session with bead/issue ID".to_string(),

@@ -364,17 +364,6 @@ fn create_list_error_conditions() -> Vec<ErrorCondition> {
 fn create_add_flags() -> Vec<FlagSpec> {
     vec![
         create_bool_flag("no-hooks", "Skip post_create hooks"),
-        create_enum_flag(
-            "template",
-            Some("t"),
-            "Layout template name",
-            vec![
-                "minimal".to_string(),
-                "standard".to_string(),
-                "full".to_string(),
-            ],
-            "standard",
-        ),
         create_bool_flag("no-open", "Create workspace but don't open terminal"),
     ]
 }
@@ -382,10 +371,7 @@ fn create_add_flags() -> Vec<FlagSpec> {
 /// Add command examples showing various usage patterns
 fn create_add_examples() -> Vec<CommandExample> {
     vec![
-        create_example(
-            "isolate add feature-auth",
-            "Create session with default template",
-        ),
+        create_example("isolate add feature-auth", "Create session"),
         create_example(
             "isolate add bugfix-123 --no-hooks",
             "Create without running hooks",

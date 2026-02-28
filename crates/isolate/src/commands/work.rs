@@ -115,7 +115,6 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     let add_options = add::AddOptions {
         name: options.name.clone(),
         bead_id: None,
-        template: None,
         no_hooks: false,
         no_open: true,
         format: OutputFormat::Json, // We'll handle our own output

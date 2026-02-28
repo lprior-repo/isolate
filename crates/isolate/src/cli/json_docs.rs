@@ -340,12 +340,6 @@ pub mod ai_contracts {
       "validation": "Must be valid session name (alphanumeric, hyphens, underscores)",
       "examples": ["feature-auth", "bugfix-123", "experiment-alpha"]
     },
-    "template": {
-      "type": "string",
-      "required": false,
-      "flag": "-t|--template",
-      "examples": ["default", "minimal", "full"]
-    },
     "no_open": {
       "type": "boolean",
       "required": false,

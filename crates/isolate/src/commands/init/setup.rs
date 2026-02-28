@@ -51,7 +51,6 @@ pub(super) const DEFAULT_CONFIG: &str = r#"# isolate Configuration File
 
 workspace_dir = "../{repo}__workspaces"
 main_branch = ""  # auto-detect
-default_template = "standard"
 state_db = ".isolate/state.db"
 
 [watch]

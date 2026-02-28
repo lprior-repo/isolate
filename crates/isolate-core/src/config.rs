@@ -199,7 +199,6 @@ impl std::ops::Not for ValidatedBool {
 pub struct Config {
     pub workspace_dir: String,
     pub main_branch: String,
-    pub default_template: String,
     pub state_db: String,
     pub watch: WatchConfig,
     pub hooks: HooksConfig,
@@ -270,7 +269,6 @@ impl Default for Config {
         Self {
             workspace_dir: "../{repo}__workspaces".to_string(),
             main_branch: String::new(),
-            default_template: "standard".to_string(),
             state_db: ".isolate/state.db".to_string(),
             watch: WatchConfig::default(),
             hooks: HooksConfig::default(),
@@ -348,8 +346,6 @@ pub struct PartialConfig {
     pub workspace_dir: Option<String>,
     #[serde(default)]
     pub main_branch: Option<String>,
-    #[serde(default)]
-    pub default_template: Option<String>,
     #[serde(default)]
     pub state_db: Option<String>,
     #[serde(default)]
@@ -588,7 +584,6 @@ impl ConfigManager {
 const VALID_KEYS: &[&str] = &[
     "workspace_dir",
     "main_branch",
-    "default_template",
     "state_db",
     "watch",
     "hooks",
@@ -651,7 +646,7 @@ pub fn validate_key(key: &str) -> Result<()> {
         // Build a helpful error message with valid keys grouped by category
         let mut error_msg = format!("Unknown configuration key: '{key}'\n\n");
 
-        error_msg.push_str("  workspace_dir, main_branch, default_template, state_db\n");
+        error_msg.push_str("  workspace_dir, main_branch, state_db\n");
         error_msg.push_str("  watch.enabled, watch.debounce_ms, watch.paths\n");
         error_msg.push_str("  hooks.post_create, hooks.pre_remove, hooks.post_merge\n");
         error_msg.push_str("  agent.command, agent.env\n");
@@ -1042,7 +1037,6 @@ impl Config {
         // should override a global config even if the project config matches the default.
         self.workspace_dir = other.workspace_dir;
         self.main_branch = other.main_branch;
-        self.default_template = other.default_template;
         self.state_db = other.state_db;
 
         // Merge nested configs
@@ -1069,9 +1063,6 @@ impl Config {
         }
         if let Some(main_branch) = partial.main_branch {
             self.main_branch = main_branch;
-        }
-        if let Some(default_template) = partial.default_template {
-            self.default_template = default_template;
         }
         if let Some(state_db) = partial.state_db {
             self.state_db = state_db;
@@ -1112,11 +1103,6 @@ impl Config {
         // Isolate_MAIN_BRANCH
         if let Ok(value) = std::env::var("Isolate_MAIN_BRANCH") {
             self.main_branch = value;
-        }
-
-        // Isolate_DEFAULT_TEMPLATE
-        if let Ok(value) = std::env::var("Isolate_DEFAULT_TEMPLATE") {
-            self.default_template = value;
         }
 
         // Isolate_WATCH_ENABLED
@@ -1248,7 +1234,6 @@ mod tests {
         let config = result.map_or_else(|_| Config::default(), |c| c);
         // Check that we got a valid config (global config may override workspace_dir)
         assert!(!config.workspace_dir.is_empty());
-        assert_eq!(config.default_template, "standard");
         // state_db may be overridden by global config
         assert!(!config.state_db.is_empty());
     }
@@ -1266,7 +1251,6 @@ mod tests {
         base.merge(override_config);
 
         assert_eq!(base.workspace_dir, "../custom");
-        assert_eq!(base.default_template, "standard"); // Should still have default
     }
 
     // Test 3: Project only - Loads project, merges with defaults
@@ -1498,7 +1482,6 @@ typo_nested = "invalid""#;
                 r#"
 workspace_dir = "../test"
 main_branch = "main"
-default_template = "standard"
 state_db = ".isolate/state.db"
 
 [watch]
@@ -1559,7 +1542,6 @@ log_resolutions = true
         let toml_content = r#"
 workspace_dir = "../test"
 main_branch = "main"
-default_template = "standard"
 state_db = ".isolate/state.db"
 
 [watch]
@@ -1619,7 +1601,6 @@ log_resolutions = true
         base.merge(partial);
 
         assert_eq!(base.workspace_dir, "../custom");
-        assert_eq!(base.default_template, "standard"); // Still default
         assert!(base.watch.enabled); // Still default
     }
 
@@ -1663,7 +1644,6 @@ log_resolutions = true
         let config = Config::default();
         assert_eq!(config.workspace_dir, "../{repo}__workspaces");
         assert_eq!(config.main_branch, "");
-        assert_eq!(config.default_template, "standard");
         assert_eq!(config.state_db, ".isolate/state.db");
         assert!(config.watch.enabled.as_bool());
         assert_eq!(config.watch.debounce_ms, 100);
@@ -1720,7 +1700,6 @@ log_resolutions = true
         let valid_keys = [
             "workspace_dir",
             "main_branch",
-            "default_template",
             "state_db",
             "watch",
             "hooks",
@@ -1817,7 +1796,6 @@ log_resolutions = true
 
         // Verify we got a valid config
         assert!(!test_config.workspace_dir.is_empty());
-        assert_eq!(test_config.default_template, "standard");
         assert!(test_config.watch.enabled);
     }
 
@@ -1837,7 +1815,6 @@ log_resolutions = true
         let config2 = manager2.get().await;
 
         assert_eq!(config1.workspace_dir, config2.workspace_dir);
-        assert_eq!(config1.default_template, config2.default_template);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1879,7 +1856,6 @@ log_resolutions = true
     fn test_merge_partial_only_overrides_set_fields() {
         let mut base = Config::default();
         let original_workspace_dir = base.workspace_dir.clone();
-        let original_template = base.default_template.clone();
 
         // Create a partial that only sets main_branch
         let partial = PartialConfig {
@@ -1896,10 +1872,6 @@ log_resolutions = true
         assert_eq!(
             base.workspace_dir, original_workspace_dir,
             "workspace_dir should not be changed"
-        );
-        assert_eq!(
-            base.default_template, original_template,
-            "default_template should not be changed"
         );
     }
 

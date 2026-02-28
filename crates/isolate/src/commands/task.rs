@@ -632,7 +632,6 @@ pub async fn handle_task_start(args: &clap::ArgMatches) -> Result<()> {
     let task_id = args
         .get_one::<String>("id")
         .context("Task ID is required")?;
-    let template = args.get_one::<String>("template").map(String::as_str);
 
     let agent_id = get_agent_id();
 
@@ -662,7 +661,6 @@ pub async fn handle_task_start(args: &clap::ArgMatches) -> Result<()> {
     // The spawn command already handles workspace creation for beads
     info!(
         task_id = %task_id,
-        template = ?template,
         "Starting task workspace"
     );
 
@@ -670,7 +668,6 @@ pub async fn handle_task_start(args: &clap::ArgMatches) -> Result<()> {
         "task_id": task_id,
         "status": "started",
         "workspace": format!(".isolate/workspaces/{}", task_id),
-        "template": template,
     });
 
     if format.is_json() {
@@ -679,9 +676,6 @@ pub async fn handle_task_start(args: &clap::ArgMatches) -> Result<()> {
     } else {
         println!("Started task '{task_id}'");
         println!("  Workspace: .isolate/workspaces/{task_id}");
-        if let Some(t) = template {
-            println!("  Template: {t}");
-        }
         println!();
         println!("Run 'isolate spawn {task_id}' to begin work");
     }
@@ -744,7 +738,7 @@ pub async fn handle_task(args: &clap::ArgMatches) -> Result<()> {
             println!("  isolate task show <ID>                        Show task details");
             println!("  isolate task claim <ID>                       Claim a task");
             println!("  isolate task yield <ID>                       Release a claimed task");
-            println!("  isolate task start <ID> [--template <T>]      Start work on a task");
+            println!("  isolate task start <ID>                       Start work on a task");
             println!("  isolate task done [ID]                        Complete a task");
             println!();
             println!("Run 'isolate task <command> --help' for more information.");

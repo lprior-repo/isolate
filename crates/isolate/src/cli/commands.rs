@@ -76,7 +76,6 @@ pub fn cmd_add() -> ClapCommand {
             &[
                 "isolate add feature-auth              Create session with standard layout",
                 "isolate add bugfix-123 --no-open       Create without opening terminal",
-                "isolate add experiment -t minimal      Use minimal layout template",
                 "isolate add quick-test --no-hooks      Skip post-create hooks",
                 "isolate add work --bead isolate-abc123     Associate with bead isolate-abc123",
                 "isolate add --example-json            Show example JSON output",
@@ -95,13 +94,6 @@ pub fn cmd_add() -> ClapCommand {
                 .short('b')
                 .value_name("BEAD_ID")
                 .help("Associate this session with a bead/issue ID"),
-        )
-        .arg(
-            Arg::new("template")
-                .long("template")
-                .short('t')
-                .value_name("TEMPLATE")
-                .help("Layout template to use (minimal, standard, full)"),
         )
         .arg(
             Arg::new("no-hooks")
