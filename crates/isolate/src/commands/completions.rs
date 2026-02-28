@@ -161,7 +161,7 @@ _isolate() {
                 'add[Create session for manual work]' \
                 'list[List all sessions]' \
                 'remove[Remove a session]' \
-                'focus[Switch to session Zellij tab]' \
+                'focus[Switch to session workspace]' \
                 'status[Show detailed session status]' \
                 'sync[Sync workspace with main]' \
                 'done[Complete work and merge]' \

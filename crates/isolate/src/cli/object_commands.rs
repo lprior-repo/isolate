@@ -260,7 +260,7 @@ pub fn cmd_task() -> ClapCommand {
                         .long("template")
                         .short('t')
                         .value_name("TEMPLATE")
-                        .help("Zellij layout template"),
+                        .help("Layout template"),
                 ),
         )
         .subcommand(
@@ -345,13 +345,13 @@ pub fn cmd_session() -> ClapCommand {
                         .long("template")
                         .short('t')
                         .value_name("TEMPLATE")
-                        .help("Zellij layout template (minimal, standard, full)"),
+                        .help("Layout template (minimal, standard, full)"),
                 )
                 .arg(
                     Arg::new("no-open")
                         .long("no-open")
                         .action(clap::ArgAction::SetTrue)
-                        .help("Create without opening Zellij tab"),
+                        .help("Create without opening terminal"),
                 )
                 .arg(
                     Arg::new("no-hooks")
@@ -385,7 +385,7 @@ pub fn cmd_session() -> ClapCommand {
         )
         .subcommand(
             ClapCommand::new("focus")
-                .about("Switch to a session (inside Zellij)")
+                .about("Switch to a session")
                 .arg(json_arg())
                 .arg(
                     Arg::new("name")
@@ -621,18 +621,32 @@ pub fn cmd_config() -> ClapCommand {
 pub fn cmd_doctor() -> ClapCommand {
     ClapCommand::new("doctor")
         .about("Run diagnostics and health checks")
-        .subcommand_required(true)
+        .subcommand_required(false)
         .arg(json_arg())
+        // Legacy flags for backward compatibility
+        .arg(
+            Arg::new("fix")
+                .long("fix")
+                .action(clap::ArgAction::SetTrue)
+                .help("Auto-fix issues where possible (legacy mode)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview what would be fixed without making changes"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(clap::ArgAction::SetTrue)
+                .help("Show detailed progress during fixes"),
+        )
         .subcommand(
             ClapCommand::new("check")
                 .about("Run diagnostics")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("fix")
-                        .long("fix")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Attempt to fix issues"),
-                ),
+                .arg(json_arg()),
         )
         .subcommand(
             ClapCommand::new("fix")
@@ -643,18 +657,19 @@ pub fn cmd_doctor() -> ClapCommand {
                         .long("dry-run")
                         .action(clap::ArgAction::SetTrue)
                         .help("Preview without executing"),
+                )
+                .arg(
+                    Arg::new("verbose")
+                        .long("verbose")
+                        .short('v')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Show detailed progress during fixes"),
                 ),
         )
         .subcommand(
             ClapCommand::new("integrity")
                 .about("Check system integrity")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("fix")
-                        .long("fix")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Attempt to fix issues"),
-                ),
+                .arg(json_arg()),
         )
         .subcommand(
             ClapCommand::new("clean")
@@ -845,7 +860,10 @@ pub fn build_object_cli() -> ClapCommand {
                 .about("Show context")
                 .arg(json_arg())
                 .arg(contract_arg())
-                .arg(ai_hints_arg()),
+                .arg(ai_hints_arg())
+                .arg(Arg::new("field").long("field").value_name("PATH").help("Extract single field (e.g., --field=repository.branch)"))
+                .arg(Arg::new("no-beads").long("no-beads").action(clap::ArgAction::SetTrue).help("Skip beads database query (faster)"))
+                .arg(Arg::new("no-health").long("no-health").action(clap::ArgAction::SetTrue).help("Skip health checks (faster)")),
         )
         .subcommand(
             ClapCommand::new("done")

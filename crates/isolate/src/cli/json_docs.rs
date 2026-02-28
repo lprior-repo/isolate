@@ -1052,7 +1052,7 @@ pub mod ai_contracts {
     "isolate work": ["isolate init"],
     "isolate spawn": ["isolate init"],
     "isolate done": ["active session"],
-    "isolate focus": ["Zellij running"],
+    "isolate focus": ["active session"],
     "isolate sync": ["active session"]
   },
   "error_recovery": {

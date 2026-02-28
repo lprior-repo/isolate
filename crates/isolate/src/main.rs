@@ -1,4 +1,4 @@
-//! Isolate CLI - JJ workspace + Zellij session manager
+//! Isolate CLI - JJ workspace manager
 //!
 //! Binary name: `isolate`
 

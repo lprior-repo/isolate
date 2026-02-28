@@ -214,7 +214,7 @@ fn automation_examples() -> Vec<Example> {
             expected_output: None,
             use_case: "automation".to_string(),
             prerequisites: vec!["Bead must exist".to_string()],
-            notes: Some("Agent runs in Zellij tab".to_string()),
+            notes: Some("Agent runs in background".to_string()),
         },
         Example {
             name: "Idempotent operations".to_string(),

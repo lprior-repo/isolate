@@ -64,19 +64,18 @@ pub fn cmd_init() -> ClapCommand {
 #[allow(clippy::too_many_lines)]
 pub fn cmd_add() -> ClapCommand {
     ClapCommand::new("add")
-        .about("Create session for manual work (JJ workspace + Zellij tab)")
+        .about("Create session for manual work (JJ workspace)")
         .long_about(
-            "Creates a JJ workspace and Zellij tab for interactive development.
-
+            "Creates a JJ workspace for interactive development.
+ 
             Use this when YOU will work in the session.
-
 
             For automated agent workflows, use 'isolate spawn' instead.",
         )
         .after_help(after_help_text(
             &[
                 "isolate add feature-auth              Create session with standard layout",
-                "isolate add bugfix-123 --no-open       Create without opening Zellij tab",
+                "isolate add bugfix-123 --no-open       Create without opening terminal",
                 "isolate add experiment -t minimal      Use minimal layout template",
                 "isolate add quick-test --no-hooks      Skip post-create hooks",
                 "isolate add work --bead isolate-abc123     Associate with bead isolate-abc123",
@@ -102,7 +101,7 @@ pub fn cmd_add() -> ClapCommand {
                 .long("template")
                 .short('t')
                 .value_name("TEMPLATE")
-                .help("Zellij layout template to use"),
+                .help("Layout template to use (minimal, standard, full)"),
         )
         .arg(
             Arg::new("no-hooks")
@@ -114,7 +113,7 @@ pub fn cmd_add() -> ClapCommand {
             Arg::new("no-open")
                 .long("no-open")
                 .action(clap::ArgAction::SetTrue)
-                .help("Create workspace without opening Zellij tab"),
+                .help("Create workspace without opening terminal"),
         )
         .arg(
             Arg::new("json")
@@ -417,16 +416,15 @@ pub fn cmd_remove() -> ClapCommand {
 
 pub fn cmd_focus() -> ClapCommand {
     ClapCommand::new("focus")
-        .about("Switch to session's Zellij tab (inside Zellij)")
+        .about("Switch to session's workspace")
         .long_about(
-            "Use this when you are already inside Zellij and want to switch tabs.
+            "Switch to a session's workspace.
 
-
-            If you are outside Zellij, use 'isolate attach' to enter the session instead.",
+            Use this to navigate between workspaces.",
         )
         .after_help(after_help_text(
             &[
-                "isolate focus feature-auth            Switch to session's Zellij tab",
+                "isolate focus feature-auth            Switch to session's workspace",
                 "isolate focus                         Interactive session selection",
                 "isolate focus bugfix-123 --json       Get JSON output of focus operation",
             ],
@@ -503,8 +501,7 @@ pub fn cmd_switch() -> ClapCommand {
     ClapCommand::new("switch")
         .about("Switch to a different workspace")
         .long_about(
-            "Navigate between workspaces when inside Zellij.
-
+            "Navigate between workspaces.
 
             Use this for quick workspace switching. Similar to 'isolate focus' but 
             emphasizes navigation between existing sessions.",
@@ -871,6 +868,7 @@ pub fn cmd_introspect() -> ClapCommand {
         )
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn cmd_doctor() -> ClapCommand {
     ClapCommand::new("doctor")
         .about("Run diagnostics and health checks")

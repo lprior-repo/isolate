@@ -1,4 +1,4 @@
-//! Create a new session with JJ workspace + Zellij tab - JSONL output for AI-first control plane
+//! Create a new session with JJ workspace - JSONL output for AI-first control plane
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
@@ -220,18 +220,8 @@ fn output_human_result(
         (false, _) => {
             println!("Session '{name}' already exists");
         }
-        (true, "workspace only") => {
-            println!("Created session '{name}' (workspace at {workspace_path})");
-        }
-        (true, "with Zellij tab") => {
-            println!("Created session '{name}' with Zellij tab (workspace at {workspace_path})");
-        }
-        (true, "launching Zellij") => {
-            println!("Created session '{name}'");
-            println!("Launching Zellij with new tab...");
-        }
         (true, _) => {
-            println!("Created session '{name}' ({mode})");
+            println!("Created session '{name}' (workspace at {workspace_path})");
         }
     }
 }
@@ -847,7 +837,7 @@ mod tests {
             FlagSpec {
                 long: "no-open".to_string(),
                 short: None,
-                description: "Don't open Zellij tab".to_string(),
+                description: "Don't open terminal".to_string(),
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],

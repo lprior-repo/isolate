@@ -375,7 +375,7 @@ fn create_add_flags() -> Vec<FlagSpec> {
             ],
             "standard",
         ),
-        create_bool_flag("no-open", "Create workspace but don't open Zellij tab"),
+        create_bool_flag("no-open", "Create workspace but don't open terminal"),
     ]
 }
 
@@ -586,7 +586,7 @@ fn get_init_introspection() -> CommandIntrospection {
 fn get_focus_introspection() -> CommandIntrospection {
     CommandIntrospection {
         command: "focus".to_string(),
-        description: "Switch to a session's Zellij tab".to_string(),
+        description: "Switch to a session's workspace".to_string(),
         aliases: vec!["switch".to_string()],
         arguments: vec![ArgumentSpec {
             name: "name".to_string(),
@@ -996,13 +996,6 @@ pub fn run_env_vars(format: OutputFormat) -> Result<()> {
             default: Some("warn".to_string()),
             example: "fail-fast".to_string(),
         },
-        EnvVarInfo {
-            name: "ZELLIJ_SESSION_NAME".to_string(),
-            description: "Zellij session name (read by isolate)".to_string(),
-            direction: "read".to_string(),
-            default: None,
-            example: "dev".to_string(),
-        },
     ];
 
     let output = EnvVarsOutput { env_vars };
@@ -1342,29 +1335,13 @@ pub async fn run_ai() -> Result<()> {
     }
 
     // Build env vars (condensed)
-    let env_vars = vec![
-        EnvVarInfo {
-            name: "Isolate_AGENT_ID".to_string(),
-            description: "Agent identifier for tracking".to_string(),
-            direction: "both".to_string(),
-            default: None,
-            example: "agent-12345678".to_string(),
-        },
-        EnvVarInfo {
-            name: "Isolate_SESSION".to_string(),
-            description: "Current session name (set by isolate)".to_string(),
-            direction: "write".to_string(),
-            default: None,
-            example: "feature-auth".to_string(),
-        },
-        EnvVarInfo {
-            name: "Isolate_BEAD_ID".to_string(),
-            description: "Associated bead ID".to_string(),
-            direction: "both".to_string(),
-            default: None,
-            example: "isolate-abc12".to_string(),
-        },
-    ];
+    let env_vars = vec![EnvVarInfo {
+        name: "ISOLATE_AGENT_ID".to_string(),
+        description: "Agent identifier for AI agents".to_string(),
+        direction: "read".to_string(),
+        default: None,
+        example: "claude-001".to_string(),
+    }];
 
     // Build workflows (condensed)
     let workflows = vec![

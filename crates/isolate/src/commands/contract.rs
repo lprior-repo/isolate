@@ -271,7 +271,7 @@ fn build_init_contract() -> CommandContract {
 fn build_add_contract() -> CommandContract {
     CommandContract {
         name: "add".to_string(),
-        description: "Create session for manual work (JJ workspace + Zellij tab)".to_string(),
+        description: "Create session for manual work (JJ workspace)".to_string(),
         required_args: vec![ArgContract {
             name: "name".to_string(),
             arg_type: "string".to_string(),
@@ -296,7 +296,7 @@ fn build_add_contract() -> CommandContract {
             ArgContract {
                 name: "template".to_string(),
                 arg_type: "string".to_string(),
-                description: "Zellij layout template".to_string(),
+                description: "Layout template".to_string(),
                 pattern: Some("^(minimal|standard|full)$".to_string()),
                 default: None,
                 examples: vec![
@@ -330,7 +330,7 @@ fn build_add_contract() -> CommandContract {
             FlagContract {
                 name: "no-open".to_string(),
                 short: None,
-                description: "Create workspace without opening Zellij tab".to_string(),
+                description: "Create workspace without opening terminal".to_string(),
                 global: false,
             },
             FlagContract {
@@ -367,7 +367,6 @@ fn build_add_contract() -> CommandContract {
         output_schema: "isolate://add-response/v1".to_string(),
         side_effects: vec![
             "Creates JJ workspace".to_string(),
-            "Creates Zellij tab".to_string(),
             "Updates session database".to_string(),
         ],
         related_commands: vec![
@@ -392,7 +391,7 @@ fn build_add_contract() -> CommandContract {
 fn build_attach_contract() -> CommandContract {
     CommandContract {
         name: "attach".to_string(),
-        description: "Enter Zellij session from outside (shell -> Zellij)".to_string(),
+        description: "Attach to session from shell".to_string(),
         required_args: vec![ArgContract {
             name: "name".to_string(),
             arg_type: "string".to_string(),
@@ -409,7 +408,7 @@ fn build_attach_contract() -> CommandContract {
             global: false,
         }],
         output_schema: "isolate://attach-response/v1".to_string(),
-        side_effects: vec!["Attaches current shell to Zellij session".to_string()],
+        side_effects: vec!["Attaches current shell to session".to_string()],
         related_commands: vec!["focus".to_string(), "switch".to_string()],
         examples: vec![
             "isolate attach feature-auth".to_string(),
@@ -506,7 +505,6 @@ fn build_remove_contract() -> CommandContract {
         output_schema: "isolate://remove-response/v1".to_string(),
         side_effects: vec![
             "Removes JJ workspace".to_string(),
-            "Closes Zellij tab".to_string(),
             "Removes from database".to_string(),
         ],
         related_commands: vec!["add".to_string(), "clean".to_string()],
@@ -524,7 +522,7 @@ fn build_remove_contract() -> CommandContract {
 fn build_focus_contract() -> CommandContract {
     CommandContract {
         name: "focus".to_string(),
-        description: "Switch to session's Zellij tab".to_string(),
+        description: "Switch to session's workspace".to_string(),
         required_args: vec![],
         optional_args: vec![ArgContract {
             name: "name".to_string(),
@@ -536,7 +534,7 @@ fn build_focus_contract() -> CommandContract {
         }],
         flags: vec![],
         output_schema: "isolate://focus-response/v1".to_string(),
-        side_effects: vec!["Switches Zellij tab".to_string()],
+        side_effects: vec!["Switches workspace".to_string()],
         related_commands: vec!["attach".to_string(), "list".to_string()],
         examples: vec![
             "isolate focus feature-auth".to_string(),
@@ -544,10 +542,7 @@ fn build_focus_contract() -> CommandContract {
         ],
         reversible: true,
         undo_command: Some("isolate focus main".to_string()),
-        prerequisites: vec![
-            "Must be inside Zellij".to_string(),
-            "Session must exist".to_string(),
-        ],
+        prerequisites: vec!["Session must exist".to_string()],
     }
 }
 

@@ -60,7 +60,7 @@ impl FromStr for SessionStatus {
     }
 }
 
-/// A Isolate session representing a JJ workspace + Zellij tab pair
+/// A Isolate session representing a JJ workspace
 #[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Session {
