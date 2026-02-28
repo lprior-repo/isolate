@@ -6,7 +6,7 @@
 //! 2. JSON validity: All JSON output is valid and parseable
 //! 3. Argument consistency: Command argument parsing is consistent
 //! 4. Exit codes: Follow conventions (0=success, non-zero=error)
-//! 5. Object completeness: All 8 objects have required subcommands
+//! 5. Object completeness: All 7 objects have required subcommands
 //!
 //! Run with: cargo test --package isolate-core --test cli_properties
 //! Reproducible: Set `PROPTEST_SEED` environment variable for deterministic runs
@@ -68,7 +68,7 @@ use isolate_core::{
 
 /// All valid object names in the CLI (nouns)
 const VALID_OBJECTS: &[&str] = &[
-    "task", "session", "queue", "stack", "agent", "status", "config", "doctor",
+    "task", "session", "stack", "agent", "status", "config", "doctor",
 ];
 
 /// Valid actions (verbs) for each object
@@ -77,7 +77,6 @@ const SESSION_ACTIONS: &[&str] = &[
     "list", "add", "remove", "focus", "pause", "resume", "clone", "rename", "attach", "spawn",
     "sync", "init",
 ];
-const QUEUE_ACTIONS: &[&str] = &["list", "enqueue", "dequeue", "status", "process"];
 const STACK_ACTIONS: &[&str] = &["status", "list", "create", "push", "pop"];
 const AGENT_ACTIONS: &[&str] = &[
     "list",
@@ -107,7 +106,6 @@ fn object_strategy() -> impl Strategy<Value = String> {
     prop_oneof![
         Just("task".to_string()),
         Just("session".to_string()),
-        Just("queue".to_string()),
         Just("stack".to_string()),
         Just("agent".to_string()),
         Just("status".to_string()),
@@ -240,7 +238,6 @@ proptest! {
         let valid_actions: Vec<&str> = match object.as_str() {
             "task" => TASK_ACTIONS.to_vec(),
             "session" => SESSION_ACTIONS.to_vec(),
-            "queue" => QUEUE_ACTIONS.to_vec(),
             "stack" => STACK_ACTIONS.to_vec(),
             "agent" => AGENT_ACTIONS.to_vec(),
             "status" => STATUS_ACTIONS.to_vec(),
@@ -269,12 +266,12 @@ proptest! {
     }
 }
 
-/// Property: All 8 objects are accounted for
+/// Property: All 7 objects are accounted for
 ///
-/// INVARIANT: The CLI has exactly 8 top-level objects
+/// INVARIANT: The CLI has exactly 7 top-level objects
 #[test]
 fn prop_all_objects_exist() {
-    let expected_count = 8;
+    let expected_count = 7;
     let actual_count = VALID_OBJECTS.len();
 
     assert_eq!(
@@ -300,7 +297,6 @@ fn prop_objects_have_required_actions() {
         let actions: Vec<&str> = match *object {
             "task" => TASK_ACTIONS.to_vec(),
             "session" => SESSION_ACTIONS.to_vec(),
-            "queue" => QUEUE_ACTIONS.to_vec(),
             "stack" => STACK_ACTIONS.to_vec(),
             "agent" => AGENT_ACTIONS.to_vec(),
             "status" => STATUS_ACTIONS.to_vec(),
@@ -956,10 +952,10 @@ mod tests {
         assert!(true, "Test harness should work");
     }
 
-    /// Test that all 8 objects are defined
+    /// Test that all 7 objects are defined
     #[test]
     fn test_all_objects_defined() {
-        assert_eq!(VALID_OBJECTS.len(), 8, "Must have exactly 8 objects");
+        assert_eq!(VALID_OBJECTS.len(), 7, "Must have exactly 7 objects");
     }
 
     /// Test that each object has actions
@@ -967,7 +963,6 @@ mod tests {
     fn test_objects_have_actions() {
         assert!(!TASK_ACTIONS.is_empty(), "Task must have actions");
         assert!(!SESSION_ACTIONS.is_empty(), "Session must have actions");
-        assert!(!QUEUE_ACTIONS.is_empty(), "Queue must have actions");
         assert!(!STACK_ACTIONS.is_empty(), "Stack must have actions");
         assert!(!AGENT_ACTIONS.is_empty(), "Agent must have actions");
         assert!(!STATUS_ACTIONS.is_empty(), "Status must have actions");
