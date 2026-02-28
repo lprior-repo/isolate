@@ -1,4 +1,4 @@
-# ZJJ Rust Toolchain Configuration
+# Isolate Rust Toolchain Configuration
 # Uses latest nightly for maximum functional programming features
 # and unstable feature gates for cutting-edge patterns
 

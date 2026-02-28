@@ -1,4 +1,4 @@
-//! ZJJ Codebase Auditor
+//! Isolate Codebase Auditor
 //!
 //! Systematic detection of forbidden patterns in Rust codebase.
 //! Searches for: unwrap, expect, panic, todo, unimplemented, unsafe
@@ -104,7 +104,7 @@ fn audit_codebase(root: &Path) -> Result<AuditReport, Box<dyn std::error::Error>
 }
 
 fn print_report(report: &AuditReport) {
-    println!("\n=== ZJJ CODEBASE AUDIT REPORT ===");
+    println!("\n=== Isolate CODEBASE AUDIT REPORT ===");
     println!();
 
     // Production violations (critical)

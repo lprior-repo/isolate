@@ -14,13 +14,13 @@ cd "$TEMP_DIR"
 echo "=== Setting up test repo in $TEMP_DIR ==="
 
 # Define isolate binary location
-ZJJ_CMD="cargo run --manifest-path ${PROJECT_ROOT}/crates/isolate/Cargo.toml --quiet --"
+ISOLATE_CMD="cargo run --manifest-path ${PROJECT_ROOT}/crates/isolate/Cargo.toml --quiet --"
 
 # 1. Initialize git/jj/isolate
 git init .
 jj git init --colocate
 mkdir -p .isolate
-$ZJJ_CMD init
+$ISOLATE_CMD init
 
 # 2. Create some history on main
 touch README.md
@@ -29,8 +29,8 @@ git commit -m "Initial commit"
 jj git import
 
 # 3. Create two workspaces
-$ZJJ_CMD add ws-a --no-open --no-zellij
-$ZJJ_CMD add ws-b --no-open --no-zellij
+$ISOLATE_CMD add ws-a --no-open --no-zellij
+$ISOLATE_CMD add ws-b --no-open --no-zellij
 
 # 4. Stress test: Concurrent modifications and syncs
 echo "=== Starting stress test ==="
@@ -58,7 +58,7 @@ pids="$pids $!"
 		jj new
 		jj commit -m "ws-a commit $i"
 		# The critical operation: sync
-		if ! $ZJJ_CMD sync; then
+		if ! $ISOLATE_CMD sync; then
 			echo "FAIL: isolate sync failed in ws-a"
 			exit 1
 		fi
@@ -76,7 +76,7 @@ pids="$pids $!"
 		jj new
 		jj commit -m "ws-b commit $i"
 		# The critical operation: sync
-		if ! $ZJJ_CMD sync; then
+		if ! $ISOLATE_CMD sync; then
 			echo "FAIL: isolate sync failed in ws-b"
 			exit 1
 		fi

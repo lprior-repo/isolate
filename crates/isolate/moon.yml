@@ -1,3 +1,6 @@
+# Moon v2 Project Configuration
+# Single source of truth for all tasks - runs on entire workspace
+
 $schema: "https://moonrepo.dev/schemas/project.json"
 
 tasks:

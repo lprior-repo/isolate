@@ -1,7 +1,5 @@
-$schema: "https://moonrepo.dev/schemas/project.json"
+# Moon v2 Project Configuration
+# No tasks defined - inherits from workspace-level tasks in isolate crate
+# All tasks run with --workspace flag to cover both crates
 
-tasks:
-  test:
-    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run -p isolate-core --all-features --no-fail-fast"
-  test-doc:
-    script: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo test --doc -p isolate-core"
+$schema: "https://moonrepo.dev/schemas/project.json"

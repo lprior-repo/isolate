@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI Documentation Checker - ZJJ Command Validation
+# CI Documentation Checker - Isolate Command Validation
 # Validates that documented isolate commands exist in the binary help output
 # Validates that documentation is properly structured
 # Returns: 0 if all validation passes, 1 otherwise
@@ -8,9 +8,9 @@ set -euo pipefail
 
 cd /home/lewis/isolate
 
-# Check if ZJJ_BINARY is set, otherwise use default
-if [[ -z "${ZJJ_BINARY:-}" ]]; then
-	ZJJ_BINARY="/home/lewis/isolate/target/release/isolate"
+# Check if ISOLATE_BINARY is set, otherwise use default
+if [[ -z "${ISOLATE_BINARY:-}" ]]; then
+	ISOLATE_BINARY="/home/lewis/isolate/target/release/isolate"
 fi
 
 # Track failures
@@ -32,14 +32,14 @@ log_warn() { echo -e "${YELLOW}WARNING:${NC} $1"; }
 log_success() { echo -e "${GREEN}SUCCESS:${NC} $1"; }
 
 get_available_commands() {
-	if [[ ! -x "$ZJJ_BINARY" ]]; then
-		log_error "isolate binary not found or not executable: $ZJJ_BINARY"
+	if [[ ! -x "$ISOLATE_BINARY" ]]; then
+		log_error "isolate binary not found or not executable: $ISOLATE_BINARY"
 		exit 1
 	fi
 
 	# Extract commands from help output
 	# Filter: starts with 2 spaces, not "isolate <command>", then get command name
-	"$ZJJ_BINARY" --help 2>&1 | grep -E '^  [a-z]' | grep -v "^\s*isolate\s" | sed 's/^  //' | sed 's/\s.*$//' | sort -u || true
+	"$ISOLATE_BINARY" --help 2>&1 | grep -E '^  [a-z]' | grep -v "^\s*isolate\s" | sed 's/^  //' | sed 's/\s.*$//' | sort -u || true
 }
 
 get_documented_commands() {
@@ -185,7 +185,7 @@ generate_report() {
 	cat >"$report_file" <<EOF
 {
   "timestamp": "$(date -Iseconds)",
-  "binary": "$ZJJ_BINARY",
+  "binary": "$ISOLATE_BINARY",
   "summary": {
     "documented_commands": $TOTAL_DOCUMENTED,
     "found_commands": $TOTAL_FOUND,
@@ -206,13 +206,13 @@ exit_code=0
 
 main() {
 	echo "=========================================="
-	echo "  ZJJ Command Documentation Validation"
+	echo "  Isolate Command Documentation Validation"
 	echo "=========================================="
 	echo
 
 	# Check binary exists
-	if [[ ! -x "$ZJJ_BINARY" ]]; then
-		log_error "isolate binary not found or not executable: $ZJJ_BINARY"
+	if [[ ! -x "$ISOLATE_BINARY" ]]; then
+		log_error "isolate binary not found or not executable: $ISOLATE_BINARY"
 		log_error "Expected location: /home/lewis/isolate/target/release/isolate"
 		exit 1
 	fi
