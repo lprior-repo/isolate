@@ -873,15 +873,86 @@ pub fn cmd_introspect() -> ClapCommand {
 
 pub fn cmd_doctor() -> ClapCommand {
     ClapCommand::new("doctor")
-        .about("Run system health checks")
+        .about("Run diagnostics and health checks")
         .alias("check")
+        .subcommand_required(false)
+        .subcommand(
+            ClapCommand::new("check")
+                .about("Run diagnostics")
+                .alias("check")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("fix")
+                .about("Fix detected issues")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                )
+                .arg(
+                    Arg::new("dry-run")
+                        .long("dry-run")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Preview what would be fixed without making changes"),
+                )
+                .arg(
+                    Arg::new("verbose")
+                        .long("verbose")
+                        .short('v')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Show detailed progress during fixes"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("integrity")
+                .about("Check system integrity")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("clean")
+                .about("Clean up invalid sessions")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                )
+                .arg(
+                    Arg::new("force")
+                        .long("force")
+                        .short('f')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip confirmation prompt"),
+                )
+                .arg(
+                    Arg::new("dry-run")
+                        .long("dry-run")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("List stale sessions without removing"),
+                ),
+        )
         .after_help(after_help_text(
             &[
-                "isolate doctor                    Run all system health checks",
-                "isolate doctor --fix              Auto-fix issues where possible",
-                "isolate doctor --fix --dry-run    Preview what would be fixed without making changes",
-                "isolate doctor --fix --verbose    Show detailed progress during fixes",
-                "isolate doctor --json             Export check results to JSON",
+                "isolate doctor                    Run all system health checks (legacy)",
+                "isolate doctor check             Run all system health checks",
+                "isolate doctor fix              Auto-fix issues where possible",
+                "isolate doctor fix --dry-run    Preview what would be fixed without making changes",
+                "isolate doctor fix --verbose    Show detailed progress during fixes",
+                "isolate doctor integrity        Run database integrity check",
+                "isolate doctor clean            Remove stale sessions",
+                "isolate doctor --json           Export check results to JSON (legacy)",
             ],
             Some(json_docs::doctor()),
         ))
@@ -889,13 +960,13 @@ pub fn cmd_doctor() -> ClapCommand {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
+                .help("Output as JSON (legacy mode)"),
         )
         .arg(
             Arg::new("fix")
                 .long("fix")
                 .action(clap::ArgAction::SetTrue)
-                .help("Auto-fix issues where possible"),
+                .help("Auto-fix issues where possible (legacy mode)"),
         )
         .arg(
             Arg::new("dry-run")

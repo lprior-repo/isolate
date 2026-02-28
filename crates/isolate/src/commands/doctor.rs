@@ -808,7 +808,7 @@ async fn check_db_file_size_and_integrity(file_size: u64, db_path: &Path) -> Doc
 ///
 /// Returns Ok with details if integrity check passes (result is "ok")
 /// Returns Err with error message if integrity check fails or connection fails
-async fn run_integrity_check(db_path: &Path) -> Result<String, String> {
+pub async fn run_integrity_check(db_path: &Path) -> Result<String, String> {
     use sqlx::SqlitePool;
 
     // Open database in read-only mode to avoid triggering recovery
