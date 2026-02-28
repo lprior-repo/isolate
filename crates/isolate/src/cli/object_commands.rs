@@ -22,8 +22,6 @@ pub enum ZjjObject {
     Task,
     /// Session management (workspaces)
     Session,
-    /// Agent coordination and tracking
-    Agent,
     /// Status and introspection queries
     Status,
     /// Configuration management
@@ -40,7 +38,6 @@ impl ZjjObject {
         &[
             Self::Task,
             Self::Session,
-            Self::Agent,
             Self::Status,
             Self::Config,
             Self::Doctor,
@@ -53,7 +50,6 @@ impl ZjjObject {
         match self {
             Self::Task => "task",
             Self::Session => "session",
-            Self::Agent => "agent",
             Self::Status => "status",
             Self::Config => "config",
             Self::Doctor => "doctor",
@@ -66,7 +62,6 @@ impl ZjjObject {
         match self {
             Self::Task => "Manage tasks and work items (beads)",
             Self::Session => "Manage workspaces and sessions",
-            Self::Agent => "Manage agent coordination and tracking",
             Self::Status => "Query system and session status",
             Self::Config => "Manage isolate configuration",
             Self::Doctor => "Run diagnostics and health checks",
@@ -119,23 +114,6 @@ pub enum SessionAction {
     Sync,
     /// Initialize isolate in repository
     Init,
-}
-
-/// Subcommands for the Agent object
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AgentAction {
-    /// List all agents
-    List,
-    /// Register as an agent
-    Register,
-    /// Unregister as an agent
-    Unregister,
-    /// Send heartbeat
-    Heartbeat,
-    /// Show agent status
-    Status,
-    /// Broadcast message to agents
-    Broadcast,
 }
 
 /// Subcommands for the Status object
@@ -485,87 +463,6 @@ pub fn cmd_session() -> ClapCommand {
         )
 }
 
-/// Build the Agent object command with all subcommands
-pub fn cmd_agent() -> ClapCommand {
-    ClapCommand::new("agent")
-        .about("Manage agent coordination and tracking")
-        .subcommand_required(true)
-        .arg(json_arg())
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List all agents")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("all")
-                        .long("all")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Include stale agents"),
-                )
-                .arg(
-                    Arg::new("session")
-                        .long("session")
-                        .value_name("SESSION")
-                        .help("Filter by session"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("register")
-                .about("Register as an agent")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("id")
-                        .long("id")
-                        .value_name("ID")
-                        .help("Agent ID (auto-generated if not provided)"),
-                )
-                .arg(
-                    Arg::new("session")
-                        .long("session")
-                        .short('s')
-                        .value_name("SESSION")
-                        .help("Session to associate"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("unregister")
-                .about("Unregister as an agent")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("id")
-                        .long("id")
-                        .value_name("ID")
-                        .help("Agent ID (uses Isolate_AGENT_ID if not provided)"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("heartbeat")
-                .about("Send a heartbeat")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("command")
-                        .long("command")
-                        .short('c')
-                        .value_name("CMD")
-                        .help("Current command being executed"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("status")
-                .about("Show agent status")
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("broadcast")
-                .about("Broadcast message to all agents")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("message")
-                        .required(true)
-                        .help("Message to broadcast"),
-                ),
-        )
-}
-
 /// Build the Status object command with all subcommands
 pub fn cmd_status() -> ClapCommand {
     ClapCommand::new("status")
@@ -599,18 +496,33 @@ pub fn cmd_status() -> ClapCommand {
 /// Build the Config object command with all subcommands
 pub fn cmd_config() -> ClapCommand {
     ClapCommand::new("config")
+        .alias("cfg")
         .about("Manage isolate configuration")
         .subcommand_required(true)
         .arg(json_arg())
         .subcommand(
             ClapCommand::new("list")
                 .about("List configuration values")
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(
+                    Arg::new("global")
+                        .long("global")
+                        .short('g')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Show global config instead of project"),
+                ),
         )
         .subcommand(
             ClapCommand::new("get")
                 .about("Get a config value")
                 .arg(json_arg())
+                .arg(
+                    Arg::new("global")
+                        .long("global")
+                        .short('g')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Get from global config"),
+                )
                 .arg(
                     Arg::new("key")
                         .required(true)
@@ -621,6 +533,13 @@ pub fn cmd_config() -> ClapCommand {
             ClapCommand::new("set")
                 .about("Set a config value")
                 .arg(json_arg())
+                .arg(
+                    Arg::new("global")
+                        .long("global")
+                        .short('g')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Set in global config"),
+                )
                 .arg(
                     Arg::new("key")
                         .required(true)
@@ -700,6 +619,7 @@ pub fn cmd_pane() -> ClapCommand {
         .about("Manage terminal panes and windows")
         .subcommand_required(true)
         .arg(json_arg())
+        .arg(verbose_arg())
         .subcommand(
             ClapCommand::new("focus")
                 .about("Focus a specific pane")
@@ -751,20 +671,46 @@ pub fn build_object_cli() -> ClapCommand {
         .long_about(
             "Isolate creates isolated JJ workspaces paired with Zellij sessions.\n\n\
              Object-based command structure:\n\
-             \n  isolate task <action>     Manage tasks and work items\n\
-             \n  isolate session <action>  Manage workspaces and sessions\n\
-             \n  isolate agent <action>    Manage agent coordination\n\
-             \n  isolate status <action>   Query system status\n\
-             \n  isolate config <action>   Manage configuration\n\
-             \n  isolate doctor <action>   Run diagnostics\n\
-             \n  isolate pane <action>     Manage terminal panes\n",
+             \n\
+  isolate task <action>     Manage tasks and work items\n\
+             \n\
+  isolate session <action>  Manage workspaces and sessions\n\
+             \n\
+  isolate status <action>   Query system status\n\
+             \n\
+  isolate config <action>   Manage configuration\n\
+             \n\
+  isolate doctor <action>   Run diagnostics\n\
+             \n\
+  isolate pane <action>     Manage terminal panes\n",
         )
         .subcommand_required(true)
         .arg(json_arg().global(true))
         .arg(verbose_arg().global(true))
+        .arg(
+            Arg::new("on-success")
+                .long("on-success")
+                .global(true)
+                .value_name("CMD")
+                .help("Command to run after successful execution"),
+        )
+        .arg(
+            Arg::new("on-failure")
+                .long("on-failure")
+                .global(true)
+                .value_name("CMD")
+                .help("Command to run after failed execution"),
+        )
+        .arg(
+            Arg::new("command-id")
+                .long("command-id")
+                .global(true)
+                .hide(true)
+                .value_name("ID")
+                .help("Override idempotency command id base for retries"),
+        )
         .subcommand(cmd_task())
         .subcommand(cmd_session())
-        .subcommand(cmd_agent())
         .subcommand(cmd_status())
         .subcommand(cmd_config())
         .subcommand(cmd_doctor())
@@ -779,7 +725,6 @@ mod tests {
     fn test_isolate_object_names() {
         assert_eq!(ZjjObject::Task.name(), "task");
         assert_eq!(ZjjObject::Session.name(), "session");
-        assert_eq!(ZjjObject::Agent.name(), "agent");
         assert_eq!(ZjjObject::Status.name(), "status");
         assert_eq!(ZjjObject::Config.name(), "config");
         assert_eq!(ZjjObject::Doctor.name(), "doctor");
@@ -787,7 +732,7 @@ mod tests {
 
     #[test]
     fn test_isolate_object_all_count() {
-        assert_eq!(ZjjObject::all().len(), 7);
+        assert_eq!(ZjjObject::all().len(), 6);
     }
 
     #[test]
@@ -797,7 +742,6 @@ mod tests {
 
         assert!(subcommands.contains(&"task"));
         assert!(subcommands.contains(&"session"));
-        assert!(subcommands.contains(&"agent"));
         assert!(subcommands.contains(&"status"));
         assert!(subcommands.contains(&"config"));
         assert!(subcommands.contains(&"doctor"));

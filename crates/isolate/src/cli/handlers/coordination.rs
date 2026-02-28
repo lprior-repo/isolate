@@ -1,62 +1,10 @@
-//! Coordination handlers: agents, broadcast, claim, yield, lock, unlock
+//! Coordination handlers: claim, yield, lock, unlock
 
 use anyhow::Result;
 use clap::ArgMatches;
 
 use super::json_format::get_format;
-use crate::commands::{agents, broadcast, claim, get_session_db};
-
-pub async fn handle_agents(sub_m: &ArgMatches) -> Result<()> {
-    let format = get_format(sub_m);
-    match sub_m.subcommand() {
-        Some(("register", register_m)) => {
-            let args = agents::types::RegisterArgs {
-                agent_id: register_m.get_one::<String>("id").cloned(),
-                session: register_m.get_one::<String>("session").cloned(),
-            };
-            agents::run_register(&args, format).await
-        }
-        Some(("heartbeat", heartbeat_m)) => {
-            let args = agents::types::HeartbeatArgs {
-                command: heartbeat_m.get_one::<String>("command").cloned(),
-            };
-            agents::run_heartbeat(&args, format).await
-        }
-        Some(("status", _)) => agents::run_status(format).await,
-        Some(("unregister", unregister_m)) => {
-            let args = agents::types::UnregisterArgs {
-                agent_id: unregister_m.get_one::<String>("id").cloned(),
-            };
-            agents::run_unregister(&args, format).await
-        }
-        _ => {
-            let args = agents::types::AgentsArgs {
-                all: sub_m.get_flag("all"),
-                session: sub_m.get_one::<String>("session").cloned(),
-            };
-            agents::run(&args, format).await
-        }
-    }
-}
-
-pub async fn handle_broadcast(sub_m: &ArgMatches) -> Result<()> {
-    let message = sub_m
-        .get_one::<String>("message")
-        .ok_or_else(|| anyhow::anyhow!("Message is required"))?
-        .clone();
-    let agent_id = sub_m
-        .get_one::<String>("agent-id")
-        .cloned()
-        .or_else(|| std::env::var("Isolate_AGENT_ID").ok())
-        .ok_or_else(|| {
-            anyhow::anyhow!("No agent ID provided. Set Isolate_AGENT_ID or use --agent-id")
-        })?;
-
-    let format = get_format(sub_m);
-
-    let args = broadcast::types::BroadcastArgs { message, agent_id };
-    broadcast::run(&args, format).await
-}
+use crate::commands::{claim, get_session_db};
 
 pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);

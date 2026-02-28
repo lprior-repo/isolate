@@ -6,7 +6,7 @@
 //! - `bookmark`: Bookmark operations
 //! - `integrity`: Integrity, doctor, clean, prune
 //! - `checkpoint`: Checkpoint, undo, revert, recover, retry, rollback
-//! - `coordination`: Agents, broadcast, claim, yield, lock, unlock
+//! - `coordination`: Claim, yield, lock, unlock
 //! - `introspection`: AI, introspect, context, whereami, whoami, etc.
 //! - `batch`: Batch and events operations
 //! - `backup`: Backup, export, import
@@ -50,9 +50,7 @@ pub use self::{
         handle_checkpoint, handle_recover, handle_retry, handle_revert, handle_rollback,
         handle_undo,
     },
-    coordination::{
-        handle_agents, handle_broadcast, handle_claim, handle_lock, handle_unlock, handle_yield,
-    },
+    coordination::{handle_claim, handle_lock, handle_unlock, handle_yield},
     integrity::{handle_clean, handle_doctor, handle_integrity, handle_prune_invalid},
     introspection::{
         handle_ai, handle_can_i, handle_context, handle_contract, handle_examples, handle_help,
@@ -180,13 +178,11 @@ pub async fn run_cli() -> Result<()> {
                 alias_handler::ALIAS_ADD.warn();
                 handle_add(sub_m).await
             }
-            Some(("agents", sub_m)) => handle_agents(sub_m).await,
             Some(("backup", sub_m)) => handle_backup(sub_m).await,
             Some(("list", sub_m)) => {
                 alias_handler::ALIAS_LIST.warn();
                 handle_list(sub_m).await
             }
-            Some(("broadcast", sub_m)) => handle_broadcast(sub_m).await,
             Some(("bookmark", sub_m)) => handle_bookmark(sub_m).await,
             Some(("remove", sub_m)) => handle_remove(sub_m).await,
             Some(("focus", sub_m)) => handle_focus(sub_m).await,

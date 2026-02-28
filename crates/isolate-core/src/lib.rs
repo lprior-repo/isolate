@@ -60,7 +60,6 @@
 #![allow(clippy::duplicated_attributes)]
 #![allow(unused_variables)]
 
-pub mod agents;
 pub mod beads;
 pub mod checkpoint;
 pub mod cli_contracts;
