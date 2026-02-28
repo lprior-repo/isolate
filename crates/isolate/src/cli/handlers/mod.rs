@@ -6,7 +6,7 @@
 //! - `bookmark`: Bookmark operations
 //! - `integrity`: Integrity, doctor, clean, prune
 //! - `checkpoint`: Checkpoint, undo, revert, recover, retry, rollback
-//! - `coordination`: Claim, yield, lock, unlock
+//! - `coordination`: Coordination commands
 //! - `introspection`: AI, introspect, context, whereami, whoami, etc.
 //! - `batch`: Batch and events operations
 //! - `backup`: Backup, export, import
@@ -49,7 +49,6 @@ pub use self::{
         handle_checkpoint, handle_recover, handle_retry, handle_revert, handle_rollback,
         handle_undo,
     },
-    coordination::{handle_claim, handle_lock, handle_unlock, handle_yield},
     integrity::{handle_clean, handle_doctor, handle_integrity, handle_prune_invalid},
     introspection::{
         handle_ai, handle_can_i, handle_context, handle_contract, handle_examples, handle_help,
@@ -220,22 +219,12 @@ pub async fn run_cli() -> Result<()> {
             Some(("examples", sub_m)) => handle_examples(sub_m),
             Some(("validate", sub_m)) => handle_validate(sub_m),
             Some(("whatif", sub_m)) => handle_whatif(sub_m),
-            Some(("claim", sub_m)) => {
-                alias_handler::ALIAS_CLAIM.warn();
-                handle_claim(sub_m).await
-            }
-            Some(("yield", sub_m)) => {
-                alias_handler::ALIAS_YIELD.warn();
-                handle_yield(sub_m).await
-            }
             Some(("batch", sub_m)) => handle_batch(sub_m).await,
             Some(("events", sub_m)) => handle_events(sub_m).await,
             Some(("completions", sub_m)) => handle_completions(sub_m),
             Some(("rename", sub_m)) => handle_rename(sub_m).await,
             Some(("pause", sub_m)) => handle_pause(sub_m).await,
             Some(("resume", sub_m)) => handle_resume(sub_m).await,
-            Some(("lock", sub_m)) => handle_lock(sub_m).await,
-            Some(("unlock", sub_m)) => handle_unlock(sub_m).await,
             Some(("clone", sub_m)) => handle_clone(sub_m).await,
             Some(("export", sub_m)) => handle_export(sub_m).await,
             Some(("import", sub_m)) => handle_import(sub_m).await,

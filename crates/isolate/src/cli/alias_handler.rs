@@ -73,12 +73,6 @@ pub const ALIAS_ADD: DeprecatedAlias = DeprecatedAlias::new("add", "session add"
 /// Alias: `list` -> `session list`
 pub const ALIAS_LIST: DeprecatedAlias = DeprecatedAlias::new("list", "session list");
 
-/// Alias: `claim` -> `task claim`
-pub const ALIAS_CLAIM: DeprecatedAlias = DeprecatedAlias::new("claim", "task claim");
-
-/// Alias: `yield` -> `task yield`
-pub const ALIAS_YIELD: DeprecatedAlias = DeprecatedAlias::new("yield", "task yield");
-
 /// Alias: `sync` -> `session sync`
 pub const ALIAS_SYNC: DeprecatedAlias = DeprecatedAlias::new("sync", "session sync");
 
@@ -89,15 +83,8 @@ pub const ALIAS_SUBMIT: DeprecatedAlias = DeprecatedAlias::new("submit", "sessio
 pub const ALIAS_DONE: DeprecatedAlias = DeprecatedAlias::new("done", "session done");
 
 /// All deprecated aliases
-pub const ALL_ALIASES: &[DeprecatedAlias] = &[
-    ALIAS_ADD,
-    ALIAS_LIST,
-    ALIAS_CLAIM,
-    ALIAS_YIELD,
-    ALIAS_SYNC,
-    ALIAS_SUBMIT,
-    ALIAS_DONE,
-];
+pub const ALL_ALIASES: &[DeprecatedAlias] =
+    &[ALIAS_ADD, ALIAS_LIST, ALIAS_SYNC, ALIAS_SUBMIT, ALIAS_DONE];
 
 /// Check if a command is a deprecated alias and return its info
 pub fn get_alias(command: &str) -> Option<&'static DeprecatedAlias> {
@@ -130,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_all_aliases_registered() {
-        assert_eq!(ALL_ALIASES.len(), 7);
+        assert_eq!(ALL_ALIASES.len(), 5);
     }
 
     #[test]
@@ -143,18 +130,6 @@ mod tests {
     fn test_alias_list() {
         assert_eq!(ALIAS_LIST.old_command, "list");
         assert_eq!(ALIAS_LIST.new_command, "session list");
-    }
-
-    #[test]
-    fn test_alias_claim() {
-        assert_eq!(ALIAS_CLAIM.old_command, "claim");
-        assert_eq!(ALIAS_CLAIM.new_command, "task claim");
-    }
-
-    #[test]
-    fn test_alias_yield() {
-        assert_eq!(ALIAS_YIELD.old_command, "yield");
-        assert_eq!(ALIAS_YIELD.new_command, "task yield");
     }
 
     #[test]

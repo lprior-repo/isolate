@@ -100,7 +100,6 @@ async fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIRe
         "undo" => Ok(check_can_undo().await),
         "sync" => Ok(check_can_sync(resource).await),
         "spawn" => Ok(check_can_spawn(resource).await),
-        "claim" => Ok(check_can_claim(resource).await),
         "merge" => Ok(check_can_merge(resource).await),
         _ => Ok(CanIResult {
             allowed: true,
@@ -401,86 +400,6 @@ async fn check_can_spawn(resource: Option<&str>) -> CanIResult {
     CanIResult {
         allowed,
         action: "spawn".to_string(),
-        resource: resource.map(String::from),
-        reason,
-        prerequisites,
-        fix_commands: vec![],
-    }
-}
-
-async fn check_can_claim(resource: Option<&str>) -> CanIResult {
-    let mut prerequisites = Vec::new();
-
-    let db_result = get_session_db().await;
-    let isolate_initialized = db_result.is_ok();
-
-    prerequisites.push(Prerequisite {
-        check: "isolate_initialized".to_string(),
-        passed: isolate_initialized,
-        description: if isolate_initialized {
-            "Isolate is initialized".to_string()
-        } else {
-            "Isolate not initialized".to_string()
-        },
-    });
-
-    // Check if resource is specified
-    let resource_provided = resource.is_some();
-    prerequisites.push(Prerequisite {
-        check: "resource_provided".to_string(),
-        passed: resource_provided,
-        description: if resource_provided {
-            "Resource specified".to_string()
-        } else {
-            "No resource specified".to_string()
-        },
-    });
-
-    // Check if lock exists
-    let lock_free_val = if let Some(res) = resource {
-        super::isolate_data_dir().await.is_ok_and(|d| {
-            let locks_dir = d.join("locks");
-            let safe_name: String = res
-                .chars()
-                .map(|c| {
-                    if c.is_alphanumeric() || c == '-' || c == '_' {
-                        c
-                    } else {
-                        '_'
-                    }
-                })
-                .collect();
-            let lock_path = locks_dir.join(format!("{safe_name}.lock"));
-            !lock_path.exists()
-        })
-    } else {
-        true
-    };
-
-    prerequisites.push(Prerequisite {
-        check: "lock_free".to_string(),
-        passed: lock_free_val,
-        description: if lock_free_val {
-            "Resource is not locked".to_string()
-        } else {
-            "Resource is currently locked".to_string()
-        },
-    });
-
-    let allowed = isolate_initialized && resource_provided && lock_free_val;
-    let reason = if allowed {
-        "Can claim resource".to_string()
-    } else if !isolate_initialized {
-        "Isolate not initialized".to_string()
-    } else if !resource_provided {
-        "Resource must be specified".to_string()
-    } else {
-        "Resource is currently locked".to_string()
-    };
-
-    CanIResult {
-        allowed,
-        action: "claim".to_string(),
         resource: resource.map(String::from),
         reason,
         prerequisites,

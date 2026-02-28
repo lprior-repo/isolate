@@ -4,7 +4,7 @@ This project uses **Beads** for triage, **Isolate** for isolation, and **Moon** 
 
 ## Core Workflow (The Loop)
 
-1. **Triage & Pull**: Use `bv --robot-triage` to find the highest-impact bead. Claim it with `br claim <bead-id>`.
+1. **Triage & Pull**: Use `bv --robot-triage` to find the highest-impact bead. Start work with `br update <bead-id> --status in_progress`.
 2. **Isolate**: Invoke `isolate spawn <bead-id>`. This provisions an isolated workspace at `.isolate/workspaces/<bead-id>/`.
 3. **Execute Skills**:
    - **tdd15**: Drive development through small, failing tests.

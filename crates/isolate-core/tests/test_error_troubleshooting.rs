@@ -313,8 +313,8 @@ fn test_session_locked_errors_include_holder_info() {
     );
     if let Some(sugg) = suggestion {
         assert!(
-            sugg.contains("yield") || sugg.contains("status"),
-            "Suggestion should include yield or status command"
+            sugg.contains("agent") || sugg.contains("status"),
+            "Suggestion should include agent or status command"
         );
     }
 }

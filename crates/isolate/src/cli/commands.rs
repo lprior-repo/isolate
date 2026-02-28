@@ -117,6 +117,7 @@ pub fn cmd_add() -> ClapCommand {
             Arg::new("example-json")
                 .long("example-json")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .conflicts_with("name")
                 .help("Show example JSON output without executing"),
         )
@@ -124,24 +125,28 @@ pub fn cmd_add() -> ClapCommand {
             Arg::new("idempotent")
                 .long("idempotent")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Succeed if session already exists (safe for retries)"),
         )
         .arg(
             Arg::new("dry-run")
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Preview without creating"),
         )
         .arg(
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
         )
         .arg(
             Arg::new("ai-hints")
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("AI: Show execution hints and common patterns"),
         )
 }
@@ -1184,7 +1189,7 @@ pub fn cmd_spawn() -> ClapCommand {
             Some(json_docs::spawn()),
         ))
         .arg(
-            Arg::new("bead_id")
+            Arg::new("bead")
                 .required(true)
                 .help("Bead ID to work on (e.g., isolate-xxxx)"),
         )
@@ -1207,12 +1212,14 @@ pub fn cmd_spawn() -> ClapCommand {
             Arg::new("no-auto-merge")
                 .long("no-auto-merge")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Don't merge on success"),
         )
         .arg(
             Arg::new("no-auto-cleanup")
                 .long("no-auto-cleanup")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Don't cleanup on failure"),
         )
         .arg(
@@ -1220,6 +1227,7 @@ pub fn cmd_spawn() -> ClapCommand {
                 .long("background")
                 .short('b')
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Run agent in background"),
         )
         .arg(
@@ -1233,30 +1241,35 @@ pub fn cmd_spawn() -> ClapCommand {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Output as JSON"),
         )
         .arg(
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
         )
         .arg(
             Arg::new("ai-hints")
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("AI: Show execution hints and common patterns"),
         )
         .arg(
             Arg::new("idempotent")
                 .long("idempotent")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Succeed if workspace already exists (safe for retries)"),
         )
         .arg(
             Arg::new("dry-run")
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("Preview spawn without executing"),
         )
 }
@@ -1894,106 +1907,6 @@ pub fn cmd_whatif() -> ClapCommand {
         ))
 }
 
-pub fn cmd_claim() -> ClapCommand {
-    ClapCommand::new("claim")
-        .about("Acquire exclusive lock on a resource")
-        .long_about(
-            "Claims exclusive access to a resource for multi-agent coordination.
-
-
-            Resources can be:
-  
-            - Sessions
-  
-            - Files
-  
-            - Beads
-
-
-            Use 'isolate yield' to release the lock when done.",
-        )
-        .arg(
-            Arg::new("resource")
-                .required(true)
-                .help("Resource to claim (e.g., session:name, file:path, bead:id)"),
-        )
-        .arg(
-            Arg::new("timeout")
-                .long("timeout")
-                .short('t')
-                .value_name("SECONDS")
-                .default_value("60")
-                .help("Lock timeout in seconds"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show command flow hints"),
-        )
-        .after_help(after_help_text(
-            &[
-                "isolate claim session:feature-x      Claim exclusive lock on session",
-                "isolate claim file:/tmp/data         Claim lock on file",
-                "isolate claim -t 120 bead:isolate-abc1   Claim with 120s timeout",
-            ],
-            None,
-        ))
-}
-
-pub fn cmd_yield() -> ClapCommand {
-    ClapCommand::new("yield")
-        .about("Release exclusive lock on a resource")
-        .long_about(
-            "Releases a previously claimed resource.
-
-
-            Use this when done with exclusive access to allow other agents to proceed.",
-        )
-        .arg(
-            Arg::new("resource")
-                .required(true)
-                .help("Resource to release (e.g., session:name, file:path, bead:id)"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show command flow hints"),
-        )
-        .after_help(after_help_text(
-            &[
-                "isolate yield session:feature-x      Release lock on session",
-                "isolate yield file:/tmp/data         Release lock on file",
-            ],
-            None,
-        ))
-}
-
 pub fn cmd_batch() -> ClapCommand {
     ClapCommand::new("batch")
         .about("Execute multiple commands in a batch")
@@ -2117,96 +2030,6 @@ pub fn cmd_events() -> ClapCommand {
                 "isolate events --follow             Stream events in real-time",
                 "isolate events -l 20                Show last 20 events",
                 "isolate events --type session       Filter by event type",
-            ],
-            None,
-        ))
-}
-
-pub fn cmd_lock() -> ClapCommand {
-    ClapCommand::new("lock")
-        .about("Acquire exclusive lock on a session")
-        .arg(
-            Arg::new("session")
-                .required(true)
-                .help("Session name to lock"),
-        )
-        .arg(
-            Arg::new("agent-id")
-                .long("agent-id")
-                .value_name("ID")
-                .help("Agent ID (uses Isolate_AGENT_ID if not provided)"),
-        )
-        .arg(
-            Arg::new("ttl")
-                .long("ttl")
-                .value_name("SECONDS")
-                .value_parser(clap::value_parser!(u64))
-                .help("Lock TTL in seconds (omit to use default lock manager TTL)"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show command flow hints"),
-        )
-        .after_help(after_help_text(
-            &[
-                "isolate lock feature-x               Lock session with 5min TTL",
-                "isolate lock --ttl 600 feature-x     Lock session with 10min TTL",
-                "isolate lock --agent-id agent1 work  Lock as specific agent",
-            ],
-            None,
-        ))
-}
-
-pub fn cmd_unlock() -> ClapCommand {
-    ClapCommand::new("unlock")
-        .about("Release exclusive lock on a session")
-        .arg(
-            Arg::new("session")
-                .required(true)
-                .help("Session name to unlock"),
-        )
-        .arg(
-            Arg::new("agent-id")
-                .long("agent-id")
-                .value_name("ID")
-                .help("Agent ID (uses Isolate_AGENT_ID if not provided)"),
-        )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show command flow hints"),
-        )
-        .after_help(after_help_text(
-            &[
-                "isolate unlock feature-x             Unlock session",
-                "isolate unlock --agent-id agent1 work  Unlock as specific agent",
             ],
             None,
         ))

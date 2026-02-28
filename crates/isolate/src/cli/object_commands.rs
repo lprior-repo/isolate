@@ -170,6 +170,7 @@ fn json_arg() -> Arg {
     Arg::new("json")
         .long("json")
         .action(clap::ArgAction::SetTrue)
+        .default_value("false")
         .help("Output as JSON (machine-parseable format)")
 }
 
@@ -179,6 +180,7 @@ fn verbose_arg() -> Arg {
         .long("verbose")
         .short('v')
         .action(clap::ArgAction::SetTrue)
+        .default_value("false")
         .help("Enable verbose output")
 }
 
@@ -187,6 +189,7 @@ fn dry_run_arg() -> Arg {
     Arg::new("dry-run")
         .long("dry-run")
         .action(clap::ArgAction::SetTrue)
+        .default_value("false")
         .help("Preview without executing")
 }
 
@@ -195,6 +198,7 @@ fn contract_arg() -> Arg {
     Arg::new("contract")
         .long("contract")
         .action(clap::ArgAction::SetTrue)
+        .default_value("false")
         .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)")
 }
 
@@ -203,6 +207,7 @@ fn ai_hints_arg() -> Arg {
     Arg::new("ai-hints")
         .long("ai-hints")
         .action(clap::ArgAction::SetTrue)
+        .default_value("false")
         .help("AI: Show execution hints and common patterns")
 }
 
@@ -235,20 +240,6 @@ pub fn cmd_task() -> ClapCommand {
                 .about("Show task details")
                 .arg(json_arg())
                 .arg(Arg::new("id").required(true).help("Task/bead ID to show")),
-        )
-        .subcommand(
-            ClapCommand::new("claim")
-                .visible_alias("take")
-                .about("Claim a task for work")
-                .arg(json_arg())
-                .arg(Arg::new("id").required(true).help("Task/bead ID to claim")),
-        )
-        .subcommand(
-            ClapCommand::new("yield")
-                .visible_alias("release")
-                .about("Yield a claimed task")
-                .arg(json_arg())
-                .arg(Arg::new("id").required(true).help("Task/bead ID to yield")),
         )
         .subcommand(
             ClapCommand::new("start")
@@ -437,6 +428,7 @@ pub fn cmd_session() -> ClapCommand {
                     Arg::new("idempotent")
                         .long("idempotent")
                         .action(clap::ArgAction::SetTrue)
+                        .default_value("false")
                         .help("Succeed if session already exists (no-op)"),
                 )
                 .arg(
@@ -749,9 +741,9 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(contract_arg())
                 .arg(ai_hints_arg())
                 .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
-                .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue)),
+                .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false")),
         )
         .subcommand(
             ClapCommand::new("list")
@@ -759,8 +751,8 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(json_arg())
                 .arg(contract_arg())
                 .arg(ai_hints_arg())
-                .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue)),
+                .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue).default_value("false")),
         )
         .subcommand(
             ClapCommand::new("remove")
@@ -780,8 +772,14 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(json_arg())
                 .arg(contract_arg())
                 .arg(ai_hints_arg())
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("agent").long("agent").value_name("AGENT")),
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("agent").long("agent").value_name("AGENT"))
+                .arg(Arg::new("no-auto-merge").long("no-auto-merge").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("no-auto-cleanup").long("no-auto-cleanup").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("background").short('b').long("background").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("timeout").long("timeout").value_name("SECONDS").default_value("14400"))
+                .arg(Arg::new("agent-command").long("agent-command").value_name("COMMAND").default_value("claude"))
+                .arg(Arg::new("agent-args").long("agent-args").num_args(0..)),
         )
         .subcommand(
             ClapCommand::new("sync")
@@ -892,31 +890,6 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(Arg::new("name").required(false))
                 .arg(json_arg()),
         )
-        .subcommand(
-            ClapCommand::new("claim")
-                .about("Claim a task")
-                .arg(Arg::new("resource").required(true))
-                .arg(Arg::new("timeout").long("timeout").value_name("SECONDS"))
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("yield")
-                .about("Yield a task")
-                .arg(Arg::new("resource").required(true))
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("lock")
-                .about("Acquire lock")
-                .arg(Arg::new("name").required(true))
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("unlock")
-                .about("Release lock")
-                .arg(Arg::new("name").required(true))
-                .arg(json_arg()),
-        )
 }
 
 #[cfg(test)]
@@ -986,8 +959,6 @@ mod tests {
 
         assert!(subcommands.contains(&"list"));
         assert!(subcommands.contains(&"show"));
-        assert!(subcommands.contains(&"claim"));
-        assert!(subcommands.contains(&"yield"));
         assert!(subcommands.contains(&"start"));
         assert!(subcommands.contains(&"done"));
     }

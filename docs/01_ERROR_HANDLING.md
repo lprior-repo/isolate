@@ -365,7 +365,7 @@ impl Error {
                 Some("Check file permissions: 'ls -la' or run with appropriate access rights")
             }
             Error::SessionLocked { session, holder } => Some(
-                format!("Session '{session}' is locked by '{holder}'. Use 'isolate yield {session}' to release")
+                format!("Session '{session}' is locked by '{holder}'. Use 'isolate agent kill {holder}' to force release")
             )
             // ... more cases
         }
@@ -406,10 +406,10 @@ Error::SessionLocked {
 
 // Output:
 // Error: Session 'my-session' is locked by agent 'agent-123'
-// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'isolate yield my-session' to release or check status with 'isolate agents status'
+// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'isolate agent kill agent-123' to force release or check status with 'isolate agent status'
 // Fix commands:
 //   - isolate agent status my-session
-//   - isolate yield my-session
+//   - isolate agent kill agent-123
 ```
 
 This turns a confusing error into clear next steps.

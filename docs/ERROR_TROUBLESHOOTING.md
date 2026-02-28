@@ -378,12 +378,6 @@ Session 'feature-auth' is locked by agent 'agent-123'
 # Check agent status
 isolate agent status feature-auth
 
-# Yield the lock (if you hold it)
-isolate yield feature-auth
-
-# Claim the lock (if available)
-isolate claim feature-auth
-
 # Force release (only if agent is dead)
 isolate agent kill agent-123
 ```
@@ -409,12 +403,6 @@ Agent 'agent-456' does not hold the lock for session 'feature-auth'
 ```bash
 # Check lock holder
 isolate agent status feature-auth
-
-# Claim the lock
-isolate claim feature-auth
-
-# Wait for lock holder to release
-isolate yield feature-auth
 ```
 
 ---

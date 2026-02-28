@@ -72,7 +72,7 @@ const VALID_OBJECTS: &[&str] = &[
 ];
 
 /// Valid actions (verbs) for each object
-const TASK_ACTIONS: &[&str] = &["list", "show", "claim", "yield", "start", "done"];
+const TASK_ACTIONS: &[&str] = &["list", "show", "start", "done"];
 const SESSION_ACTIONS: &[&str] = &[
     "list", "add", "remove", "focus", "pause", "resume", "clone", "rename", "attach", "spawn",
     "sync", "init",

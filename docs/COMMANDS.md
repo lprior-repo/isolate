@@ -25,8 +25,6 @@ isolate doctor <action>   # Run diagnostics
 ```bash
 isolate task list              # List all tasks
 isolate task show <id>         # Show task details
-isolate task claim <id>        # Claim a task for work
-isolate task yield <id>        # Yield a claimed task
 isolate task start <id>        # Start work on a task
 isolate task done <id>        # Complete a task
 ```
@@ -130,17 +128,9 @@ isolate resume <name>       # Resume a paused session
 
 ### Task Management (Flat Commands)
 
-```bash
-isolate claim <id>          # Claim a task/bead
-isolate yield <id>          # Yield a claimed task
-```
+(Use `isolate task` subcommands instead - see below)
 
-### Locking
-
-```bash
-isolate lock                # Acquire lock
-isolate unlock              # Release lock
-```
+### Task Object Commands
 
 ### History & Recovery
 
@@ -248,8 +238,6 @@ isolate abort
 | `isolate done` | `isolate submit` |
 | `isolate checkpoint` | `isolate ckpt` |
 | `isolate session add` | `isolate session create` |
-| `isolate task claim` | `isolate task take` |
-| `isolate task yield` | `isolate task release` |
 | `isolate task done` | `isolate task complete` |
 | `isolate session sync` | `isolate session rebase` |
 

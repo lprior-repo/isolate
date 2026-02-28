@@ -218,8 +218,6 @@ isolate session add <name>   # Create session (replaces 'isolate add')
 isolate session list         # List sessions (replaces 'isolate list')
 isolate session sync [name]  # Sync workspace (replaces 'isolate sync')
 isolate session done         # Complete work (replaces 'isolate done')
-isolate task claim <id>      # Claim task (replaces 'isolate claim')
-isolate task yield <id>      # Release task (replaces 'isolate yield')
 isolate doctor check         # System health check
 ```
 

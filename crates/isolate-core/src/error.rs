@@ -1624,8 +1624,8 @@ mod tests {
         );
         let Some(sugg) = suggestion else { return };
         assert!(
-            sugg.contains("yield") || sugg.contains("status"),
-            "Session locked suggestion should mention yield or status commands"
+            sugg.contains("agent") || sugg.contains("status"),
+            "Session locked suggestion should mention agent or status commands"
         );
     }
 

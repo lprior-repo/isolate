@@ -524,8 +524,6 @@ fn is_known_command(command: &str) -> bool {
             | "examples"
             | "validate"
             | "whatif"
-            | "claim"
-            | "yield"
             | "events"
             | "batch"
             | "completions"

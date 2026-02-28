@@ -726,8 +726,6 @@ pub async fn handle_task(args: &clap::ArgMatches) -> Result<()> {
     match args.subcommand() {
         Some(("list", sub_args)) => handle_task_list(sub_args).await,
         Some(("show", sub_args)) => handle_task_show(sub_args).await,
-        Some(("claim", sub_args)) => handle_task_claim(sub_args).await,
-        Some(("yield", sub_args)) => handle_task_yield(sub_args).await,
         Some(("start", sub_args)) => handle_task_start(sub_args).await,
         Some(("done", sub_args)) => handle_task_done(sub_args).await,
         _ => {
@@ -736,8 +734,6 @@ pub async fn handle_task(args: &clap::ArgMatches) -> Result<()> {
             println!();
             println!("  isolate task list [--all] [--state <STATE>]  List tasks");
             println!("  isolate task show <ID>                        Show task details");
-            println!("  isolate task claim <ID>                       Claim a task");
-            println!("  isolate task yield <ID>                       Release a claimed task");
             println!("  isolate task start <ID>                       Start work on a task");
             println!("  isolate task done [ID]                        Complete a task");
             println!();

@@ -133,10 +133,10 @@ codanna index && codanna documents index --collection docs
 
 ```jsonl
 {"cmd": "bv --robot-triage", "use": "Find what to work on (entry point)", "frequency": "Start of session"}
-{"cmd": "bv --robot-next", "use": "Top pick + claim command", "frequency": "Quick pick"}
+{"cmd": "bv --robot-next", "use": "Top pick command", "frequency": "Quick pick"}
 {"cmd": "br ready", "use": "List available work", "frequency": "As needed"}
-{"cmd": "br show <id>", "use": "View issue details", "frequency": "Before claiming"}
-{"cmd": "br update <id> --status in_progress", "use": "Claim work", "frequency": "When starting"}
+{"cmd": "br show <id>", "use": "View issue details", "frequency": "Before starting"}
+{"cmd": "br update <id> --status in_progress", "use": "Start work", "frequency": "When starting"}
 {"cmd": "br close <id>", "use": "Complete work", "frequency": "When done"}
 ```
 
@@ -439,7 +439,6 @@ See [09_JUJUTSU.md](09_JUJUTSU.md) — JJ enables 8-12 parallel agents without c
 ```bash
 isolate query location              # Where am I?
 isolate query can-spawn             # Can I start work?
-isolate query lock-status <name>    # Is session locked?
 isolate query pending-merges        # What needs merging?
 ```
 
