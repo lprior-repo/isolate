@@ -52,15 +52,6 @@ Feature: Config Command
     And the exit code should be 0
 
   # ==========================================================================
-  # Scenario: Get nested config value
-  # ==========================================================================
-  Scenario: Get nested config value
-    Given a valid config exists with nested settings
-    When I run "isolate config zellij.use_tabs"
-    Then the output should show the nested value
-    And the exit code should be 0
-
-  # ==========================================================================
   # Scenario: Get config value in JSON format
   # ==========================================================================
   Scenario: Get config value in JSON format
@@ -79,26 +70,6 @@ Feature: Config Command
     When I run "isolate config workspace_dir ../custom_workspaces"
     Then the config value should be updated
     And the output should confirm the change
-    And the exit code should be 0
-
-  # ==========================================================================
-  # Scenario: Set nested config value
-  # ==========================================================================
-  Scenario: Set nested config value
-    Given a valid config exists
-    When I run "isolate config zellij.use_tabs false"
-    Then the nested config value should be updated
-    And the output should confirm the change
-    And the exit code should be 0
-
-  # ==========================================================================
-  # Scenario: Set boolean value
-  # ==========================================================================
-  Scenario: Set boolean value
-    Given a valid config exists
-    When I run "isolate config zellij.use_tabs true"
-    Then the boolean should be stored as a proper boolean
-    And reading it back should return "true" not a string
     And the exit code should be 0
 
   # ==========================================================================
@@ -205,16 +176,6 @@ Feature: Config Command
     And the exit code should be 1
 
   # ==========================================================================
-  # Scenario: Set creates parent tables automatically
-  # ==========================================================================
-  Scenario: Set creates parent tables automatically
-    Given an empty config file
-    When I run "isolate config zellij.panes.main.command nvim"
-    Then the nested table structure should be created
-    And the TOML should be valid
-    And the exit code should be 0
-
-  # ==========================================================================
   # Scenario: Concurrent config writes are serialized
   # ==========================================================================
   Scenario: Concurrent config writes are serialized
@@ -223,16 +184,6 @@ Feature: Config Command
     Then no data should be lost
     And all writes should succeed
     And the final config should contain all changes
-
-  # ==========================================================================
-  # Scenario: Type safety - boolean must be true/false
-  # ==========================================================================
-  Scenario: Type safety - boolean must be true/false
-    Given a valid config exists
-    When I run "isolate config zellij.use_tabs yes"
-    Then the value should be stored as string "yes"
-    And the config should remain valid
-    And the exit code should be 0
 
   # ==========================================================================
   # Scenario: Invalid TOML value is rejected

@@ -39,15 +39,6 @@ Feature: Doctor Command
     And the exit code should be 1
 
   # ==========================================================================
-  # Scenario: Doctor detects missing zellij
-  # ==========================================================================
-  Scenario: Doctor detects missing zellij
-    Given zellij is not installed
-    When I run the doctor command
-    Then the "Zellij Installation" check should warn
-    And the output should contain suggestion "Install Zellij"
-
-  # ==========================================================================
   # Scenario: Doctor detects uninitialized isolate
   # ==========================================================================
   Scenario: Doctor detects uninitialized isolate
@@ -208,6 +199,16 @@ Feature: Doctor Command
     Then all checks should pass
     And the exit code should be 0
     And the summary should show "0 error(s)"
+
+  # ==========================================================================
+  # Scenario: System works without Zellij integration
+  # ==========================================================================
+  Scenario: System works without Zellij integration
+    Given Zellij is not installed
+    When I run the doctor command
+    Then the "Zellij Installation" check should not exist
+    And all checks should pass
+    And the exit code should be 0
 
   # ==========================================================================
   # Scenario: Verbose output shows fix details
