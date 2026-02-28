@@ -1,6 +1,6 @@
 [book]
 title = "Isolate Documentation"
-description = "Parallel Workspace Isolation + Queue Coordination for JJ + Zellij"
+description = "Workspace isolation for multi-agent workflows. Built on JJ."
 authors = ["Lewis Prior"]
 language = "en"
 src = "src"
