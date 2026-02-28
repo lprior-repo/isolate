@@ -27,7 +27,7 @@ All Isolate documentation in one place, token-efficient and searchable.
 | **06** | [COMBINATORS](06_COMBINATORS.md) | Complete combinator reference | Reference |
 | **07** | [TESTING](07_TESTING.md) | Testing without panics | 15 min |
 | **08** | [BEADS](08_BEADS.md) | Issue tracking, triage, graph metrics | 25 min |
-| **09** | [JUJUTSU](09_JUJUTSU.md) | Version control, stacking commits | 20 min |
+| **09** | [JUJUTSU](09_JUJUTSU.md) | Version control, **JJ vs Git FAQ**, multi-agent benefits | 20 min |
 | **10** | [MOON CICD INDEXED](10_MOON_CICD_INDEXED.md) | Complete moon task catalog (indexed) | Reference |
 | **11** | [ZELLIJ](11_ZELLIJ.md) | Terminal multiplexing, layouts, tab management | 25 min |
 
@@ -86,6 +86,9 @@ All Isolate documentation in one place, token-efficient and searchable.
 2. See [03_WORKFLOW.md](03_WORKFLOW.md) - Daily workflow
 3. See [02_MOON_BUILD.md](02_MOON_BUILD.md) - Testing
 4. See [09_JUJUTSU.md](09_JUJUTSU.md) - Committing & pushing
+
+### Why JJ Instead of Git for Multi-Agent?
+→ [09_JUJUTSU.md](09_JUJUTSU.md) - JJ vs Git FAQ, lock-free concurrency, operation log
 
 ### How Do I Handle Errors?
 → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 10 patterns with examples  
@@ -299,7 +302,7 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 | Functional Style | [04_FUNCTIONAL_PATTERNS.md](04_FUNCTIONAL_PATTERNS.md) | Immutability, composition, lazy eval |
 | Moon Caching | [02_MOON_BUILD.md](02_MOON_BUILD.md) | Smart task skipping for speed |
 | Beads Triage | [08_BEADS.md](08_BEADS.md) | Graph-aware issue prioritization |
-| Jujutsu Stacking | [09_JUJUTSU.md](09_JUJUTSU.md) | Instant branches, reorderable commits |
+| Jujutsu Multi-Agent | [09_JUJUTSU.md](09_JUJUTSU.md) | **Lock-free concurrency**, operation log, JJ vs Git FAQ |
 | Codanna Search | [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) | 40-50x faster than grep, semantic code search |
 | 7 Mandatory Rules | [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) | Agent critical constraints |
 

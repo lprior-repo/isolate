@@ -427,6 +427,9 @@ Load these skills for specialized tasks:
 | `coding-rigor` | TDD-first development, clean boundaries | Code design |
 | `rust-contract` | Design-by-contract, test planning | Planning Rust features |
 
+**Why JJ for Multi-Agent?**  
+See [09_JUJUTSU.md](09_JUJUTSU.md) — JJ enables 8-12 parallel agents without corruption, unlike Git which breaks at 4+.
+
 ---
 
 ## Quick Queries

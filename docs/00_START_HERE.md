@@ -2,6 +2,17 @@
 
 **The Law**: No unwrap, no panic, no unsafe. Period.
 
+## Why JJ Instead of Git?
+
+Isolate uses JJ (Jujutsu) because Git breaks at multi-agent scale (4+ agents). JJ provides:
+
+- **Lock-free concurrency** — agents don't corrupt each other's work
+- **Operation log** — undo any operation, always recover
+- **Anonymous commits** — no branch pollution at 8-12 agents
+- **First-class conflicts** — no blocking on merges
+
+> Running 8-12 agents in parallel? You need JJ. See [09_JUJUTSU.md](09_JUJUTSU.md) for the full comparison.
+
 ## 🎯 Go Here For...
 
 | Need | File |

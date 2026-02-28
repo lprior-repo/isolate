@@ -1,6 +1,52 @@
-# Jujutsu: Version Control
+# Jujutsu (JJ): Version Control for Multi-Agent Workflows
 
 Git alternative optimized for stack-based development and instant branching.
+
+> **Why JJ instead of Git?** Running 8-12 agents in parallel requires fundamentally different VCS semantics. Git breaks at that scale. JJ doesn't.
+
+---
+
+## FAQ: Why JJ Instead of Git?
+
+JJ is a fundamentally better VCS for multi-agent workflows:
+
+| Feature | Git | JJ (Why it matters) |
+|---------|-----|---------------------|
+| **Concurrency** | Locking required, can corrupt at scale | Lock-free — multiple agents run in parallel without repo corruption |
+| **Undo** | Destructive — reset is permanent | Operation log — undo ANY operation, recover from mistakes |
+| **Conflicts** | Block merges until resolved | First-class — commit conflicts, resolve later. No blocking. |
+| **Branches** | Required for everything (pollution) | Anonymous — no branch name pollution at 8-12 agents |
+| **State** | Index/staging area is confusing | Working copy auto-committed — simpler model |
+| **Rebasing** | Manual, can lose work | Auto-rebase — descendants follow rewritten commits |
+| **Merges** | Evil merges exist | No evil merges — merge commits handled correctly |
+
+**The big ones for agent swarms:**
+- **Lock-free concurrency** — agents don't corrupt each other's work
+- **Operation log** — always recover from mistakes
+- **Anonymous commits** — no branch name collisions at scale
+
+### Why not Git Worktrees?
+
+Git Worktrees work at 1-3 agents. They break at 4+:
+
+| Problem | What happens |
+|---------|-------------|
+| **Detached HEAD** | At 4+ agents, constant broken states |
+| **Branch pollution** | 8-12 agents = 8-12 branches to manage |
+| **No concurrency** | Concurrent worktrees can corrupt repo |
+| **No operation log** | Mistake = permanent loss |
+
+### Why not file locking?
+
+File locking treats symptoms, not causes:
+- Doesn't prevent duplicate work
+- Doesn't prevent logical conflicts
+- Doesn't help when things go wrong
+- Doesn't scale — more agents = more contention
+
+**Real solution:** Complete workspace isolation. Each agent has their own JJ workspace.
+
+---
 
 ## Core Concepts
 
@@ -8,6 +54,77 @@ Git alternative optimized for stack-based development and instant branching.
 - **Changes** - Immutable commits (can be rearranged)
 - **Bookmarks** - Branch pointers
 - **Revisions** - Commits (immutable)
+
+## Key Features for Multi-Agent Workflows
+
+### 1. Lock-Free Concurrency
+
+Multiple agents can run `jj` commands in parallel without repo corruption. If there's a conflict, agents see "divergent changes" and can resolve later.
+
+```bash
+# Agent 1 and Agent 2 can run simultaneously:
+# Agent 1
+jj describe -m "feat: part one"
+
+# Agent 2 (runs at same time)
+jj describe -m "feat: part two"
+
+# Later, both can sync without corruption
+jj git fetch --all-remotes
+```
+
+### 2. Operation Log (The Safety Net)
+
+Every operation is logged. You can undo ANY operation, even non-recent ones.
+
+```bash
+# See operation history
+jj op log
+
+# Undo the last operation
+jj undo
+
+# Undo a specific operation
+jj undo <operation-id>
+
+# Restore entire repo to earlier state
+jj op restore <operation-id>
+```
+
+This is critical for agents — when an agent makes a mistake, you can always recover.
+
+### 3. First-Class Conflicts
+
+Conflicts can be committed and resolved later. No blocking on merges.
+
+```bash
+# Sync with main - conflicts are recorded, not blocking
+jj git fetch --all-remotes
+
+# Check for conflicts
+jj status
+
+# Conflicts are in the commit - resolve when ready
+vim conflicted_file.rs
+jj describe -m "resolve: merge conflict"
+```
+
+### 4. Anonymous Workspaces
+
+No branch names required. Each agent workspace is independent.
+
+```bash
+# Create workspace - no branch name needed
+jj workspace add feature-123
+
+# Work normally
+jj describe -m "feat: something"
+
+# Push - bookmarks are created automatically
+jj git push
+```
+
+---
 
 ## Quick Start
 
@@ -402,6 +519,13 @@ Benefits:
 - ✅ Clean history (no merge commits)
 - ✅ Deterministic (no conflicts in most cases)
 
+**For Multi-Agent Workflows:**
+- ✅ Lock-free concurrency — agents don't corrupt each other's work
+- ✅ Operation log — always recover from mistakes
+- ✅ Anonymous workspaces — no branch pollution at 8-12 agents
+- ✅ First-class conflicts — no blocking on merges
+
 ---
 
+**Related**: [AI Agent Guide](../AI_AGENT_GUIDE.md) for how JJ enables parallel agent workflows  
 **Next**: [Complete Docs Index](00_START_HERE.md)
