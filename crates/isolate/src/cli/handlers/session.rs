@@ -12,7 +12,7 @@ use clap::ArgMatches;
 use isolate_core::OutputFormat;
 
 use super::json_format::get_format;
-use crate::commands::{add, focus, init, list, remove, rename, session_mgmt, spawn, sync};
+use crate::commands::{add, init, list, remove, rename, session_mgmt, spawn, sync};
 
 /// Handle session list subcommand
 async fn handle_session_list(args: &ArgMatches) -> Result<()> {
@@ -70,18 +70,6 @@ async fn handle_session_remove(args: &ArgMatches) -> Result<()> {
     };
 
     remove::run_with_options(name, &options).await
-}
-
-/// Handle session focus subcommand
-async fn handle_session_focus(args: &ArgMatches) -> Result<()> {
-    let name = args
-        .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
-
-    let format = get_format(args);
-    let options = focus::FocusOptions { format };
-
-    focus::run_with_options(Some(name), &options).await
 }
 
 /// Handle session pause subcommand
@@ -213,7 +201,6 @@ pub async fn handle_session(args: &ArgMatches) -> Result<()> {
         Some(("list", sub_args)) => handle_session_list(sub_args).await,
         Some(("add", sub_args)) => handle_session_add(sub_args).await,
         Some(("remove", sub_args)) => handle_session_remove(sub_args).await,
-        Some(("focus", sub_args)) => handle_session_focus(sub_args).await,
         Some(("pause", sub_args)) => handle_session_pause(sub_args).await,
         Some(("resume", sub_args)) => handle_session_resume(sub_args).await,
         Some(("clone", sub_args)) => handle_session_clone(sub_args).await,
@@ -231,7 +218,6 @@ pub async fn handle_session(args: &ArgMatches) -> Result<()> {
                         {"name": "list", "description": "List all sessions"},
                         {"name": "add", "description": "Create a new session"},
                         {"name": "remove", "description": "Remove a session"},
-                        {"name": "focus", "description": "Switch to a session"},
                         {"name": "pause", "description": "Pause a session"},
                         {"name": "resume", "description": "Resume a paused session"},
                         {"name": "clone", "description": "Clone a session"},
@@ -249,7 +235,6 @@ pub async fn handle_session(args: &ArgMatches) -> Result<()> {
                 println!("  isolate session list [--all]                List all sessions");
                 println!("  isolate session add <name>                  Create a new session");
                 println!("  isolate session remove <name>               Remove a session");
-                println!("  isolate session focus <name>                Switch to a session");
                 println!("  isolate session pause [name]                Pause a session");
                 println!("  isolate session resume [name]               Resume a paused session");
                 println!("  isolate session clone <name>                Clone a session");

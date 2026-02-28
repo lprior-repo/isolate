@@ -1,7 +1,7 @@
 //! CLI command handlers that bridge between `clap` and internal logic
 //!
 //! This module is organized into logical submodules:
-//! - `workspace`: Session/workspace management (init, add, remove, focus, etc.)
+//! - `workspace`: Session/workspace management (init, add, remove, switch, etc.)
 //! - `sync`: Sync, diff, submit, done, abort
 //! - `bookmark`: Bookmark operations
 //! - `integrity`: Integrity, doctor, clean, prune
@@ -59,9 +59,8 @@ pub use self::{
     sync::{handle_abort, handle_diff, handle_done, handle_submit, handle_sync},
     utility::{handle_completions, handle_config, handle_query, handle_schema, handle_wait},
     workspace::{
-        handle_add, handle_clone, handle_focus, handle_init, handle_list, handle_pause,
-        handle_remove, handle_rename, handle_resume, handle_spawn, handle_status, handle_switch,
-        handle_work,
+        handle_add, handle_clone, handle_init, handle_list, handle_pause, handle_remove,
+        handle_rename, handle_resume, handle_spawn, handle_status, handle_switch, handle_work,
     },
 };
 
@@ -183,7 +182,6 @@ pub async fn run_cli() -> Result<()> {
             }
             Some(("bookmark", sub_m)) => handle_bookmark(sub_m).await,
             Some(("remove", sub_m)) => handle_remove(sub_m).await,
-            Some(("focus", sub_m)) => handle_focus(sub_m).await,
             Some(("switch", sub_m)) => handle_switch(sub_m).await,
             Some(("status", sub_m)) => handle_status(sub_m).await,
             Some(("sync", sub_m)) => {

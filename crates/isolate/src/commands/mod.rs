@@ -21,7 +21,6 @@ pub mod done;
 pub mod events;
 pub mod examples;
 pub mod export_import;
-pub mod focus;
 pub mod init;
 pub mod integrity;
 pub mod introspect;

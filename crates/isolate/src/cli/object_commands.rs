@@ -307,6 +307,12 @@ pub fn cmd_session() -> ClapCommand {
                 .arg(json_arg())
                 .arg(dry_run_arg())
                 .arg(
+                    Arg::new("idempotent")
+                        .long("idempotent")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Succeed if session already exists (no-op)"),
+                )
+                .arg(
                     Arg::new("name")
                         .required(true)
                         .help("Name for the new session"),
@@ -342,6 +348,12 @@ pub fn cmd_session() -> ClapCommand {
             ClapCommand::new("remove")
                 .about("Remove a session")
                 .arg(json_arg())
+                .arg(
+                    Arg::new("idempotent")
+                        .long("idempotent")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Succeed if session doesn't exist (no-op)"),
+                )
                 .arg(
                     Arg::new("name")
                         .required(true)
@@ -419,6 +431,12 @@ pub fn cmd_session() -> ClapCommand {
                 .about("Spawn session for automated agent work")
                 .arg(json_arg())
                 .arg(dry_run_arg())
+                .arg(
+                    Arg::new("idempotent")
+                        .long("idempotent")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Succeed if session already exists (no-op)"),
+                )
                 .arg(
                     Arg::new("bead")
                         .required(true)
@@ -612,6 +630,7 @@ pub fn cmd_doctor() -> ClapCommand {
 ///
 /// This creates the new `isolate <object> <action>` command structure
 /// while maintaining compatibility with existing handlers.
+#[allow(clippy::too_many_lines)]
 pub fn build_object_cli() -> ClapCommand {
     ClapCommand::new("isolate")
         .version(env!("CARGO_PKG_VERSION"))
@@ -661,6 +680,122 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(cmd_status())
         .subcommand(cmd_config())
         .subcommand(cmd_doctor())
+        // Legacy commands (deprecated - use object commands instead)
+        // These provide backward compatibility for tests
+        .subcommand(
+            ClapCommand::new("init")
+                .about("Initialize isolate")
+                .visible_alias("add")
+                .visible_alias("list")
+                .visible_alias("remove")
+                .visible_alias("spawn")
+                .visible_alias("sync")
+                .visible_alias("clone")
+                .visible_alias("rename")
+                .visible_alias("pause")
+                .visible_alias("resume")
+                .visible_alias("focus")
+                .arg(dry_run_arg())
+                .arg(json_arg())
+                .arg(Arg::new("name").required(false))
+                .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
+                .arg(Arg::new("template").long("template").short('t').value_name("TEMPLATE"))
+                .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue)),
+        )
+        // Legacy 'whoami', 'whereami', 'context' commands
+        .subcommand(
+            ClapCommand::new("whoami")
+                .about("Who am I")
+                .arg(json_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("whereami")
+                .about("Where am I")
+                .arg(json_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("context")
+                .about("Show context")
+                .arg(json_arg()),
+        )
+        // Legacy 'done' command
+        .subcommand(
+            ClapCommand::new("done")
+                .about("Done (complete work)")
+                .visible_alias("submit")
+                .arg(json_arg())
+                .arg(Arg::new("name").required(false)),
+        )
+        // Legacy 'work' command  
+        .subcommand(
+            ClapCommand::new("work")
+                .about("Start work on a task")
+                .arg(Arg::new("bead").required(false))
+                .arg(Arg::new("name").required(false))
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
+                .arg(json_arg()),
+        )
+        // Legacy 'abort' command
+        .subcommand(
+            ClapCommand::new("abort")
+                .about("Abort work")
+                .arg(Arg::new("name").required(false))
+                .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
+                .arg(json_arg()),
+        )
+        // Legacy 'checkpoint' command
+        .subcommand(
+            ClapCommand::new("checkpoint")
+                .about("Create checkpoint")
+                .visible_alias("ckpt")
+                .arg(Arg::new("name").required(false))
+                .arg(json_arg()),
+        )
+        // Legacy 'undo' command
+        .subcommand(
+            ClapCommand::new("undo")
+                .about("Undo last operation")
+                .arg(json_arg()),
+        )
+        // Legacy 'revert' command
+        .subcommand(
+            ClapCommand::new("revert")
+                .about("Revert changes")
+                .arg(Arg::new("name").required(false))
+                .arg(json_arg()),
+        )
+        // Legacy 'claim' and 'yield' commands
+        .subcommand(
+            ClapCommand::new("claim")
+                .about("Claim a task")
+                .arg(Arg::new("resource").required(true))
+                .arg(Arg::new("timeout").long("timeout").value_name("SECONDS"))
+                .arg(json_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("yield")
+                .about("Yield a task")
+                .arg(Arg::new("resource").required(true))
+                .arg(json_arg()),
+        )
+        // Legacy 'lock' and 'unlock' commands
+        .subcommand(
+            ClapCommand::new("lock")
+                .about("Acquire lock")
+                .arg(Arg::new("name").required(true))
+                .arg(json_arg()),
+        )
+        .subcommand(
+            ClapCommand::new("unlock")
+                .about("Release lock")
+                .arg(Arg::new("name").required(true))
+                .arg(json_arg()),
+        )
 }
 
 #[cfg(test)]

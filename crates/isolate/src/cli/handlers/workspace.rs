@@ -6,7 +6,7 @@ use isolate_core::json::SchemaEnvelope;
 
 use super::json_format::get_format;
 use crate::{
-    commands::{add, focus, init, list, remove, rename, session_mgmt, spawn, status, switch, work},
+    commands::{add, init, list, remove, rename, session_mgmt, spawn, status, switch, work},
     json,
 };
 
@@ -127,23 +127,6 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
         format,
     };
     remove::run_with_options(name, &options).await
-}
-
-pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
-    if sub_m.get_flag("contract") {
-        println!("{}", crate::cli::json_docs::ai_contracts::focus());
-        return Ok(());
-    }
-
-    if sub_m.get_flag("ai-hints") {
-        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
-        return Ok(());
-    }
-
-    let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let format = get_format(sub_m);
-    let options = focus::FocusOptions { format };
-    focus::run_with_options(name, &options).await
 }
 
 pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
