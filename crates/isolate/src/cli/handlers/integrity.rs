@@ -116,7 +116,7 @@ pub async fn handle_doctor(sub_m: &ArgMatches) -> Result<()> {
             let verbose = sub_m.get_flag("verbose");
 
             // If no flags, run check mode
-            if !fix && dry_run == false && verbose == false {
+            if !fix && !dry_run && !verbose {
                 doctor::run(format.is_json(), false, false, false).await
             } else {
                 doctor::run(format.is_json(), fix, dry_run, verbose).await
@@ -124,7 +124,7 @@ pub async fn handle_doctor(sub_m: &ArgMatches) -> Result<()> {
         }
         // Unknown subcommand
         _ => {
-            let available = vec!["check", "fix", "integrity", "clean"];
+            let available = ["check", "fix", "integrity", "clean"];
             Err(anyhow::anyhow!(
                 "Unknown doctor subcommand. Available: {}",
                 available.join(", ")
@@ -159,7 +159,7 @@ async fn run_db_integrity_check(json_output: bool) -> Result<()> {
             let message = format!("Database integrity: {}", details);
             let issue = Issue::new(
                 IssueId::new("db_integrity")?,
-                IssueTitle::new(message.clone())?,
+                IssueTitle::new(&message)?,
                 IssueKind::Validation,
                 IssueSeverity::Hint,
             )?;

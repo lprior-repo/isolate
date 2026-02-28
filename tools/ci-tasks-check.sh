@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-cd /home/lewis/src/zjj
+cd /home/lewis/isolate
 
 # Check if TASKS_FILE is set, otherwise use default
 if [[ -z "${TASKS_FILE:-}" ]]; then
-	TASKS_FILE="/home/lewis/src/zjj/.moon/tasks.yml"
+	TASKS_FILE="/home/lewis/isolate/.moon/tasks.yml"
 fi
 
 # Track failures
@@ -97,7 +97,7 @@ validate_task_config() {
 get_documented_tasks() {
 	local temp_file="/tmp/moon_tasks_$$"
 
-	grep -rhoE 'moon run :[a-z][a-z-]*' /home/lewis/src/zjj/docs 2>/dev/null |
+	grep -rhoE 'moon run :[a-z][a-z-]*' /home/lewis/isolate/docs 2>/dev/null |
 		sed 's/moon run ://' |
 		sort -u >"$temp_file" || true
 
@@ -161,7 +161,7 @@ main() {
 
 	if [[ ! -f "$TASKS_FILE" ]]; then
 		log_error "Tasks file not found: $TASKS_FILE"
-		log_error "Expected location: /home/lewis/src/zjj/.moon/tasks.yml"
+		log_error "Expected location: /home/lewis/isolate/.moon/tasks.yml"
 		exit 1
 	fi
 

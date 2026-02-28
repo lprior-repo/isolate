@@ -459,7 +459,7 @@ DEVELOPMENT WORKFLOW:
   1. Make code changes
   2. Run: moon run :quick      # Verify formatting and types
   3. Run: moon run :test       # Run tests
-  4. Run: ./target/release/zjj --help    # Test manually
+  4. Run: ./target/release/isolate --help    # Test manually
 
 COMMON TASKS:
   moon run :fmt-fix            # Auto-fix formatting issues
@@ -479,9 +479,9 @@ DOCUMENTATION:
   • DOMAIN_TYPES_GUIDE.md - Domain types reference
 
 GETTING HELP:
-  • GitHub Issues: https://github.com/lprior-repo/zjj/issues
-  • Discussions: https://github.com/lprior-repo/zjj/discussions
-  • Full docs: https://lprior-repo.github.io/zjj/
+  • GitHub Issues: https://github.com/lprior-repo/isolate/issues
+  • Discussions: https://github.com/lprior-repo/isolate/discussions
+  • Full docs: https://lprior-repo.github.io/isolate/
 
 EOF
 }

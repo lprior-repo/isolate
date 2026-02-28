@@ -1,24 +1,118 @@
 //! Utility handlers: config, query, schema, completions, wait
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::ArgMatches;
 use isolate_core::OutputFormat;
 
 use super::json_format::get_format;
 use crate::commands::{completions, config, query, schema, wait};
 
+/// Handle the config command with subcommand routing
+///
+/// Routes to:
+/// - `config list` - show all config
+/// - `config get <key>` - get a specific config value
+/// - `config set <key> <value>` - set a config value
+/// - `config schema` - show configuration schema
 pub async fn handle_config(sub_m: &ArgMatches) -> Result<()> {
-    let key = sub_m.get_one::<String>("key").cloned();
-    let value = sub_m.get_one::<String>("value").cloned();
+    // Detect which subcommand was invoked
+    let (subcommand_name, subcommand_args) = sub_m.subcommand().ok_or_else(|| {
+        anyhow::anyhow!("Config subcommand required. Use: list, get, set, or schema")
+    })?;
+
+    match subcommand_name {
+        "list" => handle_config_list(subcommand_args).await,
+        "get" => handle_config_get(subcommand_args).await,
+        "set" => handle_config_set(subcommand_args).await,
+        "schema" => handle_config_schema(subcommand_args),
+        _ => anyhow::bail!(
+            "Unknown config subcommand: {subcommand_name}. Use: list, get, set, or schema"
+        ),
+    }
+}
+
+/// Handle `isolate config list`
+async fn handle_config_list(sub_m: &ArgMatches) -> Result<()> {
     let global = sub_m.get_flag("global");
     let format = get_format(sub_m);
     let options = config::ConfigOptions {
-        key,
-        value,
+        key: None,
+        value: None,
         global,
         format,
     };
     config::run(options).await
+}
+
+/// Handle `isolate config get <key>`
+async fn handle_config_get(sub_m: &ArgMatches) -> Result<()> {
+    let key = sub_m
+        .get_one::<String>("key")
+        .cloned()
+        .context("Config key is required for 'get' subcommand")?;
+    let global = sub_m.get_flag("global");
+    let format = get_format(sub_m);
+    let options = config::ConfigOptions {
+        key: Some(key),
+        value: None,
+        global,
+        format,
+    };
+    config::run(options).await
+}
+
+/// Handle `isolate config set <key> <value>`
+async fn handle_config_set(sub_m: &ArgMatches) -> Result<()> {
+    let key = sub_m
+        .get_one::<String>("key")
+        .cloned()
+        .context("Config key is required for 'set' subcommand")?;
+    let value = sub_m
+        .get_one::<String>("value")
+        .cloned()
+        .context("Config value is required for 'set' subcommand")?;
+    let global = sub_m.get_flag("global");
+    let format = get_format(sub_m);
+    let options = config::ConfigOptions {
+        key: Some(key),
+        value: Some(value),
+        global,
+        format,
+    };
+    config::run(options).await
+}
+
+/// Handle `isolate config schema`
+fn handle_config_schema(sub_m: &ArgMatches) -> Result<()> {
+    use isolate_core::json::SchemaEnvelope;
+
+    // Generate JSON schema for the Config type
+    let config = isolate_core::config::Config::default();
+
+    // Convert config to JSON schema format
+    let schema_json = serde_json::to_value(&config)
+        .context("Failed to serialize config for schema generation")?;
+
+    // Build a schema document
+    let schema_doc = serde_json::json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "IsolateConfig",
+        "description": "Schema for isolate configuration",
+        "type": "object",
+        "properties": schema_json
+    });
+
+    let format = get_format(sub_m);
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("config-schema", "single", schema_doc);
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize config schema")?;
+        println!("{json_str}");
+    } else {
+        println!("{}", serde_json::to_string_pretty(&schema_doc)?);
+    }
+
+    Ok(())
 }
 
 pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {

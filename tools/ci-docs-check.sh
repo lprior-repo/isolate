@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # CI Documentation Checker - ZJJ Command Validation
-# Validates that documented zjj commands exist in the binary help output
+# Validates that documented isolate commands exist in the binary help output
 # Validates that documentation is properly structured
 # Returns: 0 if all validation passes, 1 otherwise
 
 set -euo pipefail
 
-cd /home/lewis/src/zjj
+cd /home/lewis/isolate
 
 # Check if ZJJ_BINARY is set, otherwise use default
 if [[ -z "${ZJJ_BINARY:-}" ]]; then
-	ZJJ_BINARY="/home/lewis/src/zjj/target/release/zjj"
+	ZJJ_BINARY="/home/lewis/isolate/target/release/isolate"
 fi
 
 # Track failures
@@ -33,26 +33,26 @@ log_success() { echo -e "${GREEN}SUCCESS:${NC} $1"; }
 
 get_available_commands() {
 	if [[ ! -x "$ZJJ_BINARY" ]]; then
-		log_error "zjj binary not found or not executable: $ZJJ_BINARY"
+		log_error "isolate binary not found or not executable: $ZJJ_BINARY"
 		exit 1
 	fi
 
 	# Extract commands from help output
-	# Filter: starts with 2 spaces, not "zjj <command>", then get command name
-	"$ZJJ_BINARY" --help 2>&1 | grep -E '^  [a-z]' | grep -v "^\s*zjj\s" | sed 's/^  //' | sed 's/\s.*$//' | sort -u || true
+	# Filter: starts with 2 spaces, not "isolate <command>", then get command name
+	"$ZJJ_BINARY" --help 2>&1 | grep -E '^  [a-z]' | grep -v "^\s*isolate\s" | sed 's/^  //' | sed 's/\s.*$//' | sort -u || true
 }
 
 get_documented_commands() {
-	local temp_file="/tmp/zjj_docs_commands_$$"
-	local docs_dir="/home/lewis/src/zjj/docs"
+	local temp_file="/tmp/isolate_docs_commands_$$"
+	local docs_dir="/home/lewis/isolate/docs"
 	local all_commands
 	all_commands=$(get_available_commands)
 
-	# Find all zjj command references in docs that match actual binary commands
-	# Only match: "zjj <command>" at start of line or after whitespace, command must exist in binary
-	grep -rhoE '(^|\s)zjj\s+[a-z][a-z-]*' "$docs_dir" 2>/dev/null |
-		grep -oE 'zjj\s+[a-z][a-z-]*' |
-		sed 's/zjj //' |
+	# Find all isolate command references in docs that match actual binary commands
+	# Only match: "isolate <command>" at start of line or after whitespace, command must exist in binary
+	grep -rhoE '(^|\s)isolate\s+[a-z][a-z-]*' "$docs_dir" 2>/dev/null |
+		grep -oE 'isolate\s+[a-z][a-z-]*' |
+		sed 's/isolate //' |
 		sed 's/\s.*$//' |
 		grep -vE '^\s*$' |
 		grep -vE '^(Found|Found [0-9])' |
@@ -75,10 +75,10 @@ validate_command_exists() {
 
 	if echo "$commands" | grep -q "^${cmd}$"; then
 		TOTAL_FOUND=$((TOTAL_FOUND + 1))
-		log_success "Command 'zjj $cmd' exists in binary help"
+		log_success "Command 'isolate $cmd' exists in binary help"
 		return 0
 	else
-		log_error "Command 'zjj $cmd' not found in binary help"
+		log_error "Command 'isolate $cmd' not found in binary help"
 		MISSING_COMMANDS+=("$cmd")
 		TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
 		return 1
@@ -108,11 +108,11 @@ validate_doc_structure() {
 	# 	fi
 	# fi
 
-	# Check for proper command usage examples (zjj <command>)
-	if grep -qE 'zjj\s+[a-z][a-z-]*' "$doc_file"; then
+	# Check for proper command usage examples (isolate <command>)
+	if grep -qE 'isolate\s+[a-z][a-z-]*' "$doc_file"; then
 		log_success "Document $doc_file has command examples"
 	else
-		log_warn "No zjj command examples found in $doc_file"
+		log_warn "No isolate command examples found in $doc_file"
 	fi
 
 	# Check for code blocks with proper syntax highlighting
@@ -126,11 +126,11 @@ validate_doc_structure() {
 }
 
 validate_all_commands() {
-	local temp_file="/tmp/zjj_docs_commands_$$"
+	local temp_file="/tmp/isolate_docs_commands_$$"
 	get_documented_commands >"$temp_file"
 
 	if [[ ! -s "$temp_file" ]]; then
-		log_warn "No zjj commands found in documentation"
+		log_warn "No isolate commands found in documentation"
 		return 0
 	fi
 
@@ -142,7 +142,7 @@ validate_all_commands() {
 }
 
 validate_docs_exist() {
-	local docs_dir="/home/lewis/src/zjj/docs"
+	local docs_dir="/home/lewis/isolate/docs"
 	local docs_found=0
 	local docs_errors=0
 
@@ -212,8 +212,8 @@ main() {
 
 	# Check binary exists
 	if [[ ! -x "$ZJJ_BINARY" ]]; then
-		log_error "zjj binary not found or not executable: $ZJJ_BINARY"
-		log_error "Expected location: /home/lewis/src/zjj/target/release/zjj"
+		log_error "isolate binary not found or not executable: $ZJJ_BINARY"
+		log_error "Expected location: /home/lewis/isolate/target/release/isolate"
 		exit 1
 	fi
 
@@ -255,7 +255,7 @@ main() {
 		if [[ ${#MISSING_COMMANDS[@]} -gt 0 ]]; then
 			echo "Missing commands in binary:"
 			for cmd in "${MISSING_COMMANDS[@]}"; do
-				echo "  - zjj $cmd"
+				echo "  - isolate $cmd"
 			done
 		fi
 

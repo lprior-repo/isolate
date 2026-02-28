@@ -1,6 +1,6 @@
 #!/bin/bash
 # Config Concurrency Stress Test
-# Tests for concurrent write data loss bug (zjj-16ks)
+# Tests for concurrent write data loss bug (isolate-16ks)
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ cd "$PROJECT_ROOT"
 # Set up temporary directory
 TEMP_DIR=$(mktemp -d)
 export HOME="$TEMP_DIR"
-CONFIG="$TEMP_DIR/.zjj/config.toml"
+CONFIG="$TEMP_DIR/.isolate/config.toml"
 
 cleanup() {
     rm -rf "$TEMP_DIR"

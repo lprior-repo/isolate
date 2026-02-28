@@ -1,62 +1,48 @@
-# Implementation: Fix doctor routing to subcommands
+# Implementation: handlers: Fix doctor routing to subcommands
 
 ## Summary
 
-Successfully implemented subcommand routing for the `doctor` command with backward compatibility for legacy usage.
+Successfully implemented subcommand routing for the `isolate doctor` command to support:
+- `isolate doctor check` - Run all system health checks
+- `isolate doctor fix` - Auto-fix issues where possible
+- `isolate doctor integrity` - Run database integrity check
+- `isolate doctor clean` - Remove stale sessions
 
-## Changes Made
+Legacy mode (`isolate doctor` without subcommand) continues to work for backward compatibility.
 
-### 1. CLI Definition - `object_commands.rs`
+## Files Changed
 
-Modified `cmd_doctor()` function to:
-- Set `.subcommand_required(false)` to allow both subcommand and legacy usage
-- Added four subcommands: `check`, `fix`, `integrity`, `clean`
-- Added legacy arguments at parent level for backward compatibility: `--json`, `--fix`, `--dry-run`, `--verbose`
+### 1. `crates/isolate/src/cli/object_commands.rs`
+- Modified `cmd_doctor()` to add subcommands (check, fix, integrity, clean)
+- Added `subcommand_required(false)` to support legacy mode
+- Added legacy flags (--fix, --dry-run, --verbose) at top level for backward compatibility
+- Added `#[allow(clippy::too_many_lines)]` directive
 
-### 2. Handler - `handlers/integrity.rs`
+### 2. `crates/isolate/src/cli/commands.rs`
+- Modified `cmd_doctor()` to add subcommands for consistency
+- Added legacy flags at top level to support `isolate doctor --fix` style commands
+- Added `#[allow(clippy::too_many_lines)]` directive
 
-Updated `handle_doctor()` function to:
-- Route to appropriate handler based on subcommand
-- Added `emit_deprecation_warning()` for legacy usage without subcommand
-- Support legacy flags when no subcommand is provided
-- Return clear error for unknown subcommands
+### 3. `crates/isolate/src/cli/handlers/integrity.rs`
+- Modified `handle_doctor()` to route to appropriate subcommand handlers
+- Added `run_db_integrity_check()` function for the integrity subcommand
+- Uses `contains_id` to check for legacy flags safely
 
-### 3. CLI Definition - `commands.rs`
+### 4. `crates/isolate/src/commands/doctor.rs`
+- Made `run_integrity_check()` public so it can be called from the handler
 
-Updated `cmd_doctor()` function to:
-- Added matching subcommand definitions for consistency
-- Added `#[allow(clippy::too_many_lines)]` directive due to larger function
+## Test Results
 
-## Verified Functionality
+- ✅ `moon run :quick` passes
+- ✅ `moon run :test` passes (2643 tests)
+- ✅ `isolate doctor` (legacy) - works
+- ✅ `isolate doctor check` - works
+- ✅ `isolate doctor fix` - works  
+- ✅ `isolate doctor integrity` - works
+- ✅ `isolate doctor clean` - works
+- ✅ `isolate doctor --fix` (legacy with flag) - works
+- ✅ `isolate doctor invalid` - returns error with clear message
 
-| Command | Behavior | Status |
-|---------|----------|--------|
-| `doctor` | Shows deprecation warning, runs health check | ✅ |
-| `doctor check` | Runs health check | ✅ |
-| `doctor fix` | Attempts auto-fix | ✅ |
-| `doctor integrity` | Runs integrity validation | ✅ |
-| `doctor clean` | Cleans up stale sessions | ✅ |
-| `doctor invalid` | Shows error, exit code 2 | ✅ |
+## Verification
 
-## Acceptance Tests
-
-- ✅ test_doctor_check: `isolate doctor check` returns health status
-- ✅ test_doctor_fix: `isolate doctor fix` attempts repairs  
-- ✅ test_doctor_integrity: `isolate doctor integrity` checks DB
-- ✅ test_doctor_clean: `isolate doctor clean` removes temp files
-- ✅ test_doctor_invalid: `isolate doctor invalid` returns error with clear message
-- ✅ test_doctor_missing: `isolate doctor` shows deprecation warning
-
-## Quality Gates
-
-- ✅ moon run :quick passes
-- ✅ moon run :test passes (2643 tests)
-- ✅ moon run :ci passes
-- ✅ No unwrap/expect/panic in source code
-- ✅ Uses Result<T, E> pattern throughout
-
-## Files Modified
-
-1. `/crates/isolate/src/cli/object_commands.rs` - CLI definition for doctor subcommands
-2. `/crates/isolate/src/cli/commands.rs` - Legacy CLI definition (consistency)
-3. `/crates/isolate/src/cli/handlers/integrity.rs` - Handler routing logic
+All subcommands have been manually tested and verified to work correctly.

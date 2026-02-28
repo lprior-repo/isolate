@@ -7,7 +7,6 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use isolate_core::templates::askama::{render_template, ProjectContext, TemplateType};
 
 /// Repo-level AI instructions for when working on isolate itself
 pub(super) const REPO_AI_INSTRUCTIONS: &str = r"# Isolate Repository - AI Agent Instructions
@@ -279,114 +278,116 @@ pub(super) async fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> 
     Ok(())
 }
 
-/// Get project context from repository root
-///
-/// Extracts project metadata for template rendering using functional patterns.
-/// Returns default values if extraction fails, ensuring zero panics.
-///
-/// # Errors
-///
-/// Returns error if `ProjectContext::new()` validation fails.
-pub(super) fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
-    let project_name = repo_root
-        .file_name()
-        .and_then(|s| s.to_str())
-        .map(String::from)
-        .unwrap_or_else(|| "new-project".to_string());
+/// Default AI instructions for AGENTS.md
+const AGENTS_MD_CONTENT: &str = "\
+# Agent Instructions: Autonomous Development Loop
 
-    ProjectContext::new(
-        project_name,
-        "A new project".to_string(),
-        "0.1.0".to_string(),
-        vec!["Your Name".to_string()],
-        None,
-    )
-    .context("Failed to create project context")
-}
+This project uses **Beads** for triage, **Isolate** for isolation, and **Moon** for absolute quality.
 
-/// Create AGENTS.md file from template
-///
-/// Part of the template rendering system for agent-ready projects.
+## Core Workflow (The Loop)
+
+1. **Triage & Pull**: Use `bv --robot-triage` to find the highest-impact bead. Claim it with `br claim <bead-id>`.
+2. **Isolate**: Invoke `isolate spawn <bead-id>`. This provisions an isolated workspace at `.isolate/workspaces/<bead-id>/`.
+3. **Execute Skills**:
+   - **tdd15**: Drive development through small, failing tests.
+   - **red-queen**: Adhere to rigorous adversarial verification standards.
+   - **functional**: Ensure purely functional Rust (ROP, zero unwraps).
+4. **Absolute Quality**: Run `moon run :ci --force` (the `--force` flag is mandatory to bypass cache and ensure absolute correctness).
+5. **Merge & Close**: Run `isolate done`. This merges your work into `main` and marks the bead as completed.
+
+## Build System (Moon Only)
+
+**NEVER use raw cargo.**
+- ✅ `moon run :quick` (Fast check)
+- ✅ `moon run :ci --force` (Absolute verification)
+- ❌ `cargo build/test`
+
+## Zero-Policy (Enforced)
+
+- No `.unwrap()` or `.expect()`
+- No `panic!()` or `unsafe`
+- All errors use `Result<T, Error>` with proper combinators (`map`, `and_then`).
+
+## Landing Rules
+
+Work is not complete until:
+1. `moon run :ci --force` passes.
+2. `isolate done` has been executed.
+3. `git push` succeeds.
+";
+
+/// Create AGENTS.md file
 pub(super) async fn create_agents_md(repo_root: &Path) -> Result<()> {
-    let context = get_project_context(repo_root)?;
-    let rendered_content = render_template(TemplateType::AgentsMd, &context)?;
     let path = repo_root.join("AGENTS.md");
     if !tokio::fs::try_exists(&path).await.is_ok_and(|e| e) {
-        tokio::fs::write(&path, rendered_content)
+        tokio::fs::write(&path, AGENTS_MD_CONTENT)
             .await
             .context("Failed to create AGENTS.md")?;
     }
     Ok(())
 }
 
-/// Create CLAUDE.md file from template
-///
-/// Part of the template rendering system for agent-ready projects.
+/// Create CLAUDE.md file
 pub(super) async fn create_claude_md(repo_root: &Path) -> Result<()> {
-    let context = get_project_context(repo_root)?;
-    let rendered_content = render_template(TemplateType::ClaudeMd, &context)?;
     let path = repo_root.join("CLAUDE.md");
     if !tokio::fs::try_exists(&path).await.is_ok_and(|e| e) {
-        tokio::fs::write(&path, rendered_content)
+        tokio::fs::write(&path, AGENTS_MD_CONTENT)
             .await
             .context("Failed to create CLAUDE.md")?;
     }
     Ok(())
 }
 
+/// Moon workspace.yml template
+const MOON_WORKSPACE: &str = r#"$schema: "https://moonrepo.dev/schemas/workspace.json"
+vcs:
+  manager: "git"
+  defaultBranch: "main"
+"#;
+
+/// Moon toolchain.yml template
+const MOON_TOOLCHAIN: &str = r#"$schema: "https://moonrepo.dev/schemas/toolchain.json"
+"#;
+
+/// Moon tasks.yml template
+const MOON_TASKS: &str = r#"$schema: "https://moonrepo.dev/schemas/tasks.json"
+tasks:
+  ci:
+    command: "cargo check && cargo test"
+    options:
+      cache: true
+"#;
+
 /// Create Moon pipeline configuration files
-///
-/// Scaffolds .moon/ directory with workspace.yml, toolchain.yml, and tasks.yml.
-/// Templates use project name replacement for custom paths.
 pub(super) async fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
     let moon_dir = repo_root.join(".moon");
     tokio::fs::create_dir_all(&moon_dir)
         .await
         .context("Failed to create .moon directory")?;
 
-    let context = get_project_context(repo_root)?;
-
-    // Render and write workspace.yml
-
     let workspace_path = moon_dir.join("workspace.yml");
-
     if !tokio::fs::try_exists(&workspace_path)
         .await
         .is_ok_and(|e| e)
     {
-        let workspace_yml = render_template(TemplateType::MoonWorkspace, &context)
-            .context("Failed to render workspace.yml template")?;
-
-        tokio::fs::write(&workspace_path, workspace_yml)
+        tokio::fs::write(&workspace_path, MOON_WORKSPACE)
             .await
             .context("Failed to create .moon/workspace.yml")?;
     }
 
-    // Render and write toolchain.yml
-
     let toolchain_path = moon_dir.join("toolchain.yml");
-
     if !tokio::fs::try_exists(&toolchain_path)
         .await
         .is_ok_and(|e| e)
     {
-        let toolchain_yml = render_template(TemplateType::MoonToolchain, &context)
-            .context("Failed to render toolchain.yml template")?;
-
-        tokio::fs::write(&toolchain_path, toolchain_yml)
+        tokio::fs::write(&toolchain_path, MOON_TOOLCHAIN)
             .await
             .context("Failed to create .moon/toolchain.yml")?;
     }
 
-    // Render and write tasks.yml
-
     let tasks_path = moon_dir.join("tasks.yml");
-
     if !tokio::fs::try_exists(&tasks_path).await.is_ok_and(|e| e) {
-        let tasks_yml = render_template(TemplateType::MoonTasks, &context)
-            .context("Failed to render tasks.yml template")?;
-
-        tokio::fs::write(&tasks_path, tasks_yml)
+        tokio::fs::write(&tasks_path, MOON_TASKS)
             .await
             .context("Failed to create .moon/tasks.yml")?;
     }
@@ -394,36 +395,81 @@ pub(super) async fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Create documentation files from templates
-///
-/// Creates comprehensive documentation for agent-ready projects.
-pub(super) async fn create_docs(repo_root: &Path) -> Result<()> {
-    use futures::{StreamExt, TryStreamExt};
+/// Documentation content
+const DOC_ERROR_HANDLING: &str = "\
+# Error Handling: Zero Policy
 
+## The Sacred Law
+All fallible operations return `Result<T, Error>`. Capturing error information is a requirement, not a suggestion.
+
+## Combinators
+Use `map`, `and_then`, and `?` to propagate errors idiomatically.
+";
+
+const DOC_MOON_BUILD: &str = "\
+# Build Pipeline: Moon
+
+## Absolute Verification
+To ensure no cached success masks a subtle regression, always run:
+```bash
+moon run :ci --force
+```
+";
+
+const DOC_WORKFLOW: &str = "\
+# Workflow: Pull -> Isolate -> Verify -> Merge
+
+1. **Pull**: `bv` discover new beads.
+2. **Isolate**: `isolate spawn <bead-id>`.
+3. **Verify**: `moon run :ci --force`.
+4. **Merge**: `isolate done`.
+";
+
+const DOC_RUST_STANDARDS: &str = "\
+# Rust Standards
+
+- **KIRK**: Keep It Robust and Klean.
+- **Contract Based Testing**: Verify boundaries.
+- **Invariants**: Document and enforce state consistency.
+";
+
+const DOC_BEADS: &str = "\
+# Beads Integration
+
+Issues are nodes in a graph. Prioritize using `bv --robot-triage`.
+See [03_WORKFLOW.md](03_WORKFLOW.md) for how to pull beads into isolated workspaces.
+";
+
+const DOC_JUJUTSU: &str = "\
+# Jujutsu Workspaces
+
+Instant isolation via `jj workspace add`. Managed automatically by `isolate`.
+";
+
+/// Create documentation files
+pub(super) async fn create_docs(repo_root: &Path) -> Result<()> {
     let docs_dir = repo_root.join("docs");
     tokio::fs::create_dir_all(&docs_dir)
         .await
         .context("Failed to create docs directory")?;
 
-    let context = get_project_context(repo_root)?;
+    let docs = [
+        ("01_ERROR_HANDLING.md", DOC_ERROR_HANDLING),
+        ("02_MOON_BUILD.md", DOC_MOON_BUILD),
+        ("03_WORKFLOW.md", DOC_WORKFLOW),
+        ("05_RUST_STANDARDS.md", DOC_RUST_STANDARDS),
+        ("08_BEADS.md", DOC_BEADS),
+        ("09_JUJUTSU.md", DOC_JUJUTSU),
+    ];
 
-    futures::stream::iter(TemplateType::docs())
-        .map(Ok)
-        .try_for_each(|template_type| {
-            let context = &context;
-            let docs_dir = &docs_dir;
-            async move {
-                let rendered = render_template(*template_type, context)?;
-                let path = docs_dir.join(template_type.as_str());
-                if !tokio::fs::try_exists(&path).await.is_ok_and(|e| e) {
-                    tokio::fs::write(&path, rendered)
-                        .await
-                        .with_context(|| format!("Failed to create {}", path.display()))?;
-                }
-                Ok::<(), anyhow::Error>(())
-            }
-        })
-        .await?;
+    for (name, content) in docs {
+        let path = docs_dir.join(name);
+        if !tokio::fs::try_exists(&path).await.is_ok_and(|e| e) {
+            tokio::fs::write(&path, content)
+                .await
+                .with_context(|| format!("Failed to create {}", path.display()))?;
+        }
+    }
 
     Ok(())
 }

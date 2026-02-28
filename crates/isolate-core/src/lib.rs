@@ -94,9 +94,6 @@ mod session_state_tests;
 pub mod session_sync;
 pub mod shutdown;
 pub mod taskregistry;
-pub mod templates;
-#[cfg(test)]
-mod templates_tests;
 pub mod types;
 #[cfg(test)]
 mod types_tests;

@@ -13,13 +13,13 @@ cd "$TEMP_DIR"
 
 echo "=== Setting up test repo in $TEMP_DIR ==="
 
-# Define zjj binary location
-ZJJ_CMD="cargo run --manifest-path ${PROJECT_ROOT}/crates/zjj/Cargo.toml --quiet --"
+# Define isolate binary location
+ZJJ_CMD="cargo run --manifest-path ${PROJECT_ROOT}/crates/isolate/Cargo.toml --quiet --"
 
-# 1. Initialize git/jj/zjj
+# 1. Initialize git/jj/isolate
 git init .
 jj git init --colocate
-mkdir -p .zjj
+mkdir -p .isolate
 $ZJJ_CMD init
 
 # 2. Create some history on main
@@ -59,7 +59,7 @@ pids="$pids $!"
 		jj commit -m "ws-a commit $i"
 		# The critical operation: sync
 		if ! $ZJJ_CMD sync; then
-			echo "FAIL: zjj sync failed in ws-a"
+			echo "FAIL: isolate sync failed in ws-a"
 			exit 1
 		fi
 		sleep 0.2
@@ -77,7 +77,7 @@ pids="$pids $!"
 		jj commit -m "ws-b commit $i"
 		# The critical operation: sync
 		if ! $ZJJ_CMD sync; then
-			echo "FAIL: zjj sync failed in ws-b"
+			echo "FAIL: isolate sync failed in ws-b"
 			exit 1
 		fi
 		sleep 0.3
@@ -94,8 +94,8 @@ pids="$pids $!"
 		jj new
 		jj commit -m "ws-a commit $i"
 		# The critical operation: sync
-		if ! zjj sync; then
-			echo "FAIL: zjj sync failed in ws-a"
+		if ! isolate sync; then
+			echo "FAIL: isolate sync failed in ws-a"
 			exit 1
 		fi
 		sleep 0.2
@@ -112,8 +112,8 @@ pids="$pids $!"
 		jj new
 		jj commit -m "ws-b commit $i"
 		# The critical operation: sync
-		if ! zjj sync; then
-			echo "FAIL: zjj sync failed in ws-b"
+		if ! isolate sync; then
+			echo "FAIL: isolate sync failed in ws-b"
 			exit 1
 		fi
 		sleep 0.3

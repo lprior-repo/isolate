@@ -1,12 +1,12 @@
 [package]
-name = "zjj-audit"
+name = "isolate-audit"
 version = "0.1.0"
 edition = "2021"
 
 [workspace]
 
 [[bin]]
-name = "zjj-audit"
+name = "isolate-audit"
 path = "src/main.rs"
 
 [dependencies]

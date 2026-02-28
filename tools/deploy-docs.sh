@@ -83,7 +83,7 @@ deploy_docs() {
 
     # Set the remote to push to GitHub
     cd "${temp_dir}"
-    git remote set-url origin "https://github.com/lprior-repo/zjj.git"
+    git remote set-url origin "https://github.com/lprior-repo/isolate.git"
 
     # Work in temp directory
     cd "${temp_dir}"
@@ -128,7 +128,7 @@ EOF
     git push "${REMOTE}" "${DEPLOY_BRANCH}" --force
 
     log_success "Documentation deployed successfully!"
-    log_info "View at: https://lprior-repo.github.io/zjj/"
+    log_info "View at: https://lprior-repo.github.io/isolate/"
 }
 
 # Main entry point
