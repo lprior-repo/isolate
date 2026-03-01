@@ -348,7 +348,10 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
     use crate::Error;
     match error {
         // Usage/validation errors: exit code 1
-        Error::InvalidConfig(_) | Error::ParseError(_) | Error::DedupeKeyConflict { .. } | Error::ValidationError { .. } => 1,
+        Error::InvalidConfig(_)
+        | Error::ParseError(_)
+        | Error::DedupeKeyConflict { .. }
+        | Error::ValidationError { .. } => 1,
         // Not found errors: exit code 2
         Error::NotFound(_) | Error::SessionNotFound { .. } => 2,
         // System errors: exit code 3

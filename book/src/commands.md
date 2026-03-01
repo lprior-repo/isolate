@@ -26,7 +26,6 @@ These are the commands you need 90% of the time:
 |---------|-------------|
 | `isolate add <name>` | Create session for manual work |
 | `isolate list` | List all sessions |
-| `isolate focus <name>` | Switch to a session |
 | `isolate remove <name>` | Remove a session |
 | `isolate clone <name>` | Clone a session |
 | `isolate rename <old> <new>` | Rename a session |
@@ -54,7 +53,6 @@ isolate task done <id>         # Complete a task
 isolate session list           # List all sessions
 isolate session add <name>     # Create new session
 isolate session remove <name>  # Remove a session
-isolate session focus <name>   # Switch to a session
 isolate session spawn <bead>   # Spawn session for agent work
 isolate session sync           # Sync with remote
 ```

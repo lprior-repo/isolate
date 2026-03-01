@@ -144,7 +144,6 @@ codanna index && codanna documents index --collection docs
 
 ```jsonl
 {"cmd": "isolate add <name>", "use": "Create session + Zellij tab", "frequency": "New work"}
-{"cmd": "isolate focus <name>", "use": "Switch to session tab", "frequency": "Context switch"}
 {"cmd": "isolate remove <name>", "use": "Close tab + workspace", "frequency": "Work complete"}
 {"cmd": "isolate list", "use": "Show all sessions", "frequency": "Status check"}
 {"cmd": "isolate whereami", "use": "Check current location", "frequency": "Orient yourself"}

@@ -721,7 +721,11 @@ mod tests {
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
-            assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+            assert_eq!(
+                e.exit_code(),
+                1,
+                "ValidationError should map to exit code 1"
+            );
         }
 
         // Non-ASCII name
@@ -729,7 +733,11 @@ mod tests {
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
-            assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+            assert_eq!(
+                e.exit_code(),
+                1,
+                "ValidationError should map to exit code 1"
+            );
         }
 
         // Name starting with number
@@ -737,7 +745,11 @@ mod tests {
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
-            assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+            assert_eq!(
+                e.exit_code(),
+                1,
+                "ValidationError should map to exit code 1"
+            );
         }
 
         // Name with invalid characters
@@ -745,7 +757,11 @@ mod tests {
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
-            assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+            assert_eq!(
+                e.exit_code(),
+                1,
+                "ValidationError should map to exit code 1"
+            );
         }
     }
 
@@ -759,7 +775,11 @@ mod tests {
             value: None,
             constraints: Vec::new(),
         };
-        assert_eq!(err.exit_code(), 1, "ValidationError should map to exit code 1");
+        assert_eq!(
+            err.exit_code(),
+            1,
+            "ValidationError should map to exit code 1"
+        );
         assert!(matches!(err, isolate_core::Error::ValidationError { .. }));
     }
 

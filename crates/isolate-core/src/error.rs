@@ -742,7 +742,10 @@ impl Error {
     pub const fn exit_code(&self) -> i32 {
         match self {
             // Usage/validation errors: exit code 1
-            Self::InvalidConfig(_) | Self::ParseError(_) | Self::DedupeKeyConflict { .. } | Self::ValidationError { .. } => 1,
+            Self::InvalidConfig(_)
+            | Self::ParseError(_)
+            | Self::DedupeKeyConflict { .. }
+            | Self::ValidationError { .. } => 1,
             // Not found errors: exit code 2
             Self::NotFound(_) | Self::SessionNotFound { .. } => 2,
             // System errors: exit code 3

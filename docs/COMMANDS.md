@@ -35,12 +35,10 @@ isolate task done <id>        # Complete a task
 isolate session list           # List all sessions
 isolate session add <name>     # Create new session
 isolate session remove <name>  # Remove a session
-isolate session focus <name>   # Switch to a session
 isolate session pause <name>   # Pause a session
 isolate session resume <name>  # Resume a paused session
 isolate session clone <name>   # Clone a session
 isolate session rename <name>  # Rename a session
-isolate session attach <name>  # Attach to session from shell
 isolate session spawn <bead>   # Spawn session for automated work
 isolate session sync           # Sync session with remote
 isolate session init           # Initialize isolate in a repo
@@ -100,7 +98,6 @@ isolate spawn <bead> --idempotent    # Succeed if already exists
 ```bash
 isolate list                 # List all sessions
 isolate list --all          # Include all sessions
-isolate focus <name>        # Switch to a session
 isolate context             # Show current context
 isolate context --field <path>  # Extract single field (e.g., repository.branch)
 isolate context --no-beads   # Skip beads database query (faster)
@@ -213,9 +210,6 @@ isolate whereami
 # Start work on a task
 isolate work <bead-id>
 
-# Switch to a session
-isolate focus <name>
-
 # List all sessions
 isolate list
 
@@ -293,9 +287,6 @@ isolate list --json
 
 # Sync all with main
 isolate session sync --all
-
-# Focus a specific session
-isolate focus my-session
 ```
 
 ---

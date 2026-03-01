@@ -221,7 +221,6 @@ pub async fn handle_session(args: &ArgMatches) -> Result<()> {
                         {"name": "resume", "description": "Resume a paused session"},
                         {"name": "clone", "description": "Clone a session"},
                         {"name": "rename", "description": "Rename a session"},
-                        {"name": "attach", "description": "Attach to session from shell"},
                         {"name": "spawn", "description": "Spawn session for agent work"},
                         {"name": "sync", "description": "Sync session with remote"},
                         {"name": "init", "description": "Initialize isolate in repository"},
@@ -238,9 +237,6 @@ pub async fn handle_session(args: &ArgMatches) -> Result<()> {
                 println!("  isolate session resume [name]               Resume a paused session");
                 println!("  isolate session clone <name>                Clone a session");
                 println!("  isolate session rename <old> <new>          Rename a session");
-                println!(
-                    "  isolate session attach <name>               Attach to session from shell"
-                );
                 println!(
                     "  isolate session spawn <bead>                Spawn session for agent work"
                 );

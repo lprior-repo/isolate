@@ -203,7 +203,6 @@ jj log                              # View history
 isolate add <name>           # Create session + workspace
 isolate work <name>          # Simpler workspace creation
 isolate whereami             # Check current location
-isolate focus <name>         # Switch to session's tab
 isolate done                 # Complete and merge work
 isolate sync                 # Sync with main
 isolate abort                # Abort and cleanup

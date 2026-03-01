@@ -503,10 +503,10 @@ When reporting errors, include:
 2. **The command you ran**
    ```bash
    # Good
-   $ isolate focus my-feature
+   $ isolate session list
 
    # Bad
-   "I tried to focus the session"
+   "I tried to list sessions"
    ```
 
 3. **Exit code**
@@ -529,7 +529,7 @@ When reporting errors, include:
 For machine-readable error output:
 
 ```bash
-isolate --json output <command>
+isolate <command> --json
 ```
 
 JSON error structure:

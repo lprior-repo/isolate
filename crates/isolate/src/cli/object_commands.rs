@@ -361,16 +361,6 @@ pub fn cmd_session() -> ClapCommand {
                 ),
         )
         .subcommand(
-            ClapCommand::new("focus")
-                .about("Switch to a session")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Session name to focus"),
-                ),
-        )
-        .subcommand(
             ClapCommand::new("pause")
                 .about("Pause a session")
                 .arg(json_arg())
@@ -409,16 +399,6 @@ pub fn cmd_session() -> ClapCommand {
                         .help("Current session name"),
                 )
                 .arg(Arg::new("new-name").required(true).help("New session name")),
-        )
-        .subcommand(
-            ClapCommand::new("attach")
-                .about("Attach to session from shell")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Session name to attach to"),
-                ),
         )
         .subcommand(
             ClapCommand::new("spawn")
@@ -797,15 +777,6 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(ai_hints_arg()),
         )
         .subcommand(
-            ClapCommand::new("focus")
-                .about("Focus session")
-                .arg(Arg::new("name").required(true))
-                .arg(Arg::new("show-context").long("show-context").action(clap::ArgAction::SetTrue))
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
             ClapCommand::new("clone")
                 .about("Clone session")
                 .arg(Arg::new("source").required(true))
@@ -1006,12 +977,10 @@ mod tests {
         assert!(subcommands.contains(&"list"));
         assert!(subcommands.contains(&"add"));
         assert!(subcommands.contains(&"remove"));
-        assert!(subcommands.contains(&"focus"));
         assert!(subcommands.contains(&"pause"));
         assert!(subcommands.contains(&"resume"));
         assert!(subcommands.contains(&"clone"));
         assert!(subcommands.contains(&"rename"));
-        assert!(subcommands.contains(&"attach"));
         assert!(subcommands.contains(&"spawn"));
         assert!(subcommands.contains(&"sync"));
         assert!(subcommands.contains(&"init"));

@@ -357,7 +357,11 @@ mod tests {
             value: None,
             constraints: Vec::new(),
         };
-        assert_eq!(err.exit_code(), 1, "ValidationError should map to exit code 1");
+        assert_eq!(
+            err.exit_code(),
+            1,
+            "ValidationError should map to exit code 1"
+        );
         assert!(matches!(err, isolate_core::Error::ValidationError { .. }));
     }
 
