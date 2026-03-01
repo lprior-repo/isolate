@@ -396,7 +396,8 @@ pub fn cmd_session() -> ClapCommand {
                         .long("new-name")
                         .value_name("NAME")
                         .help("Name for cloned session"),
-                ),
+                )
+                .arg(dry_run_arg()),
         )
         .subcommand(
             ClapCommand::new("rename")
@@ -735,7 +736,7 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(
             ClapCommand::new("add")
                 .about("Add session")
-                .arg(Arg::new("name").required(true))
+                .arg(Arg::new("name").required_unless_present("example-json"))
                 .arg(dry_run_arg())
                 .arg(json_arg())
                 .arg(contract_arg())
@@ -743,7 +744,8 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
                 .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue).default_value("false"))
                 .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false")),
+                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("example-json").long("example-json").action(clap::ArgAction::SetTrue).default_value("false")),
         )
         .subcommand(
             ClapCommand::new("list")
@@ -752,14 +754,20 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(contract_arg())
                 .arg(ai_hints_arg())
                 .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue).default_value("false")),
+                .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue).default_value("false"))
+                .arg(Arg::new("bead").long("bead").value_name("BEAD_ID"))
+                .arg(Arg::new("agent").long("agent").value_name("AGENT"))
+                .arg(Arg::new("state").long("state").value_name("STATE")),
         )
         .subcommand(
             ClapCommand::new("remove")
                 .about("Remove session")
                 .arg(Arg::new("name").required(true))
                 .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("merge").short('m').long("merge").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("keep-branch").short('k').long("keep-branch").action(clap::ArgAction::SetTrue))
                 .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
                 .arg(json_arg())
                 .arg(contract_arg())
                 .arg(ai_hints_arg()),
@@ -792,6 +800,7 @@ pub fn build_object_cli() -> ClapCommand {
             ClapCommand::new("focus")
                 .about("Focus session")
                 .arg(Arg::new("name").required(true))
+                .arg(Arg::new("show-context").long("show-context").action(clap::ArgAction::SetTrue))
                 .arg(json_arg())
                 .arg(contract_arg())
                 .arg(ai_hints_arg()),
@@ -799,8 +808,8 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(
             ClapCommand::new("clone")
                 .about("Clone session")
-                .arg(Arg::new("name").required(true))
-                .arg(Arg::new("new-name").long("new-name").value_name("NAME"))
+                .arg(Arg::new("source").required(true))
+                .arg(Arg::new("dest").required(true))
                 .arg(json_arg())
                 .arg(contract_arg())
                 .arg(ai_hints_arg()),
@@ -808,21 +817,25 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(
             ClapCommand::new("rename")
                 .about("Rename session")
-                .arg(Arg::new("old-name").required(true))
-                .arg(Arg::new("new-name").required(true))
+                .arg(Arg::new("old_name").required(true))
+                .arg(Arg::new("new_name").required(true))
                 .arg(json_arg()),
         )
         .subcommand(
             ClapCommand::new("pause")
                 .about("Pause session")
                 .arg(Arg::new("name").required(false))
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("resume")
                 .about("Resume session")
                 .arg(Arg::new("name").required(false))
-                .arg(json_arg()),
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("whoami")
@@ -855,22 +868,41 @@ pub fn build_object_cli() -> ClapCommand {
                 .arg(json_arg())
                 .arg(contract_arg())
                 .arg(ai_hints_arg())
-                .arg(Arg::new("name").required(false)),
+                .arg(Arg::new("name").required(false))
+                .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
+                .arg(Arg::new("message").short('m').long("message").value_name("MSG"))
+                .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("no-keep").long("no-keep").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("squash").long("squash").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("detect-conflicts").long("detect-conflicts").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue)),
         )
         .subcommand(
             ClapCommand::new("work")
                 .about("Start work on a task")
                 .arg(Arg::new("bead").required(false))
                 .arg(Arg::new("name").required(false))
+                .arg(Arg::new("agent-id").long("agent-id").value_name("ID"))
+                .arg(Arg::new("no-agent").long("no-agent").action(clap::ArgAction::SetTrue))
                 .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
-                .arg(json_arg()),
+                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("abort")
                 .about("Abort work")
                 .arg(Arg::new("name").required(false))
+                .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
                 .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
-                .arg(json_arg()),
+                .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+                .arg(json_arg())
+                .arg(contract_arg())
+                .arg(ai_hints_arg()),
         )
         .subcommand(
             ClapCommand::new("checkpoint")
@@ -882,12 +914,15 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(
             ClapCommand::new("undo")
                 .about("Undo last operation")
+                .arg(Arg::new("list").short('l').long("list").action(clap::ArgAction::SetTrue))
+                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
                 .arg(json_arg()),
         )
         .subcommand(
             ClapCommand::new("revert")
                 .about("Revert changes")
-                .arg(Arg::new("name").required(false))
+                .arg(Arg::new("name").required(true))
+                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
                 .arg(json_arg()),
         )
 }
