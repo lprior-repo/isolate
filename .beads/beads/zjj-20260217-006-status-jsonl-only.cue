@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Update crates/zjj/src/commands/status.rs",
+        "Update crates/isolate/src/commands/status.rs",
         "Remove table/box-drawing output",
         "Remove color output",
         "Add emit_jsonl() calls for Summary, Session, Issue, Context",
@@ -73,8 +73,8 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj/src/commands/status.rs",
-        "Import emit_jsonl from zjj_core::output::jsonl",
+        "Read crates/isolate/src/commands/status.rs",
+        "Import emit_jsonl from isolate_core::output::jsonl",
         "Import OutputLine types",
         "Remove table/box-drawing code",
         "Remove color code",
@@ -83,7 +83,7 @@ algorithm: {
         "For each session: emit OutputLine::Session",
         "For each issue: emit OutputLine::Issue",
         "Emit OutputLine::Context last",
-        "Test: zjj status | jq -c .",
+        "Test: isolate status | jq -c .",
         "Verify each line is valid JSON",
         "Verify Context is last line",
     ]
@@ -236,7 +236,7 @@ acceptance_criteria: {
         "No table/box-drawing output",
         "No color output",
         "Unit tests pass",
-        "Manual test: zjj status | jq -c .",
+        "Manual test: isolate status | jq -c .",
     ]
     // Should: Nice to have
     should: [

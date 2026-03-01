@@ -19,10 +19,10 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Update crates/zjj/src/commands/add.rs",
-        "Update crates/zjj/src/commands/remove.rs",
-        "Update crates/zjj/src/commands/sync.rs",
-        "Update crates/zjj/src/commands/focus.rs",
+        "Update crates/isolate/src/commands/add.rs",
+        "Update crates/isolate/src/commands/remove.rs",
+        "Update crates/isolate/src/commands/sync.rs",
+        "Update crates/isolate/src/commands/focus.rs",
         "Update other commands with output",
         "Add emit_jsonl() calls for appropriate OutputLine variants",
         "Emit Context line last",
@@ -73,7 +73,7 @@ algorithm: {
         "  Remove human formatting",
         "  Add emit_jsonl() calls",
         "  Emit Context last",
-        "Test each command: zjj <cmd> | jq -c .",
+        "Test each command: isolate <cmd> | jq -c .",
         "Verify all output is valid JSON",
     ]
 }

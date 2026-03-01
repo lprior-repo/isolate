@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Update crates/zjj/src/commands/queue.rs",
+        "Update crates/isolate/src/commands/queue.rs",
         "Remove human-readable formatting",
         "Add emit_jsonl() calls for QueueSummary, QueueEntry lines",
         "Emit one QueueSummary line",
@@ -69,15 +69,15 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj/src/commands/queue.rs",
-        "Import emit_jsonl from zjj_core::output::jsonl",
+        "Read crates/isolate/src/commands/queue.rs",
+        "Import emit_jsonl from isolate_core::output::jsonl",
         "Import OutputLine types including QueueSummary, QueueEntry",
         "Remove human formatting code",
         "Query merge queue from database",
         "Emit OutputLine::QueueSummary with totals",
         "For each entry: emit OutputLine::QueueEntry",
         "Emit OutputLine::Context last",
-        "Test: zjj queue | jq -c .",
+        "Test: isolate queue | jq -c .",
         "Verify each line is valid JSON",
     ]
 }
@@ -217,7 +217,7 @@ acceptance_criteria: {
         "Output can be parsed by jq -c",
         "No human-readable formatting",
         "Unit tests pass",
-        "Manual test: zjj queue | jq -c .",
+        "Manual test: isolate queue | jq -c .",
     ]
     // Should: Nice to have
     should: [

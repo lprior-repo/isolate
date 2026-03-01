@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create crates/zjj/tests/test_conflict_resolution.rs",
+        "Create crates/isolate/tests/test_conflict_resolution.rs",
         "Test conflict analyze",
         "Test conflict resolve",
         "Test security keyword detection",

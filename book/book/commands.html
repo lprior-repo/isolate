@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Command Reference - ZJJ Documentation</title>
+        <title>CLI Commands - Isolate Documentation</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Parallel Workspace Isolation + Queue Coordination for JJ + Zellij">
+        <meta name="description" content="Workspace isolation for multi-agent workflows. Built on JJ.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7e70b2ce.js";
+            window.path_to_searchindex_js = "searchindex-b4db8918.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-6b77885c.js"></script>
+        <script src="toc-b0ee52aa.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -139,16 +139,16 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">ZJJ Documentation</h1>
+                    <h1 class="menu-title">Isolate Documentation</h1>
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
-                        <a href="https://github.com/lprior-repo/zjj" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/lprior-repo/isolate" title="Git repository" aria-label="Git repository">
                             <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
                         </a>
-                        <a href="https://github.com/lprior-repo/zjj/edit/main/book/src/commands.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/lprior-repo/isolate/edit/main/book/src/commands.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
                         </a>
 
@@ -182,662 +182,171 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h1>
-<p>All ZJJ commands in one place.</p>
+                        <h1 id="cli-commands"><a class="header" href="#cli-commands">CLI Commands</a></h1>
+<p>Complete reference for Isolate CLI commands.</p>
+<hr>
+<h2 id="core-commands"><a class="header" href="#core-commands">Core Commands</a></h2>
+<p>These are the commands you need 90% of the time:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>isolate spawn &lt;bead&gt;</code></td><td>Spawn isolated workspace for a task</td></tr>
+<tr><td><code>isolate work [bead] [name]</code></td><td>Start work on a task</td></tr>
+<tr><td><code>isolate sync</code></td><td>Sync workspace with main (auto-rebase)</td></tr>
+<tr><td><code>isolate done [name]</code></td><td>Complete and merge work</td></tr>
+<tr><td><code>isolate abort [name]</code></td><td>Abort and cleanup workspace</td></tr>
+<tr><td><code>isolate whereami</code></td><td>Show current location</td></tr>
+<tr><td><code>isolate context</code></td><td>Show full context</td></tr>
+</tbody>
+</table>
+</div>
 <hr>
 <h2 id="session-management"><a class="header" href="#session-management">Session Management</a></h2>
-<h3 id="zjj-init"><a class="header" href="#zjj-init">zjj init</a></h3>
-<p>Initialize ZJJ in a JJ repository.</p>
-<pre><code>zjj init [--json] [--dry-run]
-</code></pre>
-<hr>
-<h3 id="zjj-add"><a class="header" href="#zjj-add">zjj add</a></h3>
-<p>Create a session for manual work.</p>
-<pre><code>zjj add &lt;name&gt; [options]
-</code></pre>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Option</th><th>Description</th></tr>
+<tr><th>Command</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>-b, --bead &lt;id&gt;</code></td><td>Associate with bead/issue</td></tr>
-<tr><td><code>-t, --template &lt;name&gt;</code></td><td>Zellij layout (minimal, standard, full)</td></tr>
-<tr><td><code>--no-open</code></td><td>Don’t open Zellij tab</td></tr>
-<tr><td><code>--no-zellij</code></td><td>Skip Zellij entirely</td></tr>
-<tr><td><code>--no-hooks</code></td><td>Skip post-create hooks</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if exists</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview without creating</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj add feature-auth --bead BD-123
-zjj add quick-test --template minimal
-zjj add automation --no-zellij --idempotent
-</code></pre>
-<hr>
-<h3 id="zjj-remove"><a class="header" href="#zjj-remove">zjj remove</a></h3>
-<p>Remove a session and its workspace.</p>
-<pre><code>zjj remove &lt;name&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-f, --force</code></td><td>Skip confirmation</td></tr>
-<tr><td><code>-m, --merge</code></td><td>Squash-merge to main first</td></tr>
-<tr><td><code>-k, --keep-branch</code></td><td>Preserve branch</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if not found</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview removal</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj remove old-feature
-zjj remove merged-work --merge --force
-</code></pre>
-<hr>
-<h3 id="zjj-list"><a class="header" href="#zjj-list">zjj list</a></h3>
-<p>List all sessions.</p>
-<pre><code>zjj list [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--all</code></td><td>Include completed/failed</td></tr>
-<tr><td><code>-v, --verbose</code></td><td>Show details</td></tr>
-<tr><td><code>--bead &lt;id&gt;</code></td><td>Filter by bead</td></tr>
-<tr><td><code>--agent &lt;name&gt;</code></td><td>Filter by agent</td></tr>
-<tr><td><code>--state &lt;state&gt;</code></td><td>Filter by state</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
+<tr><td><code>isolate add &lt;name&gt;</code></td><td>Create session for manual work</td></tr>
+<tr><td><code>isolate list</code></td><td>List all sessions</td></tr>
+<tr><td><code>isolate focus &lt;name&gt;</code></td><td>Switch to a session</td></tr>
+<tr><td><code>isolate remove &lt;name&gt;</code></td><td>Remove a session</td></tr>
+<tr><td><code>isolate clone &lt;name&gt;</code></td><td>Clone a session</td></tr>
+<tr><td><code>isolate rename &lt;old&gt; &lt;new&gt;</code></td><td>Rename a session</td></tr>
+<tr><td><code>isolate pause [name]</code></td><td>Pause a session</td></tr>
+<tr><td><code>isolate resume [name]</code></td><td>Resume a paused session</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h3 id="zjj-status"><a class="header" href="#zjj-status">zjj status</a></h3>
-<p>Show session status.</p>
-<pre><code>zjj status [&lt;name&gt;] [options]
+<h2 id="object-commands"><a class="header" href="#object-commands">Object Commands</a></h2>
+<h3 id="task-beads"><a class="header" href="#task-beads">Task (Beads)</a></h3>
+<pre><code>isolate task list              # List all tasks
+isolate task show &lt;id&gt;         # Show task details
+isolate task claim &lt;id&gt;        # Claim a task
+isolate task yield &lt;id&gt;        # Yield a task
+isolate task start &lt;id&gt;        # Start work on a task
+isolate task done &lt;id&gt;         # Complete a task
 </code></pre>
+<h3 id="session"><a class="header" href="#session">Session</a></h3>
+<pre><code>isolate session list           # List all sessions
+isolate session add &lt;name&gt;     # Create new session
+isolate session remove &lt;name&gt;  # Remove a session
+isolate session focus &lt;name&gt;   # Switch to a session
+isolate session spawn &lt;bead&gt;   # Spawn session for agent work
+isolate session sync           # Sync with remote
+</code></pre>
+<h3 id="status"><a class="header" href="#status">Status</a></h3>
+<pre><code>isolate status show            # Show current status
+isolate status whereami       # Show current location
+isolate status whoami         # Show current identity
+isolate status context        # Show context information
+</code></pre>
+<h3 id="config"><a class="header" href="#config">Config</a></h3>
+<pre><code>isolate config list            # List configuration values
+isolate config get &lt;key&gt;      # Get a config value
+isolate config set &lt;key&gt; &lt;value&gt;  # Set a config value
+isolate config schema         # Show configuration schema
+</code></pre>
+<h3 id="doctor"><a class="header" href="#doctor">Doctor</a></h3>
+<pre><code>isolate doctor check           # Run diagnostics
+isolate doctor fix            # Fix detected issues
+isolate doctor integrity      # Check system integrity
+isolate doctor clean          # Clean up invalid sessions
+</code></pre>
+<hr>
+<h2 id="additional-commands"><a class="header" href="#additional-commands">Additional Commands</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Option</th><th>Description</th></tr>
+<tr><th>Command</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>--watch</code></td><td>Live updates (1s refresh)</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
+<tr><td><code>isolate init</code></td><td>Initialize isolate in a JJ repository</td></tr>
+<tr><td><code>isolate checkpoint [name]</code></td><td>Create checkpoint</td></tr>
+<tr><td><code>isolate undo</code></td><td>Undo last operation</td></tr>
+<tr><td><code>isolate revert</code></td><td>Revert changes</td></tr>
+<tr><td><code>isolate claim &lt;resource&gt;</code></td><td>Claim a resource</td></tr>
+<tr><td><code>isolate yield &lt;resource&gt;</code></td><td>Yield a resource</td></tr>
+<tr><td><code>isolate lock &lt;name&gt;</code></td><td>Acquire lock</td></tr>
+<tr><td><code>isolate unlock &lt;name&gt;</code></td><td>Release lock</td></tr>
+<tr><td><code>isolate whoami</code></td><td>Show current user/agent</td></tr>
+<tr><td><code>isolate diff</code></td><td>Show changes</td></tr>
+<tr><td><code>isolate clean</code></td><td>Clean up</td></tr>
+<tr><td><code>isolate validate</code></td><td>Validate configurations</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h3 id="zjj-focus"><a class="header" href="#zjj-focus">zjj focus</a></h3>
-<p>Switch to session’s Zellij tab (inside Zellij).</p>
-<pre><code>zjj focus [&lt;name&gt;] [--no-zellij] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-attach"><a class="header" href="#zjj-attach">zjj attach</a></h3>
-<p>Enter Zellij session from outside.</p>
-<pre><code>zjj attach &lt;name&gt; [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-switch"><a class="header" href="#zjj-switch">zjj switch</a></h3>
-<p>Switch between workspaces.</p>
-<pre><code>zjj switch [&lt;name&gt;] [--show-context] [--json]
-</code></pre>
-<hr>
-<h2 id="work-completion"><a class="header" href="#work-completion">Work Completion</a></h2>
-<h3 id="zjj-sync"><a class="header" href="#zjj-sync">zjj sync</a></h3>
-<p>Sync workspace with main (rebase).</p>
-<pre><code>zjj sync [&lt;name&gt;] [options]
-</code></pre>
+<h2 id="common-flags"><a class="header" href="#common-flags">Common Flags</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Option</th><th>Description</th></tr>
+<tr><th>Flag</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>--all</code></td><td>Sync all active sessions</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview sync</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-done"><a class="header" href="#zjj-done">zjj done</a></h3>
-<p>Complete work and merge to main.</p>
-<pre><code>zjj done [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-m, --message &lt;msg&gt;</code></td><td>Commit message</td></tr>
-<tr><td><code>-w, --workspace &lt;name&gt;</code></td><td>Specific workspace</td></tr>
-<tr><td><code>--squash</code></td><td>Squash all commits</td></tr>
-<tr><td><code>--keep-workspace</code></td><td>Don’t remove after</td></tr>
-<tr><td><code>--detect-conflicts</code></td><td>Check before merging</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj done -m "Add feature"
-zjj done --squash --push
-zjj done -w feature-auth -m "Fix bug"
-</code></pre>
-<hr>
-<h3 id="zjj-undo"><a class="header" href="#zjj-undo">zjj undo</a></h3>
-<p>Undo last done operation.</p>
-<pre><code>zjj undo [--list] [--dry-run] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-revert"><a class="header" href="#zjj-revert">zjj revert</a></h3>
-<p>Revert specific session merge.</p>
-<pre><code>zjj revert &lt;name&gt; [--dry-run] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-diff"><a class="header" href="#zjj-diff">zjj diff</a></h3>
-<p>Show changes vs main.</p>
-<pre><code>zjj diff [&lt;name&gt;] [--stat] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-submit"><a class="header" href="#zjj-submit">zjj submit</a></h3>
-<p>Submit for review/merge.</p>
-<pre><code>zjj submit [--auto-commit] [-m &lt;msg&gt;] [--dry-run] [--json]
-</code></pre>
-<hr>
-<h2 id="queue-operations"><a class="header" href="#queue-operations">Queue Operations</a></h2>
-<h3 id="zjj-queue"><a class="header" href="#zjj-queue">zjj queue</a></h3>
-<p>Manage merge queue.</p>
-<pre><code>zjj queue &lt;action&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Action</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--add &lt;workspace&gt;</code></td><td>Add to queue</td></tr>
-<tr><td><code>--list</code></td><td>List all entries</td></tr>
-<tr><td><code>--next</code></td><td>Get next pending</td></tr>
-<tr><td><code>--process</code></td><td>Process next ready</td></tr>
-<tr><td><code>--status &lt;workspace&gt;</code></td><td>Check status</td></tr>
-<tr><td><code>--cancel &lt;id&gt;</code></td><td>Cancel entry</td></tr>
-<tr><td><code>--retry &lt;id&gt;</code></td><td>Retry failed</td></tr>
-<tr><td><code>--stats</code></td><td>Show statistics</td></tr>
-<tr><td><code>--reclaim-stale [secs]</code></td><td>Reclaim expired leases</td></tr>
-<tr><td><code>--remove &lt;workspace&gt;</code></td><td>Remove from queue</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--bead &lt;id&gt;</code></td><td>Associate with bead (with –add)</td></tr>
-<tr><td><code>--priority &lt;1-10&gt;</code></td><td>Priority (with –add, lower = higher)</td></tr>
-<tr><td><code>--agent &lt;id&gt;</code></td><td>Assign to agent (with –add)</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj queue --add feature-a --bead BD-101 --priority 3
-zjj queue --list --json
-zjj queue --next
-zjj queue --cancel 123
-</code></pre>
-<hr>
-<h3 id="zjj-queue-worker"><a class="header" href="#zjj-queue-worker">zjj queue worker</a></h3>
-<p>Process queue entries.</p>
-<pre><code>zjj queue worker [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--once</code></td><td>Process one item and exit</td></tr>
-<tr><td><code>--loop</code></td><td>Run continuously</td></tr>
-<tr><td><code>--interval &lt;secs&gt;</code></td><td>Poll interval (default: 10)</td></tr>
-<tr><td><code>--worker-id &lt;id&gt;</code></td><td>Worker identifier</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj queue worker --once
-zjj queue worker --loop --interval 30
-</code></pre>
-<hr>
-<h2 id="agent-commands"><a class="header" href="#agent-commands">Agent Commands</a></h2>
-<h3 id="zjj-agents"><a class="header" href="#zjj-agents">zjj agents</a></h3>
-<p>Manage agents.</p>
-<pre><code>zjj agents [subcommand] [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td>(none)</td><td>List active agents</td></tr>
-<tr><td><code>register</code></td><td>Register as agent</td></tr>
-<tr><td><code>heartbeat</code></td><td>Send liveness signal</td></tr>
-<tr><td><code>status</code></td><td>Show current agent</td></tr>
-<tr><td><code>unregister</code></td><td>Remove agent</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--all</code></td><td>Include stale agents</td></tr>
-<tr><td><code>--session &lt;name&gt;</code></td><td>Filter by session</td></tr>
-<tr><td><code>--id &lt;id&gt;</code></td><td>Specific agent ID</td></tr>
-<tr><td><code>-c, --command &lt;cmd&gt;</code></td><td>Current command (heartbeat)</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj agents register --session my-work
-zjj agents heartbeat -c "running tests"
-zjj agents --all
-</code></pre>
-<hr>
-<h3 id="zjj-work"><a class="header" href="#zjj-work">zjj work</a></h3>
-<p>Unified workflow start for agents.</p>
-<pre><code>zjj work &lt;name&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-b, --bead &lt;id&gt;</code></td><td>Associate with bead</td></tr>
-<tr><td><code>--agent-id &lt;id&gt;</code></td><td>Agent identifier</td></tr>
-<tr><td><code>--no-zellij</code></td><td>Skip Zellij</td></tr>
-<tr><td><code>--no-agent</code></td><td>Skip agent registration</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if exists</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj work feature-auth --bead BD-123
-</code></pre>
-<hr>
-<h3 id="zjj-spawn"><a class="header" href="#zjj-spawn">zjj spawn</a></h3>
-<p>Spawn automated agent work on a bead.</p>
-<pre><code>zjj spawn &lt;bead-id&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--agent-command &lt;cmd&gt;</code></td><td>Agent to run (default: claude)</td></tr>
-<tr><td><code>--agent-args &lt;args&gt;</code></td><td>Additional args</td></tr>
-<tr><td><code>--timeout &lt;secs&gt;</code></td><td>Timeout (default: 14400)</td></tr>
-<tr><td><code>-b, --background</code></td><td>Run in background</td></tr>
-<tr><td><code>--no-auto-merge</code></td><td>Don’t merge on success</td></tr>
-<tr><td><code>--no-auto-cleanup</code></td><td>Don’t cleanup on failure</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if exists</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj spawn zjj-abc12
-zjj spawn zjj-xyz34 --background
-</code></pre>
-<hr>
-<h3 id="zjj-whereami"><a class="header" href="#zjj-whereami">zjj whereami</a></h3>
-<p>Get current location.</p>
-<pre><code>zjj whereami [--json]
-</code></pre>
-<p>Returns: <code>main</code> or <code>workspace:&lt;name&gt;</code></p>
-<hr>
-<h3 id="zjj-whoami"><a class="header" href="#zjj-whoami">zjj whoami</a></h3>
-<p>Get agent identity.</p>
-<pre><code>zjj whoami [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-context"><a class="header" href="#zjj-context">zjj context</a></h3>
-<p>Get full environment context.</p>
-<pre><code>zjj context [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--field &lt;path&gt;</code></td><td>Extract single field</td></tr>
-<tr><td><code>--no-beads</code></td><td>Skip beads query</td></tr>
-<tr><td><code>--no-health</code></td><td>Skip health checks</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj context --json
-zjj context --field=workspace.path
-</code></pre>
-<hr>
-<h3 id="zjj-broadcast"><a class="header" href="#zjj-broadcast">zjj broadcast</a></h3>
-<p>Send message to all agents.</p>
-<pre><code>zjj broadcast &lt;message&gt; [--agent-id &lt;id&gt;] [--json]
-</code></pre>
-<hr>
-<h2 id="diagnostics--recovery"><a class="header" href="#diagnostics--recovery">Diagnostics &amp; Recovery</a></h2>
-<h3 id="zjj-doctor"><a class="header" href="#zjj-doctor">zjj doctor</a></h3>
-<p>Run health checks.</p>
-<pre><code>zjj doctor [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--fix</code></td><td>Auto-fix issues</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview fixes</td></tr>
-<tr><td><code>-v, --verbose</code></td><td>Detailed output</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-integrity"><a class="header" href="#zjj-integrity">zjj integrity</a></h3>
-<p>Workspace integrity management.</p>
-<pre><code>zjj integrity &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>validate &lt;workspace&gt;</code></td><td>Check integrity</td></tr>
-<tr><td><code>repair &lt;workspace&gt;</code></td><td>Fix corruption</td></tr>
-<tr><td><code>backup list</code></td><td>List backups</td></tr>
-<tr><td><code>backup restore &lt;id&gt;</code></td><td>Restore backup</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--force</code></td><td>Skip confirmation</td></tr>
-<tr><td><code>--rebind</code></td><td>Update session location</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-checkpoint"><a class="header" href="#zjj-checkpoint">zjj checkpoint</a></h3>
-<p>Save/restore session snapshots.</p>
-<pre><code>zjj checkpoint &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>create</code></td><td>Create checkpoint</td></tr>
-<tr><td><code>list</code></td><td>List checkpoints</td></tr>
-<tr><td><code>restore &lt;id&gt;</code></td><td>Restore checkpoint</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj checkpoint create -d "before major change"
-zjj checkpoint list
-zjj checkpoint restore ckpt-123
-</code></pre>
-<hr>
-<h3 id="zjj-clean"><a class="header" href="#zjj-clean">zjj clean</a></h3>
-<p>Remove stale sessions.</p>
-<pre><code>zjj clean [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-f, --force</code></td><td>Skip confirmation</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>--periodic</code></td><td>Run as daemon</td></tr>
-<tr><td><code>--age-threshold &lt;secs&gt;</code></td><td>Age cutoff</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-prune-invalid"><a class="header" href="#zjj-prune-invalid">zjj prune-invalid</a></h3>
-<p>Bulk remove invalid sessions.</p>
-<pre><code>zjj prune-invalid [--yes] [--dry-run] [--json]
-</code></pre>
-<hr>
-<h2 id="introspection"><a class="header" href="#introspection">Introspection</a></h2>
-<h3 id="zjj-introspect"><a class="header" href="#zjj-introspect">zjj introspect</a></h3>
-<p>Discover capabilities.</p>
-<pre><code>zjj introspect [&lt;command&gt;] [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--ai</code></td><td>AI-optimized output</td></tr>
-<tr><td><code>--env-vars</code></td><td>Show environment variables</td></tr>
-<tr><td><code>--workflows</code></td><td>Show workflow patterns</td></tr>
-<tr><td><code>--session-states</code></td><td>Show state transitions</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-query"><a class="header" href="#zjj-query">zjj query</a></h3>
-<p>Query system state.</p>
-<pre><code>zjj query &lt;type&gt; [args] [--json]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Query Type</th><th>Args</th><th>Returns</th></tr>
-</thead>
-<tbody>
-<tr><td><code>session-exists</code></td><td><code>&lt;name&gt;</code></td><td>true/false</td></tr>
-<tr><td><code>session-count</code></td><td>—</td><td>number</td></tr>
-<tr><td><code>can-run</code></td><td>—</td><td>true/false</td></tr>
-<tr><td><code>suggest-name</code></td><td><code>&lt;pattern&gt;</code></td><td>suggested name</td></tr>
-<tr><td><code>lock-status</code></td><td><code>&lt;resource&gt;</code></td><td>lock info</td></tr>
-<tr><td><code>pending-merges</code></td><td>—</td><td>list</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-can-i"><a class="header" href="#zjj-can-i">zjj can-i</a></h3>
-<p>Check permissions.</p>
-<pre><code>zjj can-i &lt;action&gt; [--resource &lt;name&gt;]
-</code></pre>
-<hr>
-<h3 id="zjj-contract"><a class="header" href="#zjj-contract">zjj contract</a></h3>
-<p>Show command contract (AI use).</p>
-<pre><code>zjj &lt;command&gt; --contract
-</code></pre>
-<hr>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<h3 id="zjj-config"><a class="header" href="#zjj-config">zjj config</a></h3>
-<p>View/modify configuration.</p>
-<pre><code>zjj config [&lt;key&gt; [&lt;value&gt;]] [-g, --global] [--json]
-</code></pre>
-<pre><code class="language-bash">zjj config                    # Show all
-zjj config recovery.policy    # Show key
-zjj config recovery.policy warn  # Set key
-</code></pre>
-<hr>
-<h3 id="zjj-template"><a class="header" href="#zjj-template">zjj template</a></h3>
-<p>Manage Zellij layouts.</p>
-<pre><code>zjj template &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>list</code></td><td>List templates</td></tr>
-<tr><td><code>show &lt;name&gt;</code></td><td>Show details</td></tr>
-<tr><td><code>create &lt;name&gt;</code></td><td>Create template</td></tr>
-<tr><td><code>delete &lt;name&gt;</code></td><td>Delete template</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj template list
-zjj template create custom --builtin standard
-</code></pre>
-<hr>
-<h3 id="zjj-bookmark"><a class="header" href="#zjj-bookmark">zjj bookmark</a></h3>
-<p>Manage JJ bookmarks.</p>
-<pre><code>zjj bookmark &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>list</code></td><td>List bookmarks</td></tr>
-<tr><td><code>create &lt;name&gt;</code></td><td>Create bookmark</td></tr>
-<tr><td><code>delete &lt;name&gt;</code></td><td>Delete bookmark</td></tr>
-<tr><td><code>move &lt;name&gt; --to &lt;rev&gt;</code></td><td>Move bookmark</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-p, --push</code></td><td>Push to remote</td></tr>
-<tr><td><code>--all</code></td><td>Show all including remote</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj bookmark create feature-x --push
-zjj bookmark list --all
-</code></pre>
-<hr>
-<h2 id="advanced"><a class="header" href="#advanced">Advanced</a></h2>
-<h3 id="zjj-batch"><a class="header" href="#zjj-batch">zjj batch</a></h3>
-<p>Execute multiple commands.</p>
-<pre><code>zjj batch --commands &lt;cmd1,cmd2&gt; [--atomic] [--stop-on-error]
-</code></pre>
-<hr>
-<h3 id="zjj-events"><a class="header" href="#zjj-events">zjj events</a></h3>
-<p>View event stream.</p>
-<pre><code>zjj events [--follow] [--limit &lt;n&gt;] [--session &lt;name&gt;] [--type &lt;type&gt;]
-</code></pre>
-<hr>
-<h3 id="zjj-pane"><a class="header" href="#zjj-pane">zjj pane</a></h3>
-<p>Manage Zellij panes.</p>
-<pre><code>zjj pane &lt;action&gt; [--direction &lt;dir&gt;] [--session &lt;name&gt;]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Action</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>list</code></td><td>List panes</td></tr>
-<tr><td><code>focus</code></td><td>Focus pane</td></tr>
-<tr><td><code>next</code></td><td>Next pane</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-backup"><a class="header" href="#zjj-backup">zjj backup</a></h3>
-<p>Database backup management.</p>
-<pre><code>zjj backup &lt;action&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Action</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>create</code></td><td>Create backup</td></tr>
-<tr><td><code>list</code></td><td>List backups</td></tr>
-<tr><td><code>restore &lt;timestamp&gt;</code></td><td>Restore backup</td></tr>
-<tr><td><code>status</code></td><td>Backup status</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-export"><a class="header" href="#zjj-export">zjj export</a></h3>
-<p>Export session state.</p>
-<pre><code>zjj export --session &lt;name&gt; --output &lt;file&gt;
-</code></pre>
-<hr>
-<h3 id="zjj-import"><a class="header" href="#zjj-import">zjj import</a></h3>
-<p>Import session state.</p>
-<pre><code>zjj import --file &lt;path&gt; [--force] [--skip-existing]
-</code></pre>
-<hr>
-<h3 id="zjj-completions"><a class="header" href="#zjj-completions">zjj completions</a></h3>
-<p>Generate shell completions.</p>
-<pre><code>zjj completions &lt;shell&gt;
-</code></pre>
-<p>Shells: <code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>powershell</code>, <code>elvish</code></p>
-<hr>
-<h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
-<p>All commands support:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-<tr><td><code>--contract</code></td><td>Show AI contract</td></tr>
-<tr><td><code>--ai-hints</code></td><td>Show execution hints</td></tr>
+<tr><td><code>--json</code></td><td>Output as JSON</td></tr>
+<tr><td><code>--verbose</code>, <code>-v</code></td><td>Enable verbose output</td></tr>
 <tr><td><code>--dry-run</code></td><td>Preview without executing</td></tr>
-<tr><td><code>-h, --help</code></td><td>Show help</td></tr>
+<tr><td><code>--idempotent</code></td><td>Succeed if already exists</td></tr>
+<tr><td><code>--force</code>, <code>-f</code></td><td>Force operation</td></tr>
 </tbody>
 </table>
 </div>
+<hr>
+<h2 id="aliases"><a class="header" href="#aliases">Aliases</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>Alias</th></tr>
+</thead>
+<tbody>
+<tr><td><code>isolate done</code></td><td><code>isolate submit</code></td></tr>
+<tr><td><code>isolate checkpoint</code></td><td><code>isolate ckpt</code></td></tr>
+<tr><td><code>isolate task claim</code></td><td><code>isolate task take</code></td></tr>
+<tr><td><code>isolate task yield</code></td><td><code>isolate task release</code></td></tr>
+<tr><td><code>isolate session sync</code></td><td><code>isolate session rebase</code></td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="quick-reference"><a class="header" href="#quick-reference">Quick Reference</a></h2>
+<h3 id="start-working"><a class="header" href="#start-working">Start Working</a></h3>
+<pre><code class="language-bash">isolate whereami           # Check you're on main
+isolate work feature-123   # Start work
+</code></pre>
+<h3 id="while-working"><a class="header" href="#while-working">While Working</a></h3>
+<pre><code class="language-bash">isolate sync              # Sync with main
+isolate context           # Check status
+</code></pre>
+<h3 id="finish-work"><a class="header" href="#finish-work">Finish Work</a></h3>
+<pre><code class="language-bash">isolate done              # Complete and merge
+isolate abort             # Abort and cleanup
+</code></pre>
+<hr>
+<h2 id="exit-codes"><a class="header" href="#exit-codes">Exit Codes</a></h2>
+<ul>
+<li>0: Success</li>
+<li>1: Validation error (user input)</li>
+<li>2: Not found</li>
+<li>3: System error</li>
+<li>4: External command error</li>
+<li>5: Lock contention</li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="ai-guide.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="workflow.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -847,11 +356,11 @@ zjj bookmark list --all
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="ai-guide.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="workflow.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -880,7 +389,7 @@ zjj bookmark list --all
         <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
-        <script src="theme/sidebar-d5e0e3c4.js"></script>
+        <script src="theme/sidebar-25560f1a.js"></script>
 
 
 

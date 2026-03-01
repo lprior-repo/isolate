@@ -62,9 +62,9 @@ The top-level `isolate context` command was missing the `field`, `no-beads`, `no
 
 ## Notes
 
-The workspace is located at `.zjj/workspaces/bd-29or/` which is gitignored. The changes made are in:
+The workspace is located at `.isolate/workspaces/bd-29or/` which is gitignored. The changes made are in:
 
-- `.zjj/workspaces/bd-29or/crates/isolate/src/cli/object_commands.rs`
+- `.isolate/workspaces/bd-29or/crates/isolate/src/cli/object_commands.rs`
 
 The `handle_status` function in `handlers/workspace.rs` was already correctly routing to subcommands:
 - `show` → `status::run` / `status::run_watch_mode`

@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create crates/zjj/tests/test_single_database.rs",
+        "Create crates/isolate/tests/test_single_database.rs",
         "Test sessions table has parent_session and queue_status",
         "Test merge_queue table exists and works",
         "Test conflict_resolutions table exists and works",

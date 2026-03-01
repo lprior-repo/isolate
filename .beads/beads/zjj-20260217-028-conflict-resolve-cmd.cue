@@ -7,7 +7,7 @@ bead_id: "isolate-20260217-028-conflict-resolve-cmd"
 
 // Section 2: Intent
 intent: {
-    // What: Implement `zjj conflict resolve <session> --decision '<json>'` command
+    // What: Implement `isolate conflict resolve <session> --decision '<json>'` command
     what: "Apply conflict resolution decision and update audit log"
     // Why: AI agents need to apply resolutions after analysis
     why: "Analysis is useless without ability to apply resolutions"
@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Add `zjj conflict resolve <session> --decision '<json>'` subcommand",
+        "Add `isolate conflict resolve <session> --decision '<json>'` subcommand",
         "Parse decision JSON (file, strategy, reason)",
         "Validate decision",
         "Apply resolution to file",

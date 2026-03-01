@@ -3,15 +3,15 @@ package validation
 
 import "list"
 
-// Validation schema for bead: isolate-20260228091737-tjbrbo29
-// Title: rename: Rename isolate-audit tool to isolate-audit
+// Validation schema for bead: isolate-20260228145451-bmkbpw5m
+// Title: cli: Fix focus command outputs help instead of focusing
 //
 // This schema validates that implementation is complete.
-// Use: cue vet isolate-20260228091737-tjbrbo29.cue implementation.cue
+// Use: cue vet isolate-20260228145451-bmkbpw5m.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "isolate-20260228091737-tjbrbo29"
-  title: "rename: Rename isolate-audit tool to isolate-audit"
+  bead_id: "isolate-20260228145451-bmkbpw5m"
+  title: "cli: Fix focus command outputs help instead of focusing"
 
   // Contract verification
   contracts_verified: {
@@ -21,18 +21,17 @@ import "list"
 
     // Specific preconditions that must be verified
     precondition_checks: [
-      "Package named isolate-audit in tools/audit/Cargo.toml",
+      "User runs isolate focus \"test\"",
     ]
 
     // Specific postconditions that must be verified
     postcondition_checks: [
-      "Package named isolate-audit",
-      "Binary output is isolate-audit",
+      "Focuses on session, outputs success message",
     ]
 
     // Specific invariants that must be maintained
     invariant_checks: [
-      "All references updated",
+      "Focus operation succeeds",
     ]
   }
 
@@ -47,14 +46,14 @@ import "list"
 
     // Required happy path tests
     required_happy_tests: [
-      "cargo build -p isolate-audit succeeds",
-      "Binary named isolate-audit",
+      "isolate focus test-session-123 focuses on session",
+      "session focus works correctly",
     ]
 
     // Required error path tests
     required_error_tests: [
-      "Package name conflict error",
-      "Missing dependency error",
+      "focus with invalid session returns error",
+      "focus does not output help",
     ]
   }
 
@@ -106,6 +105,6 @@ import "list"
 //     all_sections_complete: true
 //     documentation_updated: true
 //     beads_closed: false
-//     timestamp: "2026-02-28T09:17:37Z"
+//     timestamp: "2026-02-28T14:54:51Z"
 //   }
 // }

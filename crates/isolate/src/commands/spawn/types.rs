@@ -46,7 +46,7 @@ impl SpawnArgs {
     /// Parse from clap `ArgMatches`
     pub fn from_matches(matches: &clap::ArgMatches) -> anyhow::Result<Self> {
         let bead_id = matches
-            .get_one::<String>("bead_id")
+            .get_one::<String>("bead")
             .ok_or_else(|| anyhow::anyhow!("bead_id is required"))?
             .clone();
 

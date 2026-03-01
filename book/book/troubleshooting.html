@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Error Codes &amp; Troubleshooting - ZJJ Documentation</title>
+        <title>Troubleshooting - Isolate Documentation</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Parallel Workspace Isolation + Queue Coordination for JJ + Zellij">
+        <meta name="description" content="Workspace isolation for multi-agent workflows. Built on JJ.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7e70b2ce.js";
+            window.path_to_searchindex_js = "searchindex-b4db8918.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-6b77885c.js"></script>
+        <script src="toc-b0ee52aa.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -139,16 +139,16 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">ZJJ Documentation</h1>
+                    <h1 class="menu-title">Isolate Documentation</h1>
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
-                        <a href="https://github.com/lprior-repo/zjj" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/lprior-repo/isolate" title="Git repository" aria-label="Git repository">
                             <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
                         </a>
-                        <a href="https://github.com/lprior-repo/zjj/edit/main/book/src/troubleshooting.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/lprior-repo/isolate/edit/main/book/src/troubleshooting.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
                         </a>
 
@@ -182,309 +182,126 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="error-codes--troubleshooting"><a class="header" href="#error-codes--troubleshooting">Error Codes &amp; Troubleshooting</a></h1>
-<p>Everything you need to diagnose and fix issues.</p>
+                        <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<p>Common issues and how to resolve them.</p>
+<hr>
+<h2 id="workspace-issues"><a class="header" href="#workspace-issues">Workspace Issues</a></h2>
+<h3 id="session-not-found"><a class="header" href="#session-not-found">“Session not found”</a></h3>
+<pre><code class="language-bash"># List available sessions
+isolate list
+
+# Check where you are
+isolate whereami
+</code></pre>
+<h3 id="workspace-already-exists"><a class="header" href="#workspace-already-exists">“Workspace already exists”</a></h3>
+<pre><code class="language-bash"># Use --idempotent to succeed if already exists
+isolate work feature-123 --idempotent
+</code></pre>
+<h3 id="detached-head"><a class="header" href="#detached-head">“Detached HEAD”</a></h3>
+<p>This shouldn’t happen with JJ, but if it does:</p>
+<pre><code class="language-bash"># Check current state
+jj status
+
+# See the current commit
+jj log -r @
+
+# Create a new change if needed
+jj new
+</code></pre>
+<hr>
+<h2 id="sync-issues"><a class="header" href="#sync-issues">Sync Issues</a></h2>
+<h3 id="sync-failed"><a class="header" href="#sync-failed">“Sync failed”</a></h3>
+<pre><code class="language-bash"># Try again with verbose output
+isolate sync --verbose
+
+# Check for conflicts
+jj status
+jj diff
+</code></pre>
+<h3 id="conflicts-during-sync"><a class="header" href="#conflicts-during-sync">Conflicts during sync</a></h3>
+<pre><code class="language-bash"># See what conflicts exist
+jj status
+
+# Resolve manually
+vim &lt;conflicted-file&gt;
+
+# Commit the resolution
+jj describe -m "resolve: merge conflicts"
+</code></pre>
+<hr>
+<h2 id="jj-issues"><a class="header" href="#jj-issues">JJ Issues</a></h2>
+<h3 id="jj-command-not-found"><a class="header" href="#jj-command-not-found">“jj: command not found”</a></h3>
+<p>Install JJ:</p>
+<pre><code class="language-bash"># Via cargo
+cargo install jj-cli
+
+# Via Homebrew
+brew install jj
+</code></pre>
+<h3 id="cannot-lock"><a class="header" href="#cannot-lock">“Cannot lock”</a></h3>
+<pre><code class="language-bash"># Check what's locking
+jj log
+
+# Force unlock if needed (rare)
+# JJ handles this automatically
+</code></pre>
 <hr>
 <h2 id="exit-codes"><a class="header" href="#exit-codes">Exit Codes</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Code</th><th>Name</th><th>Meaning</th></tr>
+<tr><th>Code</th><th>Meaning</th><th>What to Do</th></tr>
 </thead>
 <tbody>
-<tr><td>0</td><td><code>SUCCESS</code></td><td>Command completed successfully</td></tr>
-<tr><td>1</td><td><code>GENERAL_ERROR</code></td><td>Unspecified error</td></tr>
-<tr><td>2</td><td><code>INVALID_ARGS</code></td><td>Invalid command-line arguments</td></tr>
-<tr><td>3</td><td><code>ALREADY_EXISTS</code></td><td>Resource already exists</td></tr>
-<tr><td>4</td><td><code>NOT_FOUND</code></td><td>Resource not found</td></tr>
-<tr><td>5</td><td><code>NOT_JJ_REPO</code></td><td>Not in a JJ repository</td></tr>
-<tr><td>6</td><td><code>DATABASE_ERROR</code></td><td>Database operation failed</td></tr>
-<tr><td>7</td><td><code>LOCK_CONFLICT</code></td><td>Resource is locked</td></tr>
-<tr><td>8</td><td><code>CONFLICT</code></td><td>Merge conflict detected</td></tr>
-<tr><td>9</td><td><code>PERMISSION_DENIED</code></td><td>Insufficient permissions</td></tr>
-<tr><td>10</td><td><code>WORKSPACE_ERROR</code></td><td>Workspace operation failed</td></tr>
-<tr><td>11</td><td><code>ZELLIJ_ERROR</code></td><td>Zellij integration failed</td></tr>
-<tr><td>12</td><td><code>QUEUE_ERROR</code></td><td>Queue operation failed</td></tr>
-<tr><td>13</td><td><code>VALIDATION_ERROR</code></td><td>Input validation failed</td></tr>
-<tr><td>14</td><td><code>RECOVERY_NEEDED</code></td><td>Corruption detected</td></tr>
+<tr><td>0</td><td>Success</td><td>Done</td></tr>
+<tr><td>1</td><td>Validation error</td><td>Check input syntax</td></tr>
+<tr><td>2</td><td>Not found</td><td>Check session/task name</td></tr>
+<tr><td>3</td><td>System error</td><td>Check system resources</td></tr>
+<tr><td>4</td><td>External command error</td><td>Check JJ installation</td></tr>
+<tr><td>5</td><td>Lock contention</td><td>Try again later</td></tr>
 </tbody>
 </table>
 </div>
-<hr>
-<h2 id="common-errors"><a class="header" href="#common-errors">Common Errors</a></h2>
-<h3 id="err_not_jj_repo-5"><a class="header" href="#err_not_jj_repo-5">ERR_NOT_JJ_REPO (5)</a></h3>
-<p><strong>Message:</strong> <code>Not in a JJ repository</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">jj init &amp;&amp; zjj init
-</code></pre>
-<p>Or clone existing:</p>
-<pre><code class="language-bash">jj git clone https://github.com/user/repo.git
-cd repo &amp;&amp; zjj init
-</code></pre>
-<hr>
-<h3 id="err_already_exists-3"><a class="header" href="#err_already_exists-3">ERR_ALREADY_EXISTS (3)</a></h3>
-<p><strong>Message:</strong> <code>Workspace already exists</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash"># Remove first
-zjj remove existing-name
-
-# Or use idempotent flag
-zjj add new-name --idempotent
-</code></pre>
-<hr>
-<h3 id="err_not_found-4"><a class="header" href="#err_not_found-4">ERR_NOT_FOUND (4)</a></h3>
-<p><strong>Message:</strong> <code>Workspace not found</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj list  # Check available names
-zjj add missing-name
-</code></pre>
-<hr>
-<h3 id="err_lock_conflict-7"><a class="header" href="#err_lock_conflict-7">ERR_LOCK_CONFLICT (7)</a></h3>
-<p><strong>Message:</strong> <code>Resource is locked</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj status &lt;workspace&gt;  # Check who holds lock
-# Wait for lock to expire (default: 1 hour)
-# Or force release:
-zjj unlock &lt;workspace&gt;
-</code></pre>
-<hr>
-<h3 id="err_conflict-8"><a class="header" href="#err_conflict-8">ERR_CONFLICT (8)</a></h3>
-<p><strong>Message:</strong> <code>Merge conflict detected</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj focus &lt;workspace&gt;
-jj resolve  # Resolve each conflict
-zjj sync    # Verify resolution
-</code></pre>
-<hr>
-<h3 id="err_database_error-6"><a class="header" href="#err_database_error-6">ERR_DATABASE_ERROR (6)</a></h3>
-<p><strong>Message:</strong> <code>Database operation failed</code> or <code>Database corruption detected</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj doctor --fix
-zjj recover --last
-cat .zjj/recovery.log
-</code></pre>
-<hr>
-<h3 id="err_validation_error-13"><a class="header" href="#err_validation_error-13">ERR_VALIDATION_ERROR (13)</a></h3>
-<p><strong>Message:</strong> <code>Invalid input</code></p>
-<p><strong>Rules:</strong></p>
-<ul>
-<li>Workspace names: lowercase, alphanumeric, dashes only</li>
-<li>Must start with a letter</li>
-<li>Max 64 characters</li>
-</ul>
-<pre><code class="language-bash"># Valid
-zjj add feature-auth
-zjj add fix-123
-
-# Invalid
-zjj add Feature-Auth    # Uppercase
-zjj add feature_auth    # Underscore
-zjj add 123-feature     # Starts with number
-</code></pre>
-<hr>
-<h3 id="err_zellij_error-11"><a class="header" href="#err_zellij_error-11">ERR_ZELLIJ_ERROR (11)</a></h3>
-<p><strong>Message:</strong> <code>Zellij command failed</code> or <code>Zellij not found</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash"># Check installation
-zellij --version
-
-# Install if missing
-cargo install zellij
-# or
-brew install zellij
-
-# Or skip Zellij
-zjj add &lt;name&gt; --no-zellij
-</code></pre>
-<hr>
-<h3 id="err_workspace_error-10"><a class="header" href="#err_workspace_error-10">ERR_WORKSPACE_ERROR (10)</a></h3>
-<p><strong>Message:</strong> <code>Workspace operation failed</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj status &lt;workspace&gt;
-jj workspace list
-
-# If corrupted
-zjj remove &lt;workspace&gt; --force
-zjj add &lt;workspace&gt;
-</code></pre>
-<hr>
-<h3 id="err_recovery_needed-14"><a class="header" href="#err_recovery_needed-14">ERR_RECOVERY_NEEDED (14)</a></h3>
-<p><strong>Message:</strong> <code>Corruption detected, recovery required</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj doctor --fix
-zjj recover --diagnose
-zjj recover --last
-</code></pre>
-<hr>
-<h2 id="json-error-format"><a class="header" href="#json-error-format">JSON Error Format</a></h2>
-<pre><code class="language-json">{
-  "ok": false,
-  "error": {
-    "code": 4,
-    "name": "NOT_FOUND",
-    "message": "Workspace 'my-feature' not found",
-    "details": {
-      "workspace": "my-feature",
-      "available": ["feature-auth", "feature-api"]
-    }
-  }
-}
-</code></pre>
-<hr>
-<h2 id="troubleshooting-by-command"><a class="header" href="#troubleshooting-by-command">Troubleshooting by Command</a></h2>
-<h3 id="zjj-add"><a class="header" href="#zjj-add">zjj add</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Already exists</td><td>Remove first or use <code>--idempotent</code></td></tr>
-<tr><td>Invalid name</td><td>Use lowercase, alphanumeric, dashes</td></tr>
-<tr><td>Not JJ repo</td><td>Run <code>jj init &amp;&amp; zjj init</code></td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-sync"><a class="header" href="#zjj-sync">zjj sync</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Conflicts</td><td><code>jj resolve</code> in workspace</td></tr>
-<tr><td>No upstream</td><td>Configure remote with <code>jj git remote add</code></td></tr>
-<tr><td>Stale</td><td>Fetch first: <code>jj git fetch</code></td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-done"><a class="header" href="#zjj-done">zjj done</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Conflicts</td><td>Resolve with <code>jj resolve</code> first</td></tr>
-<tr><td>Not pushed</td><td>Use <code>--push</code> or push manually</td></tr>
-<tr><td>No message</td><td>Provide <code>-m "message"</code></td></tr>
-<tr><td>Uncommitted</td><td><code>jj describe -m "message"</code> first</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-focus"><a class="header" href="#zjj-focus">zjj focus</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Not found</td><td>Check <code>zjj list</code> for exact name</td></tr>
-<tr><td>No Zellij</td><td>Install or use <code>--no-zellij</code></td></tr>
-<tr><td>Tab exists</td><td>Close tab or use existing</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-queue-worker"><a class="header" href="#zjj-queue-worker">zjj queue worker</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>No work</td><td>Add items: <code>zjj queue --add</code></td></tr>
-<tr><td>Claim conflict</td><td>Try again, auto-retries next item</td></tr>
-<tr><td>Lock conflict</td><td>Wait or reclaim stale</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="recovery-procedures"><a class="header" href="#recovery-procedures">Recovery Procedures</a></h2>
-<h3 id="database-recovery"><a class="header" href="#database-recovery">Database Recovery</a></h3>
-<pre><code class="language-bash"># Check health
-zjj doctor
-
-# Auto-fix
-zjj doctor --fix
-
-# If that fails
-zjj recover --diagnose
-zjj recover --last
-
-# Check logs
-cat .zjj/recovery.log
-</code></pre>
-<h3 id="workspace-recovery"><a class="header" href="#workspace-recovery">Workspace Recovery</a></h3>
-<pre><code class="language-bash"># Validate
-zjj integrity validate &lt;workspace&gt;
-
-# Repair
-zjj integrity repair &lt;workspace&gt; --force
-
-# Restore from backup
-zjj integrity backup list
-zjj integrity backup restore &lt;id&gt;
-</code></pre>
-<h3 id="session-recovery"><a class="header" href="#session-recovery">Session Recovery</a></h3>
-<pre><code class="language-bash"># List checkpoints
-zjj checkpoint list
-
-# Restore checkpoint
-zjj checkpoint restore &lt;id&gt;
-</code></pre>
-<hr>
-<h2 id="diagnostics"><a class="header" href="#diagnostics">Diagnostics</a></h2>
-<h3 id="health-check"><a class="header" href="#health-check">Health Check</a></h3>
-<pre><code class="language-bash">zjj doctor --verbose
-</code></pre>
-<h3 id="system-state"><a class="header" href="#system-state">System State</a></h3>
-<pre><code class="language-bash">zjj context --json
-zjj introspect --ai --json
-</code></pre>
-<h3 id="event-log"><a class="header" href="#event-log">Event Log</a></h3>
-<pre><code class="language-bash">zjj events --follow
-zjj events --session &lt;name&gt;
-</code></pre>
-<h3 id="query-state"><a class="header" href="#query-state">Query State</a></h3>
-<pre><code class="language-bash">zjj query session-exists &lt;name&gt;
-zjj query session-count
-zjj query can-run
-</code></pre>
-<hr>
-<h2 id="clean-up"><a class="header" href="#clean-up">Clean Up</a></h2>
-<h3 id="stale-sessions"><a class="header" href="#stale-sessions">Stale Sessions</a></h3>
-<pre><code class="language-bash"># Preview
-zjj clean --dry-run
-
-# Remove
-zjj clean --force
-</code></pre>
-<h3 id="invalid-sessions"><a class="header" href="#invalid-sessions">Invalid Sessions</a></h3>
-<pre><code class="language-bash"># Preview
-zjj prune-invalid --dry-run
-
-# Remove all
-zjj prune-invalid --yes
-</code></pre>
-<h3 id="orphaned-workspaces"><a class="header" href="#orphaned-workspaces">Orphaned Workspaces</a></h3>
-<pre><code class="language-bash">jj workspace list
-jj workspace forget &lt;name&gt;
-zjj clean --force
-</code></pre>
 <hr>
 <h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
+<pre><code class="language-bash"># Check isolate version
+isolate --version
+
+# Get help for a command
+isolate &lt;command&gt; --help
+
+# Check context
+isolate context
+</code></pre>
+<hr>
+<h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
+<h3 id="start-fresh"><a class="header" href="#start-fresh">Start Fresh</a></h3>
+<pre><code class="language-bash">isolate whereami                    # Should return "main"
+isolate work feature-auth --idempotent
+</code></pre>
+<h3 id="continue-existing-work"><a class="header" href="#continue-existing-work">Continue Existing Work</a></h3>
+<pre><code class="language-bash">isolate whereami                    # Returns "workspace:feature-auth"
+# Already in workspace, continue working
+</code></pre>
+<h3 id="abandon-and-start-over"><a class="header" href="#abandon-and-start-over">Abandon and Start Over</a></h3>
+<pre><code class="language-bash">isolate abort --dry-run             # Preview
+isolate abort                       # Execute
+isolate work feature-auth-v2        # Start fresh
+</code></pre>
+<hr>
+<h2 id="prevention"><a class="header" href="#prevention">Prevention</a></h2>
 <ol>
-<li><strong>Diagnostics:</strong> <code>zjj doctor</code></li>
-<li><strong>Logs:</strong> <code>.zjj/recovery.log</code></li>
-<li><strong>Context:</strong> <code>zjj context --json</code></li>
-<li><strong>GitHub:</strong> <a href="https://github.com/lprior-repo/zjj/issues">Report issues</a></li>
+<li><strong>Run <code>isolate sync</code> regularly</strong> — Don’t let main get too far ahead</li>
+<li><strong>Use <code>--idempotent</code> when retrying</strong> — Prevents “already exists” errors</li>
+<li><strong>Check <code>isolate whereami</code> before operations</strong> — Know where you are</li>
+<li><strong>Use <code>isolate context</code> for full status</strong> — See everything at once</li>
 </ol>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="commands.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="jj-vs-git.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -495,7 +312,7 @@ zjj clean --force
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="jj-vs-git.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
@@ -525,7 +342,7 @@ zjj clean --force
         <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
-        <script src="theme/sidebar-d5e0e3c4.js"></script>
+        <script src="theme/sidebar-25560f1a.js"></script>
 
 
 

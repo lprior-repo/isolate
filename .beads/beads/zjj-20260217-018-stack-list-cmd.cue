@@ -7,7 +7,7 @@ bead_id: "isolate-20260217-018-stack-list-cmd"
 
 // Section 2: Intent
 intent: {
-    // What: Implement `zjj stack ls` command
+    // What: Implement `isolate stack ls` command
     what: "List all stacks with parent-child relationships"
     // Why: AI agents need to discover stack structure
     why: "Need to visualize and query stack hierarchy"
@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Add `zjj stack ls` subcommand",
+        "Add `isolate stack ls` subcommand",
         "Query sessions with parent_session",
         "Build tree structure",
         "Emit Stack lines for each stack",
@@ -71,7 +71,7 @@ algorithm: {
         "Build tree structure (roots first, then children)",
         "For each root: emit Stack line with children",
         "Emit Context line last",
-        "Test: zjj stack ls",
+        "Test: isolate stack ls",
         "Verify tree structure is correct",
     ]
 }
@@ -211,7 +211,7 @@ acceptance_criteria: {
         "Handles orphans",
         "Emits Context last",
         "Unit tests pass",
-        "Manual test: zjj stack ls",
+        "Manual test: isolate stack ls",
         "No unwrap() or panic() in command",
     ]
     // Should: Nice to have

@@ -7,7 +7,7 @@ bead_id: "isolate-20260217-023-queue-submit-cmd"
 
 // Section 2: Intent
 intent: {
-    // What: Implement `zjj queue submit <session>` command
+    // What: Implement `isolate queue submit <session>` command
     what: "Add session to merge queue for processing"
     // Why: Need to queue sessions for merge train processing
     why: "Graphite-style merge queue requires submission mechanism"
@@ -79,7 +79,7 @@ algorithm: {
         "Emit Result line",
         "Emit Context line",
         "Handle errors",
-        "Test: zjj queue submit feature-a",
+        "Test: isolate queue submit feature-a",
     ]
 }
 
@@ -215,7 +215,7 @@ acceptance_criteria: {
         "Checks for duplicates",
         "Emits JSONL output",
         "Unit tests pass",
-        "Manual test: zjj queue submit feature-a",
+        "Manual test: isolate queue submit feature-a",
         "No unwrap() or panic()",
     ]
     // Should: Nice to have

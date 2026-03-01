@@ -7,8 +7,8 @@ bead_id: "isolate-20260217-012-db-merge-queue-tables"
 
 // Section 2: Intent
 intent: {
-    // What: Create merge queue tables in state.db with zjj_queue prefix
-    what: "Create zjj_queue_merge_queue, zjj_queue_processing_lock, zjj_queue_events tables"
+    // What: Create merge queue tables in state.db with isolate_queue prefix
+    what: "Create isolate_queue_merge_queue, isolate_queue_processing_lock, isolate_queue_events tables"
     // Why: Merge queue needs dedicated tables; consolidate from separate queue.db
     why: "Current queue.db is separate; single database simplifies architecture"
     // Value: Merge queue state in main database with namespaced tables
@@ -19,12 +19,12 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create zjj_queue_merge_queue table",
-        "Create zjj_queue_processing_lock table",
-        "Create zjj_queue_events table",
+        "Create isolate_queue_merge_queue table",
+        "Create isolate_queue_processing_lock table",
+        "Create isolate_queue_events table",
         "Add all necessary columns and indexes",
         "Add foreign key constraints",
-        "Use zjj_queue prefix to namespace tables",
+        "Use isolate_queue prefix to namespace tables",
     ]
     // Out: What we will NOT do
     out: [
@@ -58,7 +58,7 @@ contract: {
     }
     // Invariants: Must remain true
     invariants: [
-        "All tables have zjj_queue prefix",
+        "All tables have isolate_queue prefix",
         "Foreign key constraints are enforced",
         "Indexes are maintained",
         "Event log is append-only",
@@ -71,9 +71,9 @@ algorithm: {
     steps: [
         "Read existing queue.db schema if exists",
         "Create sql_schemas/02_merge_queue.sql",
-        "CREATE TABLE zjj_queue_merge_queue with all columns",
-        "CREATE TABLE zjj_queue_processing_lock",
-        "CREATE TABLE zjj_queue_events",
+        "CREATE TABLE isolate_queue_merge_queue with all columns",
+        "CREATE TABLE isolate_queue_processing_lock",
+        "CREATE TABLE isolate_queue_events",
         "Add indexes on session_name, position, status",
         "Add foreign key constraints",
         "Write migration script",
@@ -87,7 +87,7 @@ data_model: {
     // Types: Type definitions
     types: {
         merge_queue_table: #"""
-            CREATE TABLE zjj_queue_merge_queue (
+            CREATE TABLE isolate_queue_merge_queue (
                 id INTEGER PRIMARY KEY,
                 session_name TEXT NOT NULL REFERENCES sessions(name),
                 position INTEGER NOT NULL UNIQUE,
@@ -100,7 +100,7 @@ data_model: {
             """#
 
         processing_lock_table: #"""
-            CREATE TABLE zjj_queue_processing_lock (
+            CREATE TABLE isolate_queue_processing_lock (
                 id INTEGER PRIMARY KEY,
                 locked_at INTEGER NOT NULL,
                 locked_by TEXT NOT NULL,
@@ -109,7 +109,7 @@ data_model: {
             """#
 
         events_table: #"""
-            CREATE TABLE zjj_queue_events (
+            CREATE TABLE isolate_queue_events (
                 id INTEGER PRIMARY KEY,
                 timestamp TEXT NOT NULL,
                 session_name TEXT NOT NULL,
@@ -120,7 +120,7 @@ data_model: {
     }
     // State: State mutations
     state: {
-        tables_created: ["zjj_queue_merge_queue", "zjj_queue_processing_lock", "zjj_queue_events"]
+        tables_created: ["isolate_queue_merge_queue", "isolate_queue_processing_lock", "isolate_queue_events"]
     }
 }
 
@@ -239,9 +239,9 @@ risks: {
 acceptance_criteria: {
     // Must: Required for completion
     must: [
-        "zjj_queue_merge_queue table exists",
-        "zjj_queue_processing_lock table exists",
-        "zjj_queue_events table exists",
+        "isolate_queue_merge_queue table exists",
+        "isolate_queue_processing_lock table exists",
+        "isolate_queue_events table exists",
         "All indexes created",
         "Foreign key constraints exist",
         "Migration runs successfully",

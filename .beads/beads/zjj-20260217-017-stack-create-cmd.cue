@@ -7,7 +7,7 @@ bead_id: "isolate-20260217-017-stack-create-cmd"
 
 // Section 2: Intent
 intent: {
-    // What: Implement `zjj stack <name> --on <parent>` command
+    // What: Implement `isolate stack <name> --on <parent>` command
     what: "Create command to create stacked sessions with parent relationship"
     // Why: Graphite-style stacking requires parent-child session tracking
     why: "Need to create sessions that depend on parent sessions"
@@ -19,8 +19,8 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create stack command in crates/zjj/src/commands/stack.rs",
-        "Add `zjj stack <name> --on <parent>` subcommand",
+        "Create stack command in crates/isolate/src/commands/stack.rs",
+        "Add `isolate stack <name> --on <parent>` subcommand",
         "Validate parent exists",
         "Create session with parent_session set",
         "Emit JSONL output",
@@ -67,7 +67,7 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Create crates/zjj/src/commands/stack.rs",
+        "Create crates/isolate/src/commands/stack.rs",
         "Add CLI args: name, --on <parent>",
         "Validate parent session exists",
         "Create session with parent_session set to parent",
@@ -75,7 +75,7 @@ algorithm: {
         "Emit Result line on success",
         "Emit Context line last",
         "Handle errors: emit Error line",
-        "Test: zjj stack feature-a --on main",
+        "Test: isolate stack feature-a --on main",
         "Verify parent_session is set in database",
     ]
 }
@@ -214,7 +214,7 @@ acceptance_criteria: {
         "JSONL output emitted",
         "Error handling works",
         "Unit tests pass",
-        "Manual test: zjj stack feature-a --on main",
+        "Manual test: isolate stack feature-a --on main",
         "No unwrap() or panic() in command",
     ]
     // Should: Nice to have

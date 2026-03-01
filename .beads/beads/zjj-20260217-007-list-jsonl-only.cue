@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Update crates/zjj/src/commands/list.rs",
+        "Update crates/isolate/src/commands/list.rs",
         "Remove human-readable formatting",
         "Add emit_jsonl() calls for Session lines",
         "Emit one Session line per session",
@@ -67,14 +67,14 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj/src/commands/list.rs",
-        "Import emit_jsonl from zjj_core::output::jsonl",
+        "Read crates/isolate/src/commands/list.rs",
+        "Import emit_jsonl from isolate_core::output::jsonl",
         "Import OutputLine types",
         "Remove human formatting code",
         "Query sessions from database",
         "For each session: emit OutputLine::Session",
         "Emit OutputLine::Context last",
-        "Test: zjj list | jq -c .",
+        "Test: isolate list | jq -c .",
         "Verify each line is valid JSON",
         "Verify Context is last line",
     ]
@@ -213,7 +213,7 @@ acceptance_criteria: {
         "Output can be parsed by jq -c",
         "No human-readable formatting",
         "Unit tests pass",
-        "Manual test: zjj list | jq -c .",
+        "Manual test: isolate list | jq -c .",
     ]
     // Should: Nice to have
     should: [

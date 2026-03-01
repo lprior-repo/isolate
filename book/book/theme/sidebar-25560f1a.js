@@ -1,4 +1,4 @@
-// ZJJ Documentation - Collapsible Sidebar Navigation
+// Isolate Documentation - Collapsible Sidebar Navigation
 // Inspired by Stripe's documentation UX
 
 const initCollapsibleSections = () => {
@@ -63,13 +63,13 @@ const restoreScrollPosition = () => {
   const sidebar = document.querySelector('.sidebar-scrollbox');
   if (!sidebar) return;
   
-  const savedPosition = sessionStorage.getItem('zjj-sidebar-scroll');
+  const savedPosition = sessionStorage.getItem('isolate-sidebar-scroll');
   if (savedPosition) {
     sidebar.scrollTop = parseInt(savedPosition, 10);
   }
   
   sidebar.addEventListener('scroll', () => {
-    sessionStorage.setItem('zjj-sidebar-scroll', sidebar.scrollTop);
+    sessionStorage.setItem('isolate-sidebar-scroll', sidebar.scrollTop);
   });
 };
 

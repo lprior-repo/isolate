@@ -3,7 +3,6 @@
 
 workspace_dir = "../{repo}__workspaces"
 main_branch = "feature_branch"
-default_template = "standard"
 state_db = ".isolate/state.db"
 
 [watch]

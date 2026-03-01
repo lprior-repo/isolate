@@ -65,7 +65,7 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj/src/commands/clean/mod.rs",
+        "Read crates/isolate/src/commands/clean/mod.rs",
         "Find confirm() call",
         "Remove confirm() call",
         "Remove --yes/--force flags",
@@ -206,8 +206,8 @@ acceptance_criteria: {
         "Cleanup is immediate (unless --dry-run)",
         "Emits JSONL output",
         "Unit tests pass",
-        "Manual test: zjj clean (no prompt)",
-        "Manual test: zjj clean --dry-run (doesn't clean)",
+        "Manual test: isolate clean (no prompt)",
+        "Manual test: isolate clean --dry-run (doesn't clean)",
         "No unwrap() or panic()",
     ]
     // Should: Nice to have

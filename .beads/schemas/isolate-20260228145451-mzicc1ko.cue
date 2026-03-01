@@ -3,15 +3,15 @@ package validation
 
 import "list"
 
-// Validation schema for bead: isolate-20260228091737-tjbrbo29
-// Title: rename: Rename isolate-audit tool to isolate-audit
+// Validation schema for bead: isolate-20260228145451-mzicc1ko
+// Title: cli: Fix panic on deprecated work command
 //
 // This schema validates that implementation is complete.
-// Use: cue vet isolate-20260228091737-tjbrbo29.cue implementation.cue
+// Use: cue vet isolate-20260228145451-mzicc1ko.cue implementation.cue
 
 #BeadImplementation: {
-  bead_id: "isolate-20260228091737-tjbrbo29"
-  title: "rename: Rename isolate-audit tool to isolate-audit"
+  bead_id: "isolate-20260228145451-mzicc1ko"
+  title: "cli: Fix panic on deprecated work command"
 
   // Contract verification
   contracts_verified: {
@@ -21,18 +21,17 @@ import "list"
 
     // Specific preconditions that must be verified
     precondition_checks: [
-      "Package named isolate-audit in tools/audit/Cargo.toml",
+      "User runs isolate work",
     ]
 
     // Specific postconditions that must be verified
     postcondition_checks: [
-      "Package named isolate-audit",
-      "Binary output is isolate-audit",
+      "Returns appropriate response, not panic",
     ]
 
     // Specific invariants that must be maintained
     invariant_checks: [
-      "All references updated",
+      "No thread panic occurs",
     ]
   }
 
@@ -47,14 +46,14 @@ import "list"
 
     // Required happy path tests
     required_happy_tests: [
-      "cargo build -p isolate-audit succeeds",
-      "Binary named isolate-audit",
+      "session work shows help or works",
+      "deprecated warning is shown",
     ]
 
     // Required error path tests
     required_error_tests: [
-      "Package name conflict error",
-      "Missing dependency error",
+      "isolate work does not panic",
+      "panic does not occur",
     ]
   }
 
@@ -106,6 +105,6 @@ import "list"
 //     all_sections_complete: true
 //     documentation_updated: true
 //     beads_closed: false
-//     timestamp: "2026-02-28T09:17:37Z"
+//     timestamp: "2026-02-28T14:54:51Z"
 //   }
 // }

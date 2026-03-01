@@ -7,7 +7,7 @@ bead_id: "isolate-20260217-019-stack-restack-cmd"
 
 // Section 2: Intent
 intent: {
-    // What: Implement `zjj stack restack` command
+    // What: Implement `isolate stack restack` command
     what: "Restack session onto new parent, updating children"
     // Why: Need to move sessions in stack hierarchy
     why: "Stacks change; need to reparent sessions"
@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Add `zjj stack restack <session> --on <new-parent>`",
+        "Add `isolate stack restack <session> --on <new-parent>`",
         "Validate new parent exists",
         "Update session's parent_session",
         "Rebase session if needed",
@@ -212,7 +212,7 @@ acceptance_criteria: {
         "Detects circular deps",
         "Emits JSONL output",
         "Unit tests pass",
-        "Manual test: zjj stack restack feature-a --on main",
+        "Manual test: isolate stack restack feature-a --on main",
         "No unwrap() or panic() in command",
     ]
     // Should: Nice to have

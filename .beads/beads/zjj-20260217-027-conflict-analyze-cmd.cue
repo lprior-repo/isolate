@@ -7,7 +7,7 @@ bead_id: "isolate-20260217-027-conflict-analyze-cmd"
 
 // Section 2: Intent
 intent: {
-    // What: Implement `zjj conflict analyze <session>` command
+    // What: Implement `isolate conflict analyze <session>` command
     what: "Analyze merge conflicts and emit structured resolution options"
     // Why: AI agents need to understand conflicts to resolve them
     why: "Manual conflict resolution doesn't scale for AI agents"
@@ -19,8 +19,8 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create conflict command in crates/zjj/src/commands/conflict.rs",
-        "Add `zjj conflict analyze <session>` subcommand",
+        "Create conflict command in crates/isolate/src/commands/conflict.rs",
+        "Add `isolate conflict analyze <session>` subcommand",
         "Detect merge conflicts",
         "Analyze conflict markers",
         "Identify conflicting files",

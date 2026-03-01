@@ -19,7 +19,7 @@ intent: {
 scope: {
     // In: What we WILL do
     in: [
-        "Create crates/zjj/tests/test_merge_train.rs",
+        "Create crates/isolate/tests/test_merge_train.rs",
         "Test queue submit",
         "Test train processing",
         "Test train failure and auto-rebase",

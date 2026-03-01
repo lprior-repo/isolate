@@ -63,7 +63,7 @@ contract: {
 algorithm: {
     // Steps: Ordered implementation steps
     steps: [
-        "Read crates/zjj/src/commands/remove.rs",
+        "Read crates/isolate/src/commands/remove.rs",
         "Find confirm() call",
         "Remove confirm() call",
         "Remove --yes/--force flags",
@@ -198,7 +198,7 @@ acceptance_criteria: {
         "Removal is immediate",
         "Emits JSONL output",
         "Unit tests pass",
-        "Manual test: zjj remove test-session (no prompt)",
+        "Manual test: isolate remove test-session (no prompt)",
         "No unwrap() or panic()",
     ]
     // Should: Nice to have

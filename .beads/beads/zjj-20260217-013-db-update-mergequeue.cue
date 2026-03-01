@@ -23,7 +23,7 @@ scope: {
         "Update crates/isolate-core/src/coordination/queue_entities.rs",
         "Change database queries to use state.db",
         "Remove queue.db path logic",
-        "Update queue table names to use zjj_queue prefix",
+        "Update queue table names to use isolate_queue prefix",
         "Update MergeQueue struct methods",
     ]
     // Out: What we will NOT do
@@ -58,7 +58,7 @@ contract: {
     // Invariants: Must remain true
     invariants: [
         "All queue queries go to state.db",
-        "Queue tables use zjj_queue prefix",
+        "Queue tables use isolate_queue prefix",
         "No references to queue.db",
         "All existing functionality still works",
     ]
@@ -72,10 +72,10 @@ algorithm: {
         "Read crates/isolate-core/src/coordination/queue_entities.rs",
         "Grep for references to queue.db or queue_db_path",
         "Update MergeQueue::new() to take state.db pool",
-        "Update all queries to use zjj_queue table names",
-        "Update table references: merge_queue -> zjj_queue_merge_queue",
-        "Update table references: processing_lock -> zjj_queue_processing_lock",
-        "Update table references: events -> zjj_queue_events",
+        "Update all queries to use isolate_queue table names",
+        "Update table references: merge_queue -> isolate_queue_merge_queue",
+        "Update table references: processing_lock -> isolate_queue_processing_lock",
+        "Update table references: events -> isolate_queue_events",
         "Remove queue_db_path parameter from constructors",
         "Test all MergeQueue methods",
         "Run cargo test",
@@ -220,7 +220,7 @@ acceptance_criteria: {
     // Must: Required for completion
     must: [
         "MergeQueue uses state.db",
-        "All queries use zjj_queue table names",
+        "All queries use isolate_queue table names",
         "No references to queue.db in code",
         "No references to queue_db_path",
         "All MergeQueue methods work correctly",

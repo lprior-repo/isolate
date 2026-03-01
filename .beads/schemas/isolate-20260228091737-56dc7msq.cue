@@ -4,14 +4,14 @@ package validation
 import "list"
 
 // Validation schema for bead: isolate-20260228091737-56dc7msq
-// Title: rename: Replace zjj with isolate in templates
+// Title: rename: Replace isolate with isolate in templates
 //
 // This schema validates that implementation is complete.
 // Use: cue vet isolate-20260228091737-56dc7msq.cue implementation.cue
 
 #BeadImplementation: {
   bead_id: "isolate-20260228091737-56dc7msq"
-  title: "rename: Replace zjj with isolate in templates"
+  title: "rename: Replace isolate with isolate in templates"
 
   // Contract verification
   contracts_verified: {
@@ -21,12 +21,12 @@ import "list"
 
     // Specific preconditions that must be verified
     precondition_checks: [
-      "Templates contain zjj references",
+      "Templates contain isolate references",
     ]
 
     // Specific postconditions that must be verified
     postcondition_checks: [
-      "All zjj references replaced with isolate",
+      "All isolate references replaced with isolate",
     ]
 
     // Specific invariants that must be maintained
@@ -47,12 +47,12 @@ import "list"
     // Required happy path tests
     required_happy_tests: [
       "Generated docs show isolate commands",
-      "No zjj in template output",
+      "No isolate in template output",
     ]
 
     // Required error path tests
     required_error_tests: [
-      "grep finds remaining zjj",
+      "grep finds remaining isolate",
       "Build fails on reference",
     ]
   }

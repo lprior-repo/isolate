@@ -3,13 +3,13 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>ZJJ Documentation</title>
+        <title>Isolate Documentation</title>
         <meta name="robots" content="noindex">
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Parallel Workspace Isolation + Queue Coordination for JJ + Zellij">
+        <meta name="description" content="Workspace isolation for multi-agent workflows. Built on JJ.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7e70b2ce.js";
+            window.path_to_searchindex_js = "searchindex-b4db8918.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-6b77885c.js"></script>
+        <script src="toc-b0ee52aa.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -140,13 +140,13 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">ZJJ Documentation</h1>
+                    <h1 class="menu-title">Isolate Documentation</h1>
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
-                        <a href="https://github.com/lprior-repo/zjj" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/lprior-repo/isolate" title="Git repository" aria-label="Git repository">
                             <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
                         </a>
 
@@ -180,1833 +180,574 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="zjj"><a class="header" href="#zjj">ZJJ</a></h1>
-<div class="hero">
-  
-<h1>Run parallel workstreams without conflicts</h1>
-
-  
-<p>Create isolated workspaces for each task. Switch instantly. Land cleanly.</p>
-
-</div>
-
-<hr>
-<h2 id="what-you-can-do-with-zjj"><a class="header" href="#what-you-can-do-with-zjj">What you can do with ZJJ</a></h2>
-<div class="features">
-  
-<div class="feature">
-    
-<div class="feature-icon">🔒</div>
-
-    
-<h3>Work on multiple features</h3>
-
-    
-<p>Each task gets its own isolated workspace. No more stashing, branching, or context switching pain.</p>
-
-  </div>
-
-  
-<div class="feature">
-    
-<div class="feature-icon">⚡</div>
-
-    
-<h3>Switch in seconds</h3>
-
-    
-<p>Jump between workspaces instantly. Your environment, editor state, and terminal history stay intact.</p>
-
-  </div>
-
-  
-<div class="feature">
-    
-<div class="feature-icon">🤖</div>
-
-    
-<h3>Run AI agents in parallel</h3>
-
-    
-<p>Coordinate 6-12 coding agents safely. Each agent works in isolation with queue-based coordination.</p>
-
-  </div>
-
-  
-<div class="feature">
-    
-<div class="feature-icon">✅</div>
-
-    
-<h3>Land work cleanly</h3>
-
-    
-<p>One command merges your changes to main. Built-in sync keeps you up to date with teammates.</p>
-
-  </div>
-
-</div>
-
-<hr>
-<h2 id="how-it-works"><a class="header" href="#how-it-works">How it works</a></h2>
-<p>ZJJ combines three tools into a unified workflow:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Component</th><th>What it does</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>JJ Workspaces</strong></td><td>Hard isolation for each task</td></tr>
-<tr><td><strong>Zellij Tabs</strong></td><td>Fast context switching between workspaces</td></tr>
-<tr><td><strong>SQLite Queue</strong></td><td>Coordination, retries, and recovery</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="the-workflow"><a class="header" href="#the-workflow">The workflow</a></h3>
-<pre><code class="language-bash"># 1. Create an isolated workspace
-zjj add feature-auth --bead BD-123
-
-# 2. Jump into it
-zjj focus feature-auth
-
-# 3. Do your work (main stays untouched)
-vim src/auth.rs
-
-# 4. Sync with main anytime
-zjj sync
-
-# 5. Land your changes
-zjj done --message "Add auth"
-</code></pre>
-<hr>
-<h2 id="before-and-after"><a class="header" href="#before-and-after">Before and after</a></h2>
-<p><strong>Without ZJJ:</strong></p>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>Isolate is a workspace isolation tool built on top of <a href="https://github.com/jj-vcs/jj">JJ (Jujutsu)</a> version control. It provides clean, isolated workspaces for AI agents working in parallel.</p>
+<h2 id="the-problem"><a class="header" href="#the-problem">The Problem</a></h2>
+<p>Running 8-12 agents in parallel is chaos:</p>
 <ul>
-<li>6 agents race on the same working copy → duplicated effort, conflicts</li>
-<li>You switch branches → lose editor state, stash changes, forget context</li>
-<li>Multiple features in progress → hard to track what’s where</li>
+<li><strong>Lost code</strong> — changes overwritten, gone forever</li>
+<li><strong>Duplicate work</strong> — the same feature re-implemented 3-4x</li>
+<li><strong>Bead stealing</strong> — agents claiming work already in progress</li>
+<li><strong>Detached HEAD</strong> — constantly stuck in broken states</li>
+<li><strong>Broken main</strong> — always blocked, always broken</li>
 </ul>
-<p><strong>With ZJJ:</strong></p>
+<h2 id="the-solution"><a class="header" href="#the-solution">The Solution</a></h2>
+<p><strong>Workspace isolation.</strong> Each agent gets their own isolated JJ workspace. No shared state to corrupt, no coordination needed between agents.</p>
+<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│  Development Phase (Isolate)                            │
+│  - Agent spawns workspace                              │
+│  - Agent works on feature                              │
+│  - Agent runs isolate sync as main advances            │
+│  - Feature validated                                   │
+└─────────────────────── Hand off ────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────┐
+│  Queue/Stacking Phase (External Tool)                  │
+│  - Gets feature from Isolate                          │
+│  - Handles queue, stacking, final rebase              │
+│  - Merges to main                                      │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<h2 id="why-jj"><a class="header" href="#why-jj">Why JJ?</a></h2>
+<p>JJ is fundamentally better for multi-agent workflows:</p>
 <ul>
-<li>Each agent gets an isolated workspace → no conflicts, clear ownership</li>
-<li>Switch workspaces in 1 second → state preserved, instant context</li>
-<li>See all work at a glance → <code>zjj list</code> shows everything</li>
+<li><strong>Lock-free concurrency</strong> — agents don’t corrupt each other’s work</li>
+<li><strong>Operation log</strong> — undo ANY operation, recover from mistakes</li>
+<li><strong>Anonymous commits</strong> — no branch name pollution at 8-12 agents</li>
+<li><strong>First-class conflicts</strong> — no blocking on merges</li>
 </ul>
-<hr>
-<h2 id="when-to-use-zjj"><a class="header" href="#when-to-use-zjj">When to use ZJJ</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>If you are</th><th>ZJJ helps you</th></tr>
-</thead>
-<tbody>
-<tr><td>A developer</td><td>Work on multiple features without branch chaos</td></tr>
-<tr><td>An AI operator</td><td>Run multiple agents safely in parallel</td></tr>
-<tr><td>A team</td><td>Coordinate workstreams without stepping on each other</td></tr>
-<tr><td>A maintainer</td><td>Review and merge PRs in isolated workspaces</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="quick-comparison"><a class="header" href="#quick-comparison">Quick comparison</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Feature</th><th>Git branches</th><th>Git worktrees</th><th>ZJJ</th></tr>
-</thead>
-<tbody>
-<tr><td>Isolation</td><td>Shared .git</td><td>Separate dirs</td><td>Separate dirs</td></tr>
-<tr><td>Switching</td><td><code>git checkout</code></td><td><code>cd ../dir</code></td><td><code>zjj focus name</code></td></tr>
-<tr><td>State preserved</td><td>No</td><td>Partial</td><td>Yes (Zellij)</td></tr>
-<tr><td>Queue coordination</td><td>No</td><td>No</td><td>Yes</td></tr>
-<tr><td>AI-ready</td><td>No</td><td>No</td><td>Yes</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="get-started-in-5-minutes"><a class="header" href="#get-started-in-5-minutes">Get started in 5 minutes</a></h2>
-<div class="quickstart-cards">
-  
-<div class="card">
-    
-<h4>Quick Start</h4>
+<p>Git Worktrees work at 1-3 agents. They break at 4+. We know because we lived it.</p>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<pre><code class="language-bash"># Check where you are
+isolate whereami
 
-    
-<p>Set up ZJJ and create your first workspace</p>
+# Start work on a feature
+isolate work feature-123
 
-    <a href="#quick-start">Start here</a>
-  </div>
+# Sync with main as it advances
+isolate sync
 
-  
-<div class="card">
-    
-<h4>User Guide</h4>
-
-    
-<p>Learn the complete workflow</p>
-
-    <a href="#user-guide">Read guide</a>
-  </div>
-
-  
-<div class="card">
-    
-<h4>AI Agents</h4>
-
-    
-<p>Run parallel AI coding agents</p>
-
-    <a href="#ai-agent-guide">AI guide</a>
-  </div>
-
-  
-<div class="card">
-    
-<h4>Reference</h4>
-
-    
-<p>All commands and configuration</p>
-
-    <a href="#command-reference">Browse</a>
-  </div>
-
-</div>
-
-<hr>
-<h2 id="key-concepts"><a class="header" href="#key-concepts">Key concepts</a></h2>
-<h3 id="session"><a class="header" href="#session">Session</a></h3>
-<p>A named, isolated workspace that optionally links to a bead (issue/task).</p>
-<pre><code class="language-bash">zjj add auth-refactor --bead BD-123
+# Complete work when done
+isolate done
 </code></pre>
-<h3 id="queue-entry"><a class="header" href="#queue-entry">Queue entry</a></h3>
-<p>A unit of work that agents can claim and process.</p>
-<pre><code class="language-bash">zjj queue --add feature-a --bead BD-101 --priority 3
-</code></pre>
-<h3 id="done"><a class="header" href="#done">Done</a></h3>
-<p>Complete your work and merge it back to main.</p>
-<pre><code class="language-bash">zjj done --message "Implement auth refactor" --push
-</code></pre>
-<hr>
-<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
-<p>Before you start, ensure you have:</p>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <ul>
-<li><strong>JJ (Jujutsu)</strong> 0.20+ — <a href="https://github.com/martinvonz/jj#installation">Install guide</a></li>
-<li><strong>Zellij</strong> 0.39+ — <a href="https://zellij.dev/download">Install guide</a></li>
-<li><strong>Rust</strong> 1.80+ — <a href="https://rustup.rs/">Install via rustup</a></li>
-</ul>
-<hr>
-<h2 id="license"><a class="header" href="#license">License</a></h2>
-<p>MIT License — see <a href="https://github.com/lprior-repo/zjj/blob/main/LICENSE">LICENSE</a> for details.</p>
-<div style="break-before: page; page-break-before: always;"></div>
-<h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
-<p>Get up and running with ZJJ in 5 minutes.</p>
-<hr>
-<h2 id="prerequisites-1"><a class="header" href="#prerequisites-1">Prerequisites</a></h2>
-<p>Before you start, ensure you have these installed:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Tool</th><th>Version</th><th>Install</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>JJ (Jujutsu)</strong></td><td>0.20+</td><td><a href="https://github.com/martinvonz/jj#installation">Install guide</a></td></tr>
-<tr><td><strong>Zellij</strong></td><td>0.39+</td><td><a href="https://zellij.dev/download">Install guide</a></td></tr>
-<tr><td><strong>Rust</strong></td><td>1.80+</td><td><a href="https://rustup.rs/">Install via rustup</a></td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
-<h3 id="from-source-recommended"><a class="header" href="#from-source-recommended">From source (recommended)</a></h3>
-<pre><code class="language-bash"># Clone the repository
-git clone https://github.com/lprior-repo/zjj.git
-cd zjj
-
-# Build with Moon
-moon run :build
-
-# Install the binary
-moon run :install
-
-# Verify
-zjj --version
-</code></pre>
-<h3 id="from-cratesio"><a class="header" href="#from-cratesio">From crates.io</a></h3>
-<pre><code class="language-bash">cargo install zjj
-</code></pre>
-<hr>
-<h2 id="your-first-workspace"><a class="header" href="#your-first-workspace">Your first workspace</a></h2>
-<h3 id="1-initialize-zjj"><a class="header" href="#1-initialize-zjj">1. Initialize ZJJ</a></h3>
-<pre><code class="language-bash"># Inside a JJ repository
-zjj init
-</code></pre>
-<p>This creates the <code>.zjj/</code> directory with the state database.</p>
-<h3 id="2-create-a-workspace"><a class="header" href="#2-create-a-workspace">2. Create a workspace</a></h3>
-<pre><code class="language-bash">zjj add feature-auth --bead BD-123
-</code></pre>
-<p>This creates:</p>
-<ul>
-<li>An isolated JJ workspace</li>
-<li>A Zellij tab for quick switching</li>
-<li>Association with bead <code>BD-123</code> for tracking</li>
-</ul>
-<h3 id="3-jump-into-it"><a class="header" href="#3-jump-into-it">3. Jump into it</a></h3>
-<pre><code class="language-bash">zjj focus feature-auth
-</code></pre>
-<p>Or check where you are:</p>
-<pre><code class="language-bash">zjj whereami
-# workspace:feature-auth
-</code></pre>
-<h3 id="4-do-your-work"><a class="header" href="#4-do-your-work">4. Do your work</a></h3>
-<p>Edit files in your isolated workspace. Main stays untouched.</p>
-<pre><code class="language-bash">vim src/auth.rs
-</code></pre>
-<h3 id="5-keep-synced"><a class="header" href="#5-keep-synced">5. Keep synced</a></h3>
-<pre><code class="language-bash">zjj sync
-</code></pre>
-<p>This rebases your workspace onto the latest main.</p>
-<h3 id="6-complete-and-land"><a class="header" href="#6-complete-and-land">6. Complete and land</a></h3>
-<pre><code class="language-bash">zjj done --message "Add authentication" --push
-</code></pre>
-<hr>
-<h2 id="common-commands"><a class="header" href="#common-commands">Common commands</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>What you want to do</th><th>Command</th></tr>
-</thead>
-<tbody>
-<tr><td>Check where you are</td><td><code>zjj whereami</code></td></tr>
-<tr><td>Create a workspace</td><td><code>zjj add &lt;name&gt;</code></td></tr>
-<tr><td>List all workspaces</td><td><code>zjj list</code></td></tr>
-<tr><td>Switch workspaces</td><td><code>zjj focus &lt;name&gt;</code></td></tr>
-<tr><td>Sync with main</td><td><code>zjj sync</code></td></tr>
-<tr><td>Complete work</td><td><code>zjj done</code></td></tr>
-<tr><td>Clean up workspace</td><td><code>zjj remove &lt;name&gt;</code></td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="multi-agent-quick-start"><a class="header" href="#multi-agent-quick-start">Multi-agent quick start</a></h2>
-<p>Run multiple AI agents in parallel.</p>
-<h3 id="1-add-tasks-to-the-queue"><a class="header" href="#1-add-tasks-to-the-queue">1. Add tasks to the queue</a></h3>
-<pre><code class="language-bash">zjj queue --add feature-a --bead BD-101 --priority 5
-zjj queue --add feature-b --bead BD-102 --priority 3
-zjj queue --add feature-c --bead BD-103 --priority 1
-</code></pre>
-<h3 id="2-view-the-queue"><a class="header" href="#2-view-the-queue">2. View the queue</a></h3>
-<pre><code class="language-bash">zjj queue --list
-</code></pre>
-<h3 id="3-claim-work"><a class="header" href="#3-claim-work">3. Claim work</a></h3>
-<pre><code class="language-bash"># Agent 1
-zjj work --agent agent-001
-
-# Agent 2
-zjj work --agent agent-002
-</code></pre>
-<h3 id="4-monitor-progress"><a class="header" href="#4-monitor-progress">4. Monitor progress</a></h3>
-<pre><code class="language-bash">zjj queue --status
-</code></pre>
-<hr>
-<h2 id="keyboard-shortcuts"><a class="header" href="#keyboard-shortcuts">Keyboard shortcuts</a></h2>
-<p>When using Zellij:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Shortcut</th><th>Action</th></tr>
-</thead>
-<tbody>
-<tr><td><code>Ctrl+p</code> then <code>t</code></td><td>New tab</td></tr>
-<tr><td><code>Ctrl+p</code> then <code>n</code></td><td>Next tab</td></tr>
-<tr><td><code>Ctrl+p</code> then <code>h/l</code></td><td>Navigate tabs</td></tr>
-<tr><td><code>Ctrl+p</code> then <code>w</code></td><td>Close tab</td></tr>
-</tbody>
-</table>
-</div>
-<p>Use <code>zjj focus &lt;name&gt;</code> to jump directly to a workspace tab.</p>
-<hr>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>ZJJ stores configuration in <code>.zjj/config.toml</code>.</p>
-<h3 id="view-configuration"><a class="header" href="#view-configuration">View configuration</a></h3>
-<pre><code class="language-bash">zjj config
-</code></pre>
-<h3 id="common-settings"><a class="header" href="#common-settings">Common settings</a></h3>
-<pre><code class="language-toml">[recovery]
-policy = "warn"
-log_recovered = true
-
-[queue]
-default_priority = 5
-stale_timeout_seconds = 3600
-</code></pre>
-<hr>
-<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
-<h3 id="not-in-a-jj-repository"><a class="header" href="#not-in-a-jj-repository">“Not in a JJ repository”</a></h3>
-<p>Initialize JJ first:</p>
-<pre><code class="language-bash">jj init &amp;&amp; zjj init
-</code></pre>
-<h3 id="database-corruption-detected"><a class="header" href="#database-corruption-detected">“Database corruption detected”</a></h3>
-<p>Run diagnostics:</p>
-<pre><code class="language-bash">zjj doctor
-</code></pre>
-<h3 id="zellij-not-found"><a class="header" href="#zellij-not-found">“Zellij not found”</a></h3>
-<p>Install Zellij:</p>
-<pre><code class="language-bash"># macOS
-brew install zellij
-
-# Linux
-cargo install zellij
-</code></pre>
-<hr>
-<h2 id="next-steps"><a class="header" href="#next-steps">Next steps</a></h2>
-<div class="quickstart-cards">
-  
-<div class="card">
-    
-<h4>Workspace Management</h4>
-
-    
-<p>Learn the full workspace lifecycle</p>
-
-    <a href="guide/workspaces.html">Read guide →</a>
-  </div>
-
-  
-<div class="card">
-    
-<h4>Queue Coordination</h4>
-
-    
-<p>Coordinate multiple agents and tasks</p>
-
-    <a href="guide/queue.html">Learn queues →</a>
-  </div>
-
-  
-<div class="card">
-    
-<h4>AI Agent Guide</h4>
-
-    
-<p>Set up parallel AI workflows</p>
-
-    <a href="ai/overview.html">AI guide →</a>
-  </div>
-
-  
-<div class="card">
-    
-<h4>Command Reference</h4>
-
-    
-<p>All commands and options</p>
-
-    <a href="reference/commands.html">Browse →</a>
-  </div>
-
-</div>
-
-<hr>
-<h2 id="getting-help"><a class="header" href="#getting-help">Getting help</a></h2>
-<ul>
-<li>📖 <a href="guide/workspaces.html">User Guide</a></li>
-<li>🐛 <a href="https://github.com/lprior-repo/zjj/issues">Report issues</a></li>
-<li>💬 <a href="https://github.com/lprior-repo/zjj/discussions">Discussions</a></li>
+<li><strong>JJ (Jujutsu)</strong> must be installed</li>
+<li>Install via: <code>cargo install jj-cli</code> or <code>brew install jj</code></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="user-guide"><a class="header" href="#user-guide">User Guide</a></h1>
-<p>Everything you need to use ZJJ effectively.</p>
+<h1 id="cli-commands"><a class="header" href="#cli-commands">CLI Commands</a></h1>
+<p>Complete reference for Isolate CLI commands.</p>
 <hr>
-<h2 id="core-concepts"><a class="header" href="#core-concepts">Core Concepts</a></h2>
-<h3 id="session-1"><a class="header" href="#session-1">Session</a></h3>
-<p>A named, isolated workspace with optional Zellij tab and bead association.</p>
-<pre><code>Session = JJ Workspace + Optional Zellij Tab + Optional Bead
-</code></pre>
-<h3 id="workspace"><a class="header" href="#workspace">Workspace</a></h3>
-<p>A complete isolated copy of your repository where you can work without affecting main.</p>
-<h3 id="bead"><a class="header" href="#bead">Bead</a></h3>
-<p>A task/issue ID that tracks work through the system (e.g., <code>BD-123</code>, <code>zjj-abc45</code>).</p>
-<hr>
-<h2 id="the-workflow-1"><a class="header" href="#the-workflow-1">The Workflow</a></h2>
-<pre><code>┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│  init   │ -&gt; │   add   │ -&gt; │  work   │ -&gt; │   done  │
-└─────────┘    └─────────┘    └─────────┘    └─────────┘
-   Setup        Create         Edit           Merge
-</code></pre>
-<hr>
-<h2 id="session-lifecycle"><a class="header" href="#session-lifecycle">Session Lifecycle</a></h2>
-<h3 id="create"><a class="header" href="#create">Create</a></h3>
-<pre><code class="language-bash">zjj add &lt;name&gt; [--bead &lt;id&gt;]
-</code></pre>
-<p>Creates an isolated workspace. Optional <code>--bead</code> links to a task.</p>
-<pre><code class="language-bash">zjj add feature-auth --bead BD-123
-</code></pre>
-<h3 id="list"><a class="header" href="#list">List</a></h3>
-<pre><code class="language-bash">zjj list [--all] [--verbose]
-</code></pre>
-<p>Shows all sessions. Use <code>--all</code> for completed/failed, <code>--verbose</code> for details.</p>
-<h3 id="focus"><a class="header" href="#focus">Focus</a></h3>
-<pre><code class="language-bash">zjj focus &lt;name&gt;      # Inside Zellij - switch tabs
-zjj attach &lt;name&gt;     # Outside Zellij - enter session
-</code></pre>
-<h3 id="status"><a class="header" href="#status">Status</a></h3>
-<pre><code class="language-bash">zjj status [&lt;name&gt;] [--watch]
-</code></pre>
-<p>Shows workspace state. <code>--watch</code> updates live.</p>
-<h3 id="remove"><a class="header" href="#remove">Remove</a></h3>
-<pre><code class="language-bash">zjj remove &lt;name&gt; [--force] [--merge]
-</code></pre>
-<p>Removes session. <code>--merge</code> squashes to main first.</p>
-<hr>
-<h2 id="working-in-a-session"><a class="header" href="#working-in-a-session">Working in a Session</a></h2>
-<h3 id="sync-with-main"><a class="header" href="#sync-with-main">Sync with Main</a></h3>
-<pre><code class="language-bash">zjj sync [&lt;name&gt;] [--all]
-</code></pre>
-<p>Rebases your workspace onto latest main. Do this frequently.</p>
-<h3 id="check-location"><a class="header" href="#check-location">Check Location</a></h3>
-<pre><code class="language-bash">zjj whereami
-# Returns: main | workspace:&lt;name&gt;
-</code></pre>
-<h3 id="view-changes"><a class="header" href="#view-changes">View Changes</a></h3>
-<pre><code class="language-bash">zjj diff [&lt;name&gt;] [--stat]
-</code></pre>
-<p>Shows differences between your workspace and main.</p>
-<h3 id="view-bookmarks"><a class="header" href="#view-bookmarks">View Bookmarks</a></h3>
-<pre><code class="language-bash">zjj bookmark list
-zjj bookmark create &lt;name&gt; [--push]
-zjj bookmark delete &lt;name&gt;
-</code></pre>
-<hr>
-<h2 id="completing-work"><a class="header" href="#completing-work">Completing Work</a></h2>
-<h3 id="done-1"><a class="header" href="#done-1">done</a></h3>
-<pre><code class="language-bash">zjj done [--message &lt;msg&gt;] [--squash] [--keep-workspace]
-</code></pre>
-<p>Merges your workspace to main.</p>
-<h3 id="undo-if-needed"><a class="header" href="#undo-if-needed">Undo (if needed)</a></h3>
-<pre><code class="language-bash">zjj undo              # Undo last done
-zjj undo --list       # Show undo history
-zjj revert &lt;name&gt;     # Revert specific session
-</code></pre>
-<hr>
-<h2 id="queue-coordination"><a class="header" href="#queue-coordination">Queue Coordination</a></h2>
-<p>For multi-agent or coordinated workflows.</p>
-<h3 id="add-to-queue"><a class="header" href="#add-to-queue">Add to Queue</a></h3>
-<pre><code class="language-bash">zjj queue --add &lt;workspace&gt; --bead &lt;id&gt; --priority &lt;1-10&gt;
-</code></pre>
-<h3 id="view-queue"><a class="header" href="#view-queue">View Queue</a></h3>
-<pre><code class="language-bash">zjj queue --list
-zjj queue --stats
-zjj queue --status &lt;workspace&gt;
-</code></pre>
-<h3 id="process-queue"><a class="header" href="#process-queue">Process Queue</a></h3>
-<pre><code class="language-bash">zjj queue --next              # Get next item
-zjj queue worker --once       # Process one item
-zjj queue worker --loop       # Process continuously
-</code></pre>
-<h3 id="manage-entries"><a class="header" href="#manage-entries">Manage Entries</a></h3>
-<pre><code class="language-bash">zjj queue --cancel &lt;id&gt;       # Cancel entry
-zjj queue --retry &lt;id&gt;        # Retry failed entry
-zjj queue --reclaim-stale     # Reclaim expired leases
-</code></pre>
-<hr>
-<h2 id="recovery--diagnostics"><a class="header" href="#recovery--diagnostics">Recovery &amp; Diagnostics</a></h2>
-<h3 id="health-check"><a class="header" href="#health-check">Health Check</a></h3>
-<pre><code class="language-bash">zjj doctor [--fix] [--dry-run]
-</code></pre>
-<p>Runs diagnostics. <code>--fix</code> attempts automatic repair.</p>
-<h3 id="integrity"><a class="header" href="#integrity">Integrity</a></h3>
-<pre><code class="language-bash">zjj integrity validate &lt;workspace&gt;
-zjj integrity repair &lt;workspace&gt; [--force]
-</code></pre>
-<h3 id="checkpoints"><a class="header" href="#checkpoints">Checkpoints</a></h3>
-<pre><code class="language-bash">zjj checkpoint create --description "before major change"
-zjj checkpoint list
-zjj checkpoint restore &lt;id&gt;
-</code></pre>
-<h3 id="clean-stale-sessions"><a class="header" href="#clean-stale-sessions">Clean Stale Sessions</a></h3>
-<pre><code class="language-bash">zjj clean [--dry-run] [--force]
-zjj prune-invalid [--yes]
-</code></pre>
-<hr>
-<h2 id="templates"><a class="header" href="#templates">Templates</a></h2>
-<p>Zellij layout templates for different work styles.</p>
-<pre><code class="language-bash">zjj template list
-zjj template show &lt;name&gt;
-zjj template create &lt;name&gt; --builtin &lt;minimal|standard|full&gt;
-</code></pre>
-<p>Built-in templates:</p>
-<ul>
-<li><code>minimal</code> — Single pane</li>
-<li><code>standard</code> — Two panes (editor + terminal)</li>
-<li><code>full</code> — Three panes (editor + terminal + output)</li>
-<li><code>split</code> — Vertical split</li>
-<li><code>review</code> — Code review layout</li>
-</ul>
-<hr>
-<h2 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h2>
-<pre><code class="language-bash">zjj config                    # View config
-zjj config &lt;key&gt;              # View specific key
-zjj config &lt;key&gt; &lt;value&gt;      # Set value
-</code></pre>
-<p>Key settings:</p>
-<pre><code class="language-toml">[recovery]
-policy = "warn"               # silent | warn | fail-fast
-
-[queue]
-default_priority = 5
-stale_timeout_seconds = 3600
-
-[zellij]
-use_tabs = true
-</code></pre>
-<hr>
-<h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
-<h3 id="daily-workflow"><a class="header" href="#daily-workflow">Daily Workflow</a></h3>
-<pre><code class="language-bash">zjj sync --all                # Morning: sync everything
-zjj focus current-feature     # Start working
-# ... edit files ...
-zjj sync                      # Mid-day: sync with main
-zjj done -m "WIP: progress"   # End of day: checkpoint
-</code></pre>
-<h3 id="hotfix-while-mid-feature"><a class="header" href="#hotfix-while-mid-feature">Hotfix While Mid-Feature</a></h3>
-<pre><code class="language-bash">zjj add hotfix-123 --bead BD-999
-zjj focus hotfix-123
-# ... fix ...
-zjj done --push --squash
-zjj remove hotfix-123
-zjj focus my-feature          # Back to original
-</code></pre>
-<h3 id="multiple-features-in-parallel"><a class="header" href="#multiple-features-in-parallel">Multiple Features in Parallel</a></h3>
-<pre><code class="language-bash">zjj add feature-a --bead BD-101
-zjj add feature-b --bead BD-102
-zjj add feature-c --bead BD-103
-
-# Switch between them instantly
-zjj focus feature-a
-zjj focus feature-b
-zjj focus feature-c
-</code></pre>
-<hr>
-<h2 id="zellij-integration"><a class="header" href="#zellij-integration">Zellij Integration</a></h2>
-<p>ZJJ creates Zellij tabs automatically. Key shortcuts:</p>
+<h2 id="core-commands"><a class="header" href="#core-commands">Core Commands</a></h2>
+<p>These are the commands you need 90% of the time:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><th>Command</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Ctrl+p t</code></td><td>New tab</td></tr>
-<tr><td><code>Ctrl+p n</code></td><td>Next tab</td></tr>
-<tr><td><code>Ctrl+p h/l</code></td><td>Navigate tabs</td></tr>
-<tr><td><code>Ctrl+p w</code></td><td>Close tab</td></tr>
+<tr><td><code>isolate spawn &lt;bead&gt;</code></td><td>Spawn isolated workspace for a task</td></tr>
+<tr><td><code>isolate work [bead] [name]</code></td><td>Start work on a task</td></tr>
+<tr><td><code>isolate sync</code></td><td>Sync workspace with main (auto-rebase)</td></tr>
+<tr><td><code>isolate done [name]</code></td><td>Complete and merge work</td></tr>
+<tr><td><code>isolate abort [name]</code></td><td>Abort and cleanup workspace</td></tr>
+<tr><td><code>isolate whereami</code></td><td>Show current location</td></tr>
+<tr><td><code>isolate context</code></td><td>Show full context</td></tr>
 </tbody>
 </table>
 </div>
-<p>Use <code>zjj focus &lt;name&gt;</code> for direct tab switching.</p>
-<hr>
-<h2 id="what-to-read-next"><a class="header" href="#what-to-read-next">What to Read Next</a></h2>
-<ul>
-<li><a href="#ai-agent-guide">AI Agent Guide</a> — For automated workflows</li>
-<li><a href="#command-reference">Command Reference</a> — All commands with options</li>
-<li><a href="#error-codes--troubleshooting">Troubleshooting</a> — Error codes and fixes</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div>
-<h1 id="ai-agent-guide"><a class="header" href="#ai-agent-guide">AI Agent Guide</a></h1>
-<p>Complete guide for AI agents using ZJJ. Start here.</p>
-<hr>
-<h2 id="7-mandatory-rules"><a class="header" href="#7-mandatory-rules">7 Mandatory Rules</a></h2>
-<pre><code>1. Never use cargo — use moon run :check|:test|:build|:quick|:ci
-2. Never use unwrap/expect/panic — Result&lt;T,E&gt; everywhere
-3. Never modify lint config — fix code, not lint
-4. Never skip git push — not done until pushed
-5. After br sync — git add .beads/ &amp;&amp; git commit
-6. Load functional-rust-generator skill for all Rust
-7. Manual testing mandatory — test actual behavior
-</code></pre>
-<hr>
-<h2 id="quick-reference"><a class="header" href="#quick-reference">Quick Reference</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>What</th><th>Command</th></tr>
-</thead>
-<tbody>
-<tr><td>Where am I?</td><td><code>zjj whereami</code></td></tr>
-<tr><td>Who am I?</td><td><code>zjj whoami</code></td></tr>
-<tr><td>System state</td><td><code>zjj context</code></td></tr>
-<tr><td>Can I do X?</td><td><code>zjj can-i &lt;action&gt;</code></td></tr>
-<tr><td>What commands?</td><td><code>zjj introspect</code></td></tr>
-<tr><td>Command contract</td><td><code>zjj &lt;cmd&gt; --contract</code></td></tr>
-<tr><td>Execution hints</td><td><code>zjj &lt;cmd&gt; --ai-hints</code></td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="the-7-step-workflow"><a class="header" href="#the-7-step-workflow">The 7-Step Workflow</a></h2>
-<pre><code>1. ORIENT     → zjj whereami
-2. REGISTER   → zjj agents register
-3. ISOLATE    → zjj work &lt;name&gt; --bead &lt;id&gt;
-4. ENTER      → cd $(zjj context --field=workspace.path)
-5. IMPLEMENT  → moon run :check &amp;&amp; moon run :test
-6. HEARTBEAT  → zjj agents heartbeat -c "building"
-7. COMPLETE   → zjj done -m "message" &amp;&amp; git push
-</code></pre>
-<hr>
-<h2 id="starting-work"><a class="header" href="#starting-work">Starting Work</a></h2>
-<h3 id="register-as-agent"><a class="header" href="#register-as-agent">Register as Agent</a></h3>
-<pre><code class="language-bash">zjj agents register
-# Sets ZJJ_AGENT_ID env var
-</code></pre>
-<h3 id="create-workspace"><a class="header" href="#create-workspace">Create Workspace</a></h3>
-<pre><code class="language-bash"># Manual session
-zjj add &lt;name&gt; --bead &lt;id&gt; --no-zellij --idempotent
-
-# Or unified work command
-zjj work &lt;name&gt; --bead &lt;id&gt; --no-agent --idempotent
-</code></pre>
-<h3 id="check-context"><a class="header" href="#check-context">Check Context</a></h3>
-<pre><code class="language-bash">zjj context --json
-</code></pre>
-<p>Returns:</p>
-<pre><code class="language-json">{
-  "ok": true,
-  "repository": { "branch": "main", "root": "/path" },
-  "workspace": { "name": "feature-auth", "path": "/path/.jj/workspaces/feature-auth" },
-  "bead": { "id": "BD-123", "status": "in_progress" }
-}
-</code></pre>
-<hr>
-<h2 id="during-work"><a class="header" href="#during-work">During Work</a></h2>
-<h3 id="heartbeats"><a class="header" href="#heartbeats">Heartbeats</a></h3>
-<pre><code class="language-bash">zjj agents heartbeat -c "running tests"
-</code></pre>
-<p>Send every 30-60 seconds to indicate liveness.</p>
-<h3 id="sync-with-main-1"><a class="header" href="#sync-with-main-1">Sync with Main</a></h3>
-<pre><code class="language-bash">zjj sync
-</code></pre>
-<p>Do before major changes and before done.</p>
-<h3 id="check-status"><a class="header" href="#check-status">Check Status</a></h3>
-<pre><code class="language-bash">zjj status --json
-</code></pre>
-<hr>
-<h2 id="completing-work-1"><a class="header" href="#completing-work-1">Completing Work</a></h2>
-<h3 id="pre-flight-checks"><a class="header" href="#pre-flight-checks">Pre-flight Checks</a></h3>
-<pre><code class="language-bash">moon run :check
-moon run :test
-zjj sync
-</code></pre>
-<h3 id="merge-to-main"><a class="header" href="#merge-to-main">Merge to Main</a></h3>
-<pre><code class="language-bash">zjj done -m "Implement feature X" --squash
-</code></pre>
-<h3 id="push"><a class="header" href="#push">Push</a></h3>
-<pre><code class="language-bash">git push
-# Or with done:
-zjj done -m "msg" --push
-</code></pre>
-<h3 id="update-bead"><a class="header" href="#update-bead">Update Bead</a></h3>
-<pre><code class="language-bash">br update &lt;bead-id&gt; --status done
-br sync --flush-only
-git add .beads/ &amp;&amp; git commit -m "sync beads"
-git push
-</code></pre>
-<hr>
-<h2 id="queue-operations"><a class="header" href="#queue-operations">Queue Operations</a></h2>
-<h3 id="for-multi-agent-coordination"><a class="header" href="#for-multi-agent-coordination">For Multi-Agent Coordination</a></h3>
-<pre><code class="language-bash"># Add work to queue
-zjj queue --add feature-a --bead BD-101 --priority 5
-
-# Claim next item
-zjj queue --next
-
-# Process continuously
-zjj queue worker --loop --interval 30
-
-# Check status
-zjj queue --list --json
-zjj queue --stats
-</code></pre>
-<h3 id="queue-states"><a class="header" href="#queue-states">Queue States</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>State</th><th>Meaning</th></tr>
-</thead>
-<tbody>
-<tr><td><code>pending</code></td><td>Waiting to be processed</td></tr>
-<tr><td><code>processing</code></td><td>Claimed by a worker</td></tr>
-<tr><td><code>done</code></td><td>Successfully completed</td></tr>
-<tr><td><code>failed_retryable</code></td><td>Failed, can retry</td></tr>
-<tr><td><code>failed_terminal</code></td><td>Failed, needs human</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
-<h3 id="exit-codes"><a class="header" href="#exit-codes">Exit Codes</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Code</th><th>Name</th><th>Action</th></tr>
-</thead>
-<tbody>
-<tr><td>0</td><td>SUCCESS</td><td>Continue</td></tr>
-<tr><td>1</td><td>GENERAL_ERROR</td><td>Check message</td></tr>
-<tr><td>2</td><td>INVALID_ARGS</td><td>Fix arguments</td></tr>
-<tr><td>3</td><td>ALREADY_EXISTS</td><td>Use –idempotent</td></tr>
-<tr><td>4</td><td>NOT_FOUND</td><td>Check name</td></tr>
-<tr><td>7</td><td>LOCK_CONFLICT</td><td>Wait or force</td></tr>
-<tr><td>8</td><td>CONFLICT</td><td>Resolve manually</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="recovery"><a class="header" href="#recovery">Recovery</a></h3>
-<pre><code class="language-bash">zjj doctor --fix
-zjj integrity repair &lt;workspace&gt;
-</code></pre>
-<hr>
-<h2 id="json-output"><a class="header" href="#json-output">JSON Output</a></h2>
-<p>All commands support <code>--json</code>:</p>
-<pre><code class="language-bash">zjj list --json
-zjj status --json
-zjj done --json
-</code></pre>
-<p>Standard response format:</p>
-<pre><code class="language-json">{
-  "ok": true,
-  "data": { ... },
-  "error": null,
-  "links": [...]
-}
-</code></pre>
-<hr>
-<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Variable</th><th>Set By</th><th>Purpose</th></tr>
-</thead>
-<tbody>
-<tr><td><code>ZJJ_AGENT_ID</code></td><td><code>agents register</code></td><td>Agent identity</td></tr>
-<tr><td><code>ZJJ_SESSION</code></td><td><code>work</code></td><td>Current session</td></tr>
-<tr><td><code>ZJJ_BEAD_ID</code></td><td><code>work --bead</code></td><td>Current bead</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="introspection-commands"><a class="header" href="#introspection-commands">Introspection Commands</a></h2>
-<pre><code class="language-bash"># All capabilities
-zjj introspect --ai --json
-
-# Specific command contract
-zjj done --contract
-
-# Execution hints
-zjj sync --ai-hints
-
-# Query system state
-zjj query session-exists feature-x
-zjj query session-count
-zjj query can-run
-
-# Permission check
-zjj can-i create workspace
-</code></pre>
-<hr>
-<h2 id="complete-workflow-example"><a class="header" href="#complete-workflow-example">Complete Workflow Example</a></h2>
-<pre><code class="language-bash"># 1. Register
-zjj agents register --id agent-001
-
-# 2. Check state
-zjj context --json
-
-# 3. Create workspace
-zjj work feature-auth --bead BD-123 --no-zellij --idempotent
-
-# 4. Enter workspace
-cd $(zjj context --field=workspace.path)
-
-# 5. Do work
-moon run :check
-moon run :test
-
-# 6. Heartbeat
-zjj agents heartbeat -c "testing"
-
-# 7. Sync
-zjj sync
-
-# 8. Complete
-zjj done -m "Add authentication" --push --squash
-
-# 9. Update bead
-br update BD-123 --status done
-br sync --flush-only
-git add .beads/ &amp;&amp; git commit -m "sync"
-git push
-</code></pre>
-<hr>
-<h2 id="parallel-agents"><a class="header" href="#parallel-agents">Parallel Agents</a></h2>
-<p>Run multiple agents safely:</p>
-<pre><code class="language-bash"># Agent 1
-zjj work feature-a --bead BD-101 --agent-id agent-001
-
-# Agent 2 (separate process)
-zjj work feature-b --bead BD-102 --agent-id agent-002
-
-# Each gets isolated workspace
-# Queue coordinates merge order
-</code></pre>
-<hr>
-<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
-<ul>
-<li><a href="#user-guide">User Guide</a> — Human workflow details</li>
-<li><a href="#command-reference">Command Reference</a> — All commands</li>
-<li><a href="#error-codes--troubleshooting">Troubleshooting</a> — Error resolution</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div>
-<h1 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h1>
-<p>All ZJJ commands in one place.</p>
 <hr>
 <h2 id="session-management"><a class="header" href="#session-management">Session Management</a></h2>
-<h3 id="zjj-init"><a class="header" href="#zjj-init">zjj init</a></h3>
-<p>Initialize ZJJ in a JJ repository.</p>
-<pre><code>zjj init [--json] [--dry-run]
-</code></pre>
-<hr>
-<h3 id="zjj-add"><a class="header" href="#zjj-add">zjj add</a></h3>
-<p>Create a session for manual work.</p>
-<pre><code>zjj add &lt;name&gt; [options]
-</code></pre>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Option</th><th>Description</th></tr>
+<tr><th>Command</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>-b, --bead &lt;id&gt;</code></td><td>Associate with bead/issue</td></tr>
-<tr><td><code>-t, --template &lt;name&gt;</code></td><td>Zellij layout (minimal, standard, full)</td></tr>
-<tr><td><code>--no-open</code></td><td>Don’t open Zellij tab</td></tr>
-<tr><td><code>--no-zellij</code></td><td>Skip Zellij entirely</td></tr>
-<tr><td><code>--no-hooks</code></td><td>Skip post-create hooks</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if exists</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview without creating</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj add feature-auth --bead BD-123
-zjj add quick-test --template minimal
-zjj add automation --no-zellij --idempotent
-</code></pre>
-<hr>
-<h3 id="zjj-remove"><a class="header" href="#zjj-remove">zjj remove</a></h3>
-<p>Remove a session and its workspace.</p>
-<pre><code>zjj remove &lt;name&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-f, --force</code></td><td>Skip confirmation</td></tr>
-<tr><td><code>-m, --merge</code></td><td>Squash-merge to main first</td></tr>
-<tr><td><code>-k, --keep-branch</code></td><td>Preserve branch</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if not found</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview removal</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj remove old-feature
-zjj remove merged-work --merge --force
-</code></pre>
-<hr>
-<h3 id="zjj-list"><a class="header" href="#zjj-list">zjj list</a></h3>
-<p>List all sessions.</p>
-<pre><code>zjj list [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--all</code></td><td>Include completed/failed</td></tr>
-<tr><td><code>-v, --verbose</code></td><td>Show details</td></tr>
-<tr><td><code>--bead &lt;id&gt;</code></td><td>Filter by bead</td></tr>
-<tr><td><code>--agent &lt;name&gt;</code></td><td>Filter by agent</td></tr>
-<tr><td><code>--state &lt;state&gt;</code></td><td>Filter by state</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
+<tr><td><code>isolate add &lt;name&gt;</code></td><td>Create session for manual work</td></tr>
+<tr><td><code>isolate list</code></td><td>List all sessions</td></tr>
+<tr><td><code>isolate focus &lt;name&gt;</code></td><td>Switch to a session</td></tr>
+<tr><td><code>isolate remove &lt;name&gt;</code></td><td>Remove a session</td></tr>
+<tr><td><code>isolate clone &lt;name&gt;</code></td><td>Clone a session</td></tr>
+<tr><td><code>isolate rename &lt;old&gt; &lt;new&gt;</code></td><td>Rename a session</td></tr>
+<tr><td><code>isolate pause [name]</code></td><td>Pause a session</td></tr>
+<tr><td><code>isolate resume [name]</code></td><td>Resume a paused session</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h3 id="zjj-status"><a class="header" href="#zjj-status">zjj status</a></h3>
-<p>Show session status.</p>
-<pre><code>zjj status [&lt;name&gt;] [options]
+<h2 id="object-commands"><a class="header" href="#object-commands">Object Commands</a></h2>
+<h3 id="task-beads"><a class="header" href="#task-beads">Task (Beads)</a></h3>
+<pre><code>isolate task list              # List all tasks
+isolate task show &lt;id&gt;         # Show task details
+isolate task claim &lt;id&gt;        # Claim a task
+isolate task yield &lt;id&gt;        # Yield a task
+isolate task start &lt;id&gt;        # Start work on a task
+isolate task done &lt;id&gt;         # Complete a task
 </code></pre>
+<h3 id="session"><a class="header" href="#session">Session</a></h3>
+<pre><code>isolate session list           # List all sessions
+isolate session add &lt;name&gt;     # Create new session
+isolate session remove &lt;name&gt;  # Remove a session
+isolate session focus &lt;name&gt;   # Switch to a session
+isolate session spawn &lt;bead&gt;   # Spawn session for agent work
+isolate session sync           # Sync with remote
+</code></pre>
+<h3 id="status"><a class="header" href="#status">Status</a></h3>
+<pre><code>isolate status show            # Show current status
+isolate status whereami       # Show current location
+isolate status whoami         # Show current identity
+isolate status context        # Show context information
+</code></pre>
+<h3 id="config"><a class="header" href="#config">Config</a></h3>
+<pre><code>isolate config list            # List configuration values
+isolate config get &lt;key&gt;      # Get a config value
+isolate config set &lt;key&gt; &lt;value&gt;  # Set a config value
+isolate config schema         # Show configuration schema
+</code></pre>
+<h3 id="doctor"><a class="header" href="#doctor">Doctor</a></h3>
+<pre><code>isolate doctor check           # Run diagnostics
+isolate doctor fix            # Fix detected issues
+isolate doctor integrity      # Check system integrity
+isolate doctor clean          # Clean up invalid sessions
+</code></pre>
+<hr>
+<h2 id="additional-commands"><a class="header" href="#additional-commands">Additional Commands</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Option</th><th>Description</th></tr>
+<tr><th>Command</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>--watch</code></td><td>Live updates (1s refresh)</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
+<tr><td><code>isolate init</code></td><td>Initialize isolate in a JJ repository</td></tr>
+<tr><td><code>isolate checkpoint [name]</code></td><td>Create checkpoint</td></tr>
+<tr><td><code>isolate undo</code></td><td>Undo last operation</td></tr>
+<tr><td><code>isolate revert</code></td><td>Revert changes</td></tr>
+<tr><td><code>isolate claim &lt;resource&gt;</code></td><td>Claim a resource</td></tr>
+<tr><td><code>isolate yield &lt;resource&gt;</code></td><td>Yield a resource</td></tr>
+<tr><td><code>isolate lock &lt;name&gt;</code></td><td>Acquire lock</td></tr>
+<tr><td><code>isolate unlock &lt;name&gt;</code></td><td>Release lock</td></tr>
+<tr><td><code>isolate whoami</code></td><td>Show current user/agent</td></tr>
+<tr><td><code>isolate diff</code></td><td>Show changes</td></tr>
+<tr><td><code>isolate clean</code></td><td>Clean up</td></tr>
+<tr><td><code>isolate validate</code></td><td>Validate configurations</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h3 id="zjj-focus"><a class="header" href="#zjj-focus">zjj focus</a></h3>
-<p>Switch to session’s Zellij tab (inside Zellij).</p>
-<pre><code>zjj focus [&lt;name&gt;] [--no-zellij] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-attach"><a class="header" href="#zjj-attach">zjj attach</a></h3>
-<p>Enter Zellij session from outside.</p>
-<pre><code>zjj attach &lt;name&gt; [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-switch"><a class="header" href="#zjj-switch">zjj switch</a></h3>
-<p>Switch between workspaces.</p>
-<pre><code>zjj switch [&lt;name&gt;] [--show-context] [--json]
-</code></pre>
-<hr>
-<h2 id="work-completion"><a class="header" href="#work-completion">Work Completion</a></h2>
-<h3 id="zjj-sync"><a class="header" href="#zjj-sync">zjj sync</a></h3>
-<p>Sync workspace with main (rebase).</p>
-<pre><code>zjj sync [&lt;name&gt;] [options]
-</code></pre>
+<h2 id="common-flags"><a class="header" href="#common-flags">Common Flags</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Option</th><th>Description</th></tr>
+<tr><th>Flag</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>--all</code></td><td>Sync all active sessions</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview sync</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-done"><a class="header" href="#zjj-done">zjj done</a></h3>
-<p>Complete work and merge to main.</p>
-<pre><code>zjj done [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-m, --message &lt;msg&gt;</code></td><td>Commit message</td></tr>
-<tr><td><code>-w, --workspace &lt;name&gt;</code></td><td>Specific workspace</td></tr>
-<tr><td><code>--squash</code></td><td>Squash all commits</td></tr>
-<tr><td><code>--keep-workspace</code></td><td>Don’t remove after</td></tr>
-<tr><td><code>--detect-conflicts</code></td><td>Check before merging</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj done -m "Add feature"
-zjj done --squash --push
-zjj done -w feature-auth -m "Fix bug"
-</code></pre>
-<hr>
-<h3 id="zjj-undo"><a class="header" href="#zjj-undo">zjj undo</a></h3>
-<p>Undo last done operation.</p>
-<pre><code>zjj undo [--list] [--dry-run] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-revert"><a class="header" href="#zjj-revert">zjj revert</a></h3>
-<p>Revert specific session merge.</p>
-<pre><code>zjj revert &lt;name&gt; [--dry-run] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-diff"><a class="header" href="#zjj-diff">zjj diff</a></h3>
-<p>Show changes vs main.</p>
-<pre><code>zjj diff [&lt;name&gt;] [--stat] [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-submit"><a class="header" href="#zjj-submit">zjj submit</a></h3>
-<p>Submit for review/merge.</p>
-<pre><code>zjj submit [--auto-commit] [-m &lt;msg&gt;] [--dry-run] [--json]
-</code></pre>
-<hr>
-<h2 id="queue-operations-1"><a class="header" href="#queue-operations-1">Queue Operations</a></h2>
-<h3 id="zjj-queue"><a class="header" href="#zjj-queue">zjj queue</a></h3>
-<p>Manage merge queue.</p>
-<pre><code>zjj queue &lt;action&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Action</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--add &lt;workspace&gt;</code></td><td>Add to queue</td></tr>
-<tr><td><code>--list</code></td><td>List all entries</td></tr>
-<tr><td><code>--next</code></td><td>Get next pending</td></tr>
-<tr><td><code>--process</code></td><td>Process next ready</td></tr>
-<tr><td><code>--status &lt;workspace&gt;</code></td><td>Check status</td></tr>
-<tr><td><code>--cancel &lt;id&gt;</code></td><td>Cancel entry</td></tr>
-<tr><td><code>--retry &lt;id&gt;</code></td><td>Retry failed</td></tr>
-<tr><td><code>--stats</code></td><td>Show statistics</td></tr>
-<tr><td><code>--reclaim-stale [secs]</code></td><td>Reclaim expired leases</td></tr>
-<tr><td><code>--remove &lt;workspace&gt;</code></td><td>Remove from queue</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--bead &lt;id&gt;</code></td><td>Associate with bead (with –add)</td></tr>
-<tr><td><code>--priority &lt;1-10&gt;</code></td><td>Priority (with –add, lower = higher)</td></tr>
-<tr><td><code>--agent &lt;id&gt;</code></td><td>Assign to agent (with –add)</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj queue --add feature-a --bead BD-101 --priority 3
-zjj queue --list --json
-zjj queue --next
-zjj queue --cancel 123
-</code></pre>
-<hr>
-<h3 id="zjj-queue-worker"><a class="header" href="#zjj-queue-worker">zjj queue worker</a></h3>
-<p>Process queue entries.</p>
-<pre><code>zjj queue worker [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--once</code></td><td>Process one item and exit</td></tr>
-<tr><td><code>--loop</code></td><td>Run continuously</td></tr>
-<tr><td><code>--interval &lt;secs&gt;</code></td><td>Poll interval (default: 10)</td></tr>
-<tr><td><code>--worker-id &lt;id&gt;</code></td><td>Worker identifier</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj queue worker --once
-zjj queue worker --loop --interval 30
-</code></pre>
-<hr>
-<h2 id="agent-commands"><a class="header" href="#agent-commands">Agent Commands</a></h2>
-<h3 id="zjj-agents"><a class="header" href="#zjj-agents">zjj agents</a></h3>
-<p>Manage agents.</p>
-<pre><code>zjj agents [subcommand] [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td>(none)</td><td>List active agents</td></tr>
-<tr><td><code>register</code></td><td>Register as agent</td></tr>
-<tr><td><code>heartbeat</code></td><td>Send liveness signal</td></tr>
-<tr><td><code>status</code></td><td>Show current agent</td></tr>
-<tr><td><code>unregister</code></td><td>Remove agent</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--all</code></td><td>Include stale agents</td></tr>
-<tr><td><code>--session &lt;name&gt;</code></td><td>Filter by session</td></tr>
-<tr><td><code>--id &lt;id&gt;</code></td><td>Specific agent ID</td></tr>
-<tr><td><code>-c, --command &lt;cmd&gt;</code></td><td>Current command (heartbeat)</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj agents register --session my-work
-zjj agents heartbeat -c "running tests"
-zjj agents --all
-</code></pre>
-<hr>
-<h3 id="zjj-work"><a class="header" href="#zjj-work">zjj work</a></h3>
-<p>Unified workflow start for agents.</p>
-<pre><code>zjj work &lt;name&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-b, --bead &lt;id&gt;</code></td><td>Associate with bead</td></tr>
-<tr><td><code>--agent-id &lt;id&gt;</code></td><td>Agent identifier</td></tr>
-<tr><td><code>--no-zellij</code></td><td>Skip Zellij</td></tr>
-<tr><td><code>--no-agent</code></td><td>Skip agent registration</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if exists</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj work feature-auth --bead BD-123
-</code></pre>
-<hr>
-<h3 id="zjj-spawn"><a class="header" href="#zjj-spawn">zjj spawn</a></h3>
-<p>Spawn automated agent work on a bead.</p>
-<pre><code>zjj spawn &lt;bead-id&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--agent-command &lt;cmd&gt;</code></td><td>Agent to run (default: claude)</td></tr>
-<tr><td><code>--agent-args &lt;args&gt;</code></td><td>Additional args</td></tr>
-<tr><td><code>--timeout &lt;secs&gt;</code></td><td>Timeout (default: 14400)</td></tr>
-<tr><td><code>-b, --background</code></td><td>Run in background</td></tr>
-<tr><td><code>--no-auto-merge</code></td><td>Don’t merge on success</td></tr>
-<tr><td><code>--no-auto-cleanup</code></td><td>Don’t cleanup on failure</td></tr>
-<tr><td><code>--idempotent</code></td><td>Succeed if exists</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj spawn zjj-abc12
-zjj spawn zjj-xyz34 --background
-</code></pre>
-<hr>
-<h3 id="zjj-whereami"><a class="header" href="#zjj-whereami">zjj whereami</a></h3>
-<p>Get current location.</p>
-<pre><code>zjj whereami [--json]
-</code></pre>
-<p>Returns: <code>main</code> or <code>workspace:&lt;name&gt;</code></p>
-<hr>
-<h3 id="zjj-whoami"><a class="header" href="#zjj-whoami">zjj whoami</a></h3>
-<p>Get agent identity.</p>
-<pre><code>zjj whoami [--json]
-</code></pre>
-<hr>
-<h3 id="zjj-context"><a class="header" href="#zjj-context">zjj context</a></h3>
-<p>Get full environment context.</p>
-<pre><code>zjj context [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--field &lt;path&gt;</code></td><td>Extract single field</td></tr>
-<tr><td><code>--no-beads</code></td><td>Skip beads query</td></tr>
-<tr><td><code>--no-health</code></td><td>Skip health checks</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj context --json
-zjj context --field=workspace.path
-</code></pre>
-<hr>
-<h3 id="zjj-broadcast"><a class="header" href="#zjj-broadcast">zjj broadcast</a></h3>
-<p>Send message to all agents.</p>
-<pre><code>zjj broadcast &lt;message&gt; [--agent-id &lt;id&gt;] [--json]
-</code></pre>
-<hr>
-<h2 id="diagnostics--recovery"><a class="header" href="#diagnostics--recovery">Diagnostics &amp; Recovery</a></h2>
-<h3 id="zjj-doctor"><a class="header" href="#zjj-doctor">zjj doctor</a></h3>
-<p>Run health checks.</p>
-<pre><code>zjj doctor [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--fix</code></td><td>Auto-fix issues</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview fixes</td></tr>
-<tr><td><code>-v, --verbose</code></td><td>Detailed output</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-integrity"><a class="header" href="#zjj-integrity">zjj integrity</a></h3>
-<p>Workspace integrity management.</p>
-<pre><code>zjj integrity &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>validate &lt;workspace&gt;</code></td><td>Check integrity</td></tr>
-<tr><td><code>repair &lt;workspace&gt;</code></td><td>Fix corruption</td></tr>
-<tr><td><code>backup list</code></td><td>List backups</td></tr>
-<tr><td><code>backup restore &lt;id&gt;</code></td><td>Restore backup</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--force</code></td><td>Skip confirmation</td></tr>
-<tr><td><code>--rebind</code></td><td>Update session location</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-checkpoint"><a class="header" href="#zjj-checkpoint">zjj checkpoint</a></h3>
-<p>Save/restore session snapshots.</p>
-<pre><code>zjj checkpoint &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>create</code></td><td>Create checkpoint</td></tr>
-<tr><td><code>list</code></td><td>List checkpoints</td></tr>
-<tr><td><code>restore &lt;id&gt;</code></td><td>Restore checkpoint</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj checkpoint create -d "before major change"
-zjj checkpoint list
-zjj checkpoint restore ckpt-123
-</code></pre>
-<hr>
-<h3 id="zjj-clean"><a class="header" href="#zjj-clean">zjj clean</a></h3>
-<p>Remove stale sessions.</p>
-<pre><code>zjj clean [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-f, --force</code></td><td>Skip confirmation</td></tr>
-<tr><td><code>--dry-run</code></td><td>Preview</td></tr>
-<tr><td><code>--periodic</code></td><td>Run as daemon</td></tr>
-<tr><td><code>--age-threshold &lt;secs&gt;</code></td><td>Age cutoff</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-prune-invalid"><a class="header" href="#zjj-prune-invalid">zjj prune-invalid</a></h3>
-<p>Bulk remove invalid sessions.</p>
-<pre><code>zjj prune-invalid [--yes] [--dry-run] [--json]
-</code></pre>
-<hr>
-<h2 id="introspection"><a class="header" href="#introspection">Introspection</a></h2>
-<h3 id="zjj-introspect"><a class="header" href="#zjj-introspect">zjj introspect</a></h3>
-<p>Discover capabilities.</p>
-<pre><code>zjj introspect [&lt;command&gt;] [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--ai</code></td><td>AI-optimized output</td></tr>
-<tr><td><code>--env-vars</code></td><td>Show environment variables</td></tr>
-<tr><td><code>--workflows</code></td><td>Show workflow patterns</td></tr>
-<tr><td><code>--session-states</code></td><td>Show state transitions</td></tr>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-query"><a class="header" href="#zjj-query">zjj query</a></h3>
-<p>Query system state.</p>
-<pre><code>zjj query &lt;type&gt; [args] [--json]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Query Type</th><th>Args</th><th>Returns</th></tr>
-</thead>
-<tbody>
-<tr><td><code>session-exists</code></td><td><code>&lt;name&gt;</code></td><td>true/false</td></tr>
-<tr><td><code>session-count</code></td><td>—</td><td>number</td></tr>
-<tr><td><code>can-run</code></td><td>—</td><td>true/false</td></tr>
-<tr><td><code>suggest-name</code></td><td><code>&lt;pattern&gt;</code></td><td>suggested name</td></tr>
-<tr><td><code>lock-status</code></td><td><code>&lt;resource&gt;</code></td><td>lock info</td></tr>
-<tr><td><code>pending-merges</code></td><td>—</td><td>list</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-can-i"><a class="header" href="#zjj-can-i">zjj can-i</a></h3>
-<p>Check permissions.</p>
-<pre><code>zjj can-i &lt;action&gt; [--resource &lt;name&gt;]
-</code></pre>
-<hr>
-<h3 id="zjj-contract"><a class="header" href="#zjj-contract">zjj contract</a></h3>
-<p>Show command contract (AI use).</p>
-<pre><code>zjj &lt;command&gt; --contract
-</code></pre>
-<hr>
-<h2 id="configuration-2"><a class="header" href="#configuration-2">Configuration</a></h2>
-<h3 id="zjj-config"><a class="header" href="#zjj-config">zjj config</a></h3>
-<p>View/modify configuration.</p>
-<pre><code>zjj config [&lt;key&gt; [&lt;value&gt;]] [-g, --global] [--json]
-</code></pre>
-<pre><code class="language-bash">zjj config                    # Show all
-zjj config recovery.policy    # Show key
-zjj config recovery.policy warn  # Set key
-</code></pre>
-<hr>
-<h3 id="zjj-template"><a class="header" href="#zjj-template">zjj template</a></h3>
-<p>Manage Zellij layouts.</p>
-<pre><code>zjj template &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>list</code></td><td>List templates</td></tr>
-<tr><td><code>show &lt;name&gt;</code></td><td>Show details</td></tr>
-<tr><td><code>create &lt;name&gt;</code></td><td>Create template</td></tr>
-<tr><td><code>delete &lt;name&gt;</code></td><td>Delete template</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj template list
-zjj template create custom --builtin standard
-</code></pre>
-<hr>
-<h3 id="zjj-bookmark"><a class="header" href="#zjj-bookmark">zjj bookmark</a></h3>
-<p>Manage JJ bookmarks.</p>
-<pre><code>zjj bookmark &lt;subcommand&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Subcommand</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>list</code></td><td>List bookmarks</td></tr>
-<tr><td><code>create &lt;name&gt;</code></td><td>Create bookmark</td></tr>
-<tr><td><code>delete &lt;name&gt;</code></td><td>Delete bookmark</td></tr>
-<tr><td><code>move &lt;name&gt; --to &lt;rev&gt;</code></td><td>Move bookmark</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-p, --push</code></td><td>Push to remote</td></tr>
-<tr><td><code>--all</code></td><td>Show all including remote</td></tr>
-</tbody>
-</table>
-</div>
-<pre><code class="language-bash">zjj bookmark create feature-x --push
-zjj bookmark list --all
-</code></pre>
-<hr>
-<h2 id="advanced"><a class="header" href="#advanced">Advanced</a></h2>
-<h3 id="zjj-batch"><a class="header" href="#zjj-batch">zjj batch</a></h3>
-<p>Execute multiple commands.</p>
-<pre><code>zjj batch --commands &lt;cmd1,cmd2&gt; [--atomic] [--stop-on-error]
-</code></pre>
-<hr>
-<h3 id="zjj-events"><a class="header" href="#zjj-events">zjj events</a></h3>
-<p>View event stream.</p>
-<pre><code>zjj events [--follow] [--limit &lt;n&gt;] [--session &lt;name&gt;] [--type &lt;type&gt;]
-</code></pre>
-<hr>
-<h3 id="zjj-pane"><a class="header" href="#zjj-pane">zjj pane</a></h3>
-<p>Manage Zellij panes.</p>
-<pre><code>zjj pane &lt;action&gt; [--direction &lt;dir&gt;] [--session &lt;name&gt;]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Action</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>list</code></td><td>List panes</td></tr>
-<tr><td><code>focus</code></td><td>Focus pane</td></tr>
-<tr><td><code>next</code></td><td>Next pane</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-backup"><a class="header" href="#zjj-backup">zjj backup</a></h3>
-<p>Database backup management.</p>
-<pre><code>zjj backup &lt;action&gt; [options]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Action</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>create</code></td><td>Create backup</td></tr>
-<tr><td><code>list</code></td><td>List backups</td></tr>
-<tr><td><code>restore &lt;timestamp&gt;</code></td><td>Restore backup</td></tr>
-<tr><td><code>status</code></td><td>Backup status</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h3 id="zjj-export"><a class="header" href="#zjj-export">zjj export</a></h3>
-<p>Export session state.</p>
-<pre><code>zjj export --session &lt;name&gt; --output &lt;file&gt;
-</code></pre>
-<hr>
-<h3 id="zjj-import"><a class="header" href="#zjj-import">zjj import</a></h3>
-<p>Import session state.</p>
-<pre><code>zjj import --file &lt;path&gt; [--force] [--skip-existing]
-</code></pre>
-<hr>
-<h3 id="zjj-completions"><a class="header" href="#zjj-completions">zjj completions</a></h3>
-<p>Generate shell completions.</p>
-<pre><code>zjj completions &lt;shell&gt;
-</code></pre>
-<p>Shells: <code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>powershell</code>, <code>elvish</code></p>
-<hr>
-<h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
-<p>All commands support:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-j, --json</code></td><td>JSON output</td></tr>
-<tr><td><code>--contract</code></td><td>Show AI contract</td></tr>
-<tr><td><code>--ai-hints</code></td><td>Show execution hints</td></tr>
+<tr><td><code>--json</code></td><td>Output as JSON</td></tr>
+<tr><td><code>--verbose</code>, <code>-v</code></td><td>Enable verbose output</td></tr>
 <tr><td><code>--dry-run</code></td><td>Preview without executing</td></tr>
-<tr><td><code>-h, --help</code></td><td>Show help</td></tr>
+<tr><td><code>--idempotent</code></td><td>Succeed if already exists</td></tr>
+<tr><td><code>--force</code>, <code>-f</code></td><td>Force operation</td></tr>
 </tbody>
 </table>
 </div>
+<hr>
+<h2 id="aliases"><a class="header" href="#aliases">Aliases</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>Alias</th></tr>
+</thead>
+<tbody>
+<tr><td><code>isolate done</code></td><td><code>isolate submit</code></td></tr>
+<tr><td><code>isolate checkpoint</code></td><td><code>isolate ckpt</code></td></tr>
+<tr><td><code>isolate task claim</code></td><td><code>isolate task take</code></td></tr>
+<tr><td><code>isolate task yield</code></td><td><code>isolate task release</code></td></tr>
+<tr><td><code>isolate session sync</code></td><td><code>isolate session rebase</code></td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="quick-reference"><a class="header" href="#quick-reference">Quick Reference</a></h2>
+<h3 id="start-working"><a class="header" href="#start-working">Start Working</a></h3>
+<pre><code class="language-bash">isolate whereami           # Check you're on main
+isolate work feature-123   # Start work
+</code></pre>
+<h3 id="while-working"><a class="header" href="#while-working">While Working</a></h3>
+<pre><code class="language-bash">isolate sync              # Sync with main
+isolate context           # Check status
+</code></pre>
+<h3 id="finish-work"><a class="header" href="#finish-work">Finish Work</a></h3>
+<pre><code class="language-bash">isolate done              # Complete and merge
+isolate abort             # Abort and cleanup
+</code></pre>
+<hr>
+<h2 id="exit-codes"><a class="header" href="#exit-codes">Exit Codes</a></h2>
+<ul>
+<li>0: Success</li>
+<li>1: Validation error (user input)</li>
+<li>2: Not found</li>
+<li>3: System error</li>
+<li>4: External command error</li>
+<li>5: Lock contention</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="error-codes--troubleshooting"><a class="header" href="#error-codes--troubleshooting">Error Codes &amp; Troubleshooting</a></h1>
-<p>Everything you need to diagnose and fix issues.</p>
+<h1 id="development-workflow"><a class="header" href="#development-workflow">Development Workflow</a></h1>
+<p>Isolate is designed for the development phase of multi-agent workflows.</p>
+<h2 id="the-workflow"><a class="header" href="#the-workflow">The Workflow</a></h2>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│  1. SPAWN                                              │
+│  isolate spawn &lt;bead-id&gt;                               │
+│  - Agent claims a bead                                  │
+│  - JJ workspace created                                │
+│  - Agent begins work                                   │
+└─────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────┐
+│  2. DEVELOP                                            │
+│  - Agent makes changes                                 │
+│  - Runs tests locally                                  │
+│  - Commits with jj describe                            │
+└─────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────┐
+│  3. SYNC (as needed)                                  │
+│  isolate sync                                           │
+│  - Fetches latest from main                            │
+│  - Auto-rebases onto new main                          │
+│  - Handles conflicts if any                            │
+└─────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────┐
+│  4. DONE                                               │
+│  isolate done                                           │
+│  - Feature complete                                     │
+│  - Ready to hand off to queue/stacking tool            │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h2 id="agent-workflow-example"><a class="header" href="#agent-workflow-example">Agent Workflow Example</a></h2>
+<h3 id="start-work"><a class="header" href="#start-work">Start Work</a></h3>
+<pre><code class="language-bash"># Check you're on main
+isolate whereami
+# Output: "main"
+
+# Start work on a feature
+isolate work feature-abc123
+# Output: "workspace:feature-abc123 created"
+</code></pre>
+<h3 id="while-working-1"><a class="header" href="#while-working-1">While Working</a></h3>
+<pre><code class="language-bash"># Make changes to code...
+
+# Sync with main if it has advanced
+isolate sync
+
+# Check status
+isolate context
+</code></pre>
+<h3 id="complete-work"><a class="header" href="#complete-work">Complete Work</a></h3>
+<pre><code class="language-bash"># Feature is done and validated
+isolate done
+
+# Hand off to queue/stacking tool
+# (external process)
+</code></pre>
+<hr>
+<h2 id="when-to-sync"><a class="header" href="#when-to-sync">When to Sync</a></h2>
+<p>Run <code>isolate sync</code> when:</p>
+<ol>
+<li><strong>Main has advanced</strong> — other agents have merged features</li>
+<li><strong>Before completing</strong> — ensure your work is rebased onto latest</li>
+<li><strong>On conflicts</strong> — resolve and continue</li>
+</ol>
+<hr>
+<h2 id="handling-conflicts"><a class="header" href="#handling-conflicts">Handling Conflicts</a></h2>
+<p>If <code>isolate sync</code> produces conflicts:</p>
+<pre><code class="language-bash"># Check what conflicts exist
+jj status
+jj diff
+
+# Resolve conflicts manually
+vim &lt;conflicted-file&gt;
+
+# Commit the resolution
+jj describe -m "resolve: merge conflicts"
+
+# Continue working
+</code></pre>
+<hr>
+<h2 id="aborting"><a class="header" href="#aborting">Aborting</a></h2>
+<p>If something goes wrong:</p>
+<pre><code class="language-bash"># Preview what will happen
+isolate abort --dry-run
+
+# Abort and cleanup
+isolate abort
+</code></pre>
+<hr>
+<h2 id="architecture-dev-vs-queue"><a class="header" href="#architecture-dev-vs-queue">Architecture: Dev vs Queue</a></h2>
+<p>Isolate handles <strong>development phase only</strong>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Phase</th><th>Tool</th><th>What Happens</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Development</strong></td><td>Isolate</td><td>Agent spawns workspace, works on feature, syncs as needed</td></tr>
+<tr><td><strong>Queue/Stacking</strong></td><td>External Tool</td><td>Feature queued, stacked, rebased, merged to main</td></tr>
+</tbody>
+</table>
+</div>
+<p>The handoff happens after <code>isolate done</code>.</p>
+<hr>
+<h2 id="why-this-architecture"><a class="header" href="#why-this-architecture">Why This Architecture</a></h2>
+<p><strong>Isolate’s job:</strong> Workspace isolation during development</p>
+<ul>
+<li>Spawns isolated workspaces per agent</li>
+<li>Handles sync + auto-rebase while working</li>
+<li>Provides orientation (whereami, context)</li>
+</ul>
+<p><strong>External tool’s job:</strong> Queue management and final integration</p>
+<ul>
+<li>Receives completed features</li>
+<li>Handles stacking, final rebase</li>
+<li>Merges to main</li>
+</ul>
+<p>This separation keeps Isolate focused and simple.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="why-jj-1"><a class="header" href="#why-jj-1">Why JJ?</a></h1>
+<p>Isolate uses JJ (Jujutsu) because it’s fundamentally better for multi-agent workflows.</p>
+<h2 id="the-problem-with-git-at-scale"><a class="header" href="#the-problem-with-git-at-scale">The Problem with Git at Scale</a></h2>
+<p>Running 8-12 agents in parallel with Git:</p>
+<ul>
+<li><strong>Detached HEAD</strong> — constant broken states at 4+ agents</li>
+<li><strong>Branch pollution</strong> — 8-12 branches to manage</li>
+<li><strong>Lost code</strong> — changes overwritten</li>
+<li><strong>No undo</strong> — destructive operations are permanent</li>
+<li><strong>Blocking merges</strong> — conflicts block until resolved</li>
+</ul>
+<p>Git Worktrees work at 1-3 agents. They break at 4+.</p>
+<h2 id="why-jj-works"><a class="header" href="#why-jj-works">Why JJ Works</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Git</th><th>JJ</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Concurrency</strong></td><td>Locking required, can corrupt</td><td>Lock-free — runs in parallel safely</td></tr>
+<tr><td><strong>Undo</strong></td><td>Destructive — reset is permanent</td><td>Operation log — undo ANY operation</td></tr>
+<tr><td><strong>Conflicts</strong></td><td>Block merges until resolved</td><td>First-class — commit and resolve later</td></tr>
+<tr><td><strong>Branches</strong></td><td>Required for everything</td><td>Anonymous — no branch names needed</td></tr>
+<tr><td><strong>State</strong></td><td>Index/staging is confusing</td><td>Working copy auto-committed</td></tr>
+<tr><td><strong>Rebasing</strong></td><td>Manual, can lose work</td><td>Auto-rebase — descendants follow</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="key-benefits-for-multi-agent"><a class="header" href="#key-benefits-for-multi-agent">Key Benefits for Multi-Agent</a></h2>
+<h3 id="1-lock-free-concurrency"><a class="header" href="#1-lock-free-concurrency">1. Lock-Free Concurrency</a></h3>
+<p>Multiple agents can run <code>jj</code> commands in parallel without repo corruption.</p>
+<pre><code class="language-bash"># Agent 1 and Agent 2 run simultaneously:
+# Agent 1
+jj describe -m "feat: part one"
+
+# Agent 2
+jj describe -m "feat: part two"
+
+# Later, both sync without corruption
+jj git fetch --all-remotes
+</code></pre>
+<h3 id="2-operation-log"><a class="header" href="#2-operation-log">2. Operation Log</a></h3>
+<p>Every operation is logged. You can undo anything.</p>
+<pre><code class="language-bash"># See operation history
+jj op log
+
+# Undo the last operation
+jj undo
+
+# Undo a specific operation
+jj undo &lt;operation-id&gt;
+</code></pre>
+<h3 id="3-anonymous-workspaces"><a class="header" href="#3-anonymous-workspaces">3. Anonymous Workspaces</a></h3>
+<p>No branch names required.</p>
+<pre><code class="language-bash"># Create workspace - no branch name needed
+jj workspace add feature-123
+
+# Work normally
+jj describe -m "feat: something"
+
+# Push - bookmarks created automatically
+jj git push
+</code></pre>
+<h3 id="4-first-class-conflicts"><a class="header" href="#4-first-class-conflicts">4. First-Class Conflicts</a></h3>
+<p>Conflicts can be committed and resolved later. No blocking.</p>
+<pre><code class="language-bash"># Sync - conflicts recorded, not blocking
+jj git fetch --all-remotes
+
+# Check for conflicts
+jj status
+
+# Resolve when ready
+vim conflicted_file.rs
+jj describe -m "resolve: merge conflict"
+</code></pre>
+<hr>
+<h2 id="why-not-git-worktrees"><a class="header" href="#why-not-git-worktrees">Why Not Git Worktrees?</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Problem</th><th>What Happens</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Detached HEAD</strong></td><td>At 4+ agents, constant broken states</td></tr>
+<tr><td><strong>Branch pollution</strong></td><td>8-12 agents = 8-12 branches</td></tr>
+<tr><td><strong>No concurrency</strong></td><td>Concurrent worktrees corrupt repo</td></tr>
+<tr><td><strong>No operation log</strong></td><td>Mistake = permanent loss</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="why-not-file-locking"><a class="header" href="#why-not-file-locking">Why Not File Locking?</a></h2>
+<p>File locking treats symptoms, not causes:</p>
+<ul>
+<li>Doesn’t prevent duplicate work</li>
+<li>Doesn’t prevent logical conflicts</li>
+<li>Doesn’t help when things go wrong</li>
+<li>Doesn’t scale</li>
+</ul>
+<p>We tried Agentail/MCP. It didn’t work.</p>
+<hr>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p><strong>JJ enables:</strong></p>
+<ul>
+<li>Running 8-12 agents in parallel</li>
+<li>Safe auto-rebase on sync</li>
+<li>Recovery from any mistake via operation log</li>
+<li>Clean workspaces without branch pollution</li>
+</ul>
+<p><strong>Git at that scale:</strong></p>
+<ul>
+<li>Constant broken states</li>
+<li>Lost code</li>
+<li>Merge conflicts</li>
+<li>No recovery</li>
+</ul>
+<p>That’s why Isolate is built on JJ.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<p>Common issues and how to resolve them.</p>
+<hr>
+<h2 id="workspace-issues"><a class="header" href="#workspace-issues">Workspace Issues</a></h2>
+<h3 id="session-not-found"><a class="header" href="#session-not-found">“Session not found”</a></h3>
+<pre><code class="language-bash"># List available sessions
+isolate list
+
+# Check where you are
+isolate whereami
+</code></pre>
+<h3 id="workspace-already-exists"><a class="header" href="#workspace-already-exists">“Workspace already exists”</a></h3>
+<pre><code class="language-bash"># Use --idempotent to succeed if already exists
+isolate work feature-123 --idempotent
+</code></pre>
+<h3 id="detached-head"><a class="header" href="#detached-head">“Detached HEAD”</a></h3>
+<p>This shouldn’t happen with JJ, but if it does:</p>
+<pre><code class="language-bash"># Check current state
+jj status
+
+# See the current commit
+jj log -r @
+
+# Create a new change if needed
+jj new
+</code></pre>
+<hr>
+<h2 id="sync-issues"><a class="header" href="#sync-issues">Sync Issues</a></h2>
+<h3 id="sync-failed"><a class="header" href="#sync-failed">“Sync failed”</a></h3>
+<pre><code class="language-bash"># Try again with verbose output
+isolate sync --verbose
+
+# Check for conflicts
+jj status
+jj diff
+</code></pre>
+<h3 id="conflicts-during-sync"><a class="header" href="#conflicts-during-sync">Conflicts during sync</a></h3>
+<pre><code class="language-bash"># See what conflicts exist
+jj status
+
+# Resolve manually
+vim &lt;conflicted-file&gt;
+
+# Commit the resolution
+jj describe -m "resolve: merge conflicts"
+</code></pre>
+<hr>
+<h2 id="jj-issues"><a class="header" href="#jj-issues">JJ Issues</a></h2>
+<h3 id="jj-command-not-found"><a class="header" href="#jj-command-not-found">“jj: command not found”</a></h3>
+<p>Install JJ:</p>
+<pre><code class="language-bash"># Via cargo
+cargo install jj-cli
+
+# Via Homebrew
+brew install jj
+</code></pre>
+<h3 id="cannot-lock"><a class="header" href="#cannot-lock">“Cannot lock”</a></h3>
+<pre><code class="language-bash"># Check what's locking
+jj log
+
+# Force unlock if needed (rare)
+# JJ handles this automatically
+</code></pre>
 <hr>
 <h2 id="exit-codes-1"><a class="header" href="#exit-codes-1">Exit Codes</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Code</th><th>Name</th><th>Meaning</th></tr>
+<tr><th>Code</th><th>Meaning</th><th>What to Do</th></tr>
 </thead>
 <tbody>
-<tr><td>0</td><td><code>SUCCESS</code></td><td>Command completed successfully</td></tr>
-<tr><td>1</td><td><code>GENERAL_ERROR</code></td><td>Unspecified error</td></tr>
-<tr><td>2</td><td><code>INVALID_ARGS</code></td><td>Invalid command-line arguments</td></tr>
-<tr><td>3</td><td><code>ALREADY_EXISTS</code></td><td>Resource already exists</td></tr>
-<tr><td>4</td><td><code>NOT_FOUND</code></td><td>Resource not found</td></tr>
-<tr><td>5</td><td><code>NOT_JJ_REPO</code></td><td>Not in a JJ repository</td></tr>
-<tr><td>6</td><td><code>DATABASE_ERROR</code></td><td>Database operation failed</td></tr>
-<tr><td>7</td><td><code>LOCK_CONFLICT</code></td><td>Resource is locked</td></tr>
-<tr><td>8</td><td><code>CONFLICT</code></td><td>Merge conflict detected</td></tr>
-<tr><td>9</td><td><code>PERMISSION_DENIED</code></td><td>Insufficient permissions</td></tr>
-<tr><td>10</td><td><code>WORKSPACE_ERROR</code></td><td>Workspace operation failed</td></tr>
-<tr><td>11</td><td><code>ZELLIJ_ERROR</code></td><td>Zellij integration failed</td></tr>
-<tr><td>12</td><td><code>QUEUE_ERROR</code></td><td>Queue operation failed</td></tr>
-<tr><td>13</td><td><code>VALIDATION_ERROR</code></td><td>Input validation failed</td></tr>
-<tr><td>14</td><td><code>RECOVERY_NEEDED</code></td><td>Corruption detected</td></tr>
+<tr><td>0</td><td>Success</td><td>Done</td></tr>
+<tr><td>1</td><td>Validation error</td><td>Check input syntax</td></tr>
+<tr><td>2</td><td>Not found</td><td>Check session/task name</td></tr>
+<tr><td>3</td><td>System error</td><td>Check system resources</td></tr>
+<tr><td>4</td><td>External command error</td><td>Check JJ installation</td></tr>
+<tr><td>5</td><td>Lock contention</td><td>Try again later</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h2 id="common-errors"><a class="header" href="#common-errors">Common Errors</a></h2>
-<h3 id="err_not_jj_repo-5"><a class="header" href="#err_not_jj_repo-5">ERR_NOT_JJ_REPO (5)</a></h3>
-<p><strong>Message:</strong> <code>Not in a JJ repository</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">jj init &amp;&amp; zjj init
-</code></pre>
-<p>Or clone existing:</p>
-<pre><code class="language-bash">jj git clone https://github.com/user/repo.git
-cd repo &amp;&amp; zjj init
-</code></pre>
-<hr>
-<h3 id="err_already_exists-3"><a class="header" href="#err_already_exists-3">ERR_ALREADY_EXISTS (3)</a></h3>
-<p><strong>Message:</strong> <code>Workspace already exists</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash"># Remove first
-zjj remove existing-name
+<h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
+<pre><code class="language-bash"># Check isolate version
+isolate --version
 
-# Or use idempotent flag
-zjj add new-name --idempotent
-</code></pre>
-<hr>
-<h3 id="err_not_found-4"><a class="header" href="#err_not_found-4">ERR_NOT_FOUND (4)</a></h3>
-<p><strong>Message:</strong> <code>Workspace not found</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj list  # Check available names
-zjj add missing-name
-</code></pre>
-<hr>
-<h3 id="err_lock_conflict-7"><a class="header" href="#err_lock_conflict-7">ERR_LOCK_CONFLICT (7)</a></h3>
-<p><strong>Message:</strong> <code>Resource is locked</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj status &lt;workspace&gt;  # Check who holds lock
-# Wait for lock to expire (default: 1 hour)
-# Or force release:
-zjj unlock &lt;workspace&gt;
-</code></pre>
-<hr>
-<h3 id="err_conflict-8"><a class="header" href="#err_conflict-8">ERR_CONFLICT (8)</a></h3>
-<p><strong>Message:</strong> <code>Merge conflict detected</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj focus &lt;workspace&gt;
-jj resolve  # Resolve each conflict
-zjj sync    # Verify resolution
-</code></pre>
-<hr>
-<h3 id="err_database_error-6"><a class="header" href="#err_database_error-6">ERR_DATABASE_ERROR (6)</a></h3>
-<p><strong>Message:</strong> <code>Database operation failed</code> or <code>Database corruption detected</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj doctor --fix
-zjj recover --last
-cat .zjj/recovery.log
-</code></pre>
-<hr>
-<h3 id="err_validation_error-13"><a class="header" href="#err_validation_error-13">ERR_VALIDATION_ERROR (13)</a></h3>
-<p><strong>Message:</strong> <code>Invalid input</code></p>
-<p><strong>Rules:</strong></p>
-<ul>
-<li>Workspace names: lowercase, alphanumeric, dashes only</li>
-<li>Must start with a letter</li>
-<li>Max 64 characters</li>
-</ul>
-<pre><code class="language-bash"># Valid
-zjj add feature-auth
-zjj add fix-123
+# Get help for a command
+isolate &lt;command&gt; --help
 
-# Invalid
-zjj add Feature-Auth    # Uppercase
-zjj add feature_auth    # Underscore
-zjj add 123-feature     # Starts with number
+# Check context
+isolate context
 </code></pre>
 <hr>
-<h3 id="err_zellij_error-11"><a class="header" href="#err_zellij_error-11">ERR_ZELLIJ_ERROR (11)</a></h3>
-<p><strong>Message:</strong> <code>Zellij command failed</code> or <code>Zellij not found</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash"># Check installation
-zellij --version
-
-# Install if missing
-cargo install zellij
-# or
-brew install zellij
-
-# Or skip Zellij
-zjj add &lt;name&gt; --no-zellij
+<h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
+<h3 id="start-fresh"><a class="header" href="#start-fresh">Start Fresh</a></h3>
+<pre><code class="language-bash">isolate whereami                    # Should return "main"
+isolate work feature-auth --idempotent
+</code></pre>
+<h3 id="continue-existing-work"><a class="header" href="#continue-existing-work">Continue Existing Work</a></h3>
+<pre><code class="language-bash">isolate whereami                    # Returns "workspace:feature-auth"
+# Already in workspace, continue working
+</code></pre>
+<h3 id="abandon-and-start-over"><a class="header" href="#abandon-and-start-over">Abandon and Start Over</a></h3>
+<pre><code class="language-bash">isolate abort --dry-run             # Preview
+isolate abort                       # Execute
+isolate work feature-auth-v2        # Start fresh
 </code></pre>
 <hr>
-<h3 id="err_workspace_error-10"><a class="header" href="#err_workspace_error-10">ERR_WORKSPACE_ERROR (10)</a></h3>
-<p><strong>Message:</strong> <code>Workspace operation failed</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj status &lt;workspace&gt;
-jj workspace list
-
-# If corrupted
-zjj remove &lt;workspace&gt; --force
-zjj add &lt;workspace&gt;
-</code></pre>
-<hr>
-<h3 id="err_recovery_needed-14"><a class="header" href="#err_recovery_needed-14">ERR_RECOVERY_NEEDED (14)</a></h3>
-<p><strong>Message:</strong> <code>Corruption detected, recovery required</code></p>
-<p><strong>Fix:</strong></p>
-<pre><code class="language-bash">zjj doctor --fix
-zjj recover --diagnose
-zjj recover --last
-</code></pre>
-<hr>
-<h2 id="json-error-format"><a class="header" href="#json-error-format">JSON Error Format</a></h2>
-<pre><code class="language-json">{
-  "ok": false,
-  "error": {
-    "code": 4,
-    "name": "NOT_FOUND",
-    "message": "Workspace 'my-feature' not found",
-    "details": {
-      "workspace": "my-feature",
-      "available": ["feature-auth", "feature-api"]
-    }
-  }
-}
-</code></pre>
-<hr>
-<h2 id="troubleshooting-by-command"><a class="header" href="#troubleshooting-by-command">Troubleshooting by Command</a></h2>
-<h3 id="zjj-add-1"><a class="header" href="#zjj-add-1">zjj add</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Already exists</td><td>Remove first or use <code>--idempotent</code></td></tr>
-<tr><td>Invalid name</td><td>Use lowercase, alphanumeric, dashes</td></tr>
-<tr><td>Not JJ repo</td><td>Run <code>jj init &amp;&amp; zjj init</code></td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-sync-1"><a class="header" href="#zjj-sync-1">zjj sync</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Conflicts</td><td><code>jj resolve</code> in workspace</td></tr>
-<tr><td>No upstream</td><td>Configure remote with <code>jj git remote add</code></td></tr>
-<tr><td>Stale</td><td>Fetch first: <code>jj git fetch</code></td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-done-1"><a class="header" href="#zjj-done-1">zjj done</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Conflicts</td><td>Resolve with <code>jj resolve</code> first</td></tr>
-<tr><td>Not pushed</td><td>Use <code>--push</code> or push manually</td></tr>
-<tr><td>No message</td><td>Provide <code>-m "message"</code></td></tr>
-<tr><td>Uncommitted</td><td><code>jj describe -m "message"</code> first</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-focus-1"><a class="header" href="#zjj-focus-1">zjj focus</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>Not found</td><td>Check <code>zjj list</code> for exact name</td></tr>
-<tr><td>No Zellij</td><td>Install or use <code>--no-zellij</code></td></tr>
-<tr><td>Tab exists</td><td>Close tab or use existing</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="zjj-queue-worker-1"><a class="header" href="#zjj-queue-worker-1">zjj queue worker</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Error</th><th>Fix</th></tr>
-</thead>
-<tbody>
-<tr><td>No work</td><td>Add items: <code>zjj queue --add</code></td></tr>
-<tr><td>Claim conflict</td><td>Try again, auto-retries next item</td></tr>
-<tr><td>Lock conflict</td><td>Wait or reclaim stale</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="recovery-procedures"><a class="header" href="#recovery-procedures">Recovery Procedures</a></h2>
-<h3 id="database-recovery"><a class="header" href="#database-recovery">Database Recovery</a></h3>
-<pre><code class="language-bash"># Check health
-zjj doctor
-
-# Auto-fix
-zjj doctor --fix
-
-# If that fails
-zjj recover --diagnose
-zjj recover --last
-
-# Check logs
-cat .zjj/recovery.log
-</code></pre>
-<h3 id="workspace-recovery"><a class="header" href="#workspace-recovery">Workspace Recovery</a></h3>
-<pre><code class="language-bash"># Validate
-zjj integrity validate &lt;workspace&gt;
-
-# Repair
-zjj integrity repair &lt;workspace&gt; --force
-
-# Restore from backup
-zjj integrity backup list
-zjj integrity backup restore &lt;id&gt;
-</code></pre>
-<h3 id="session-recovery"><a class="header" href="#session-recovery">Session Recovery</a></h3>
-<pre><code class="language-bash"># List checkpoints
-zjj checkpoint list
-
-# Restore checkpoint
-zjj checkpoint restore &lt;id&gt;
-</code></pre>
-<hr>
-<h2 id="diagnostics"><a class="header" href="#diagnostics">Diagnostics</a></h2>
-<h3 id="health-check-1"><a class="header" href="#health-check-1">Health Check</a></h3>
-<pre><code class="language-bash">zjj doctor --verbose
-</code></pre>
-<h3 id="system-state"><a class="header" href="#system-state">System State</a></h3>
-<pre><code class="language-bash">zjj context --json
-zjj introspect --ai --json
-</code></pre>
-<h3 id="event-log"><a class="header" href="#event-log">Event Log</a></h3>
-<pre><code class="language-bash">zjj events --follow
-zjj events --session &lt;name&gt;
-</code></pre>
-<h3 id="query-state"><a class="header" href="#query-state">Query State</a></h3>
-<pre><code class="language-bash">zjj query session-exists &lt;name&gt;
-zjj query session-count
-zjj query can-run
-</code></pre>
-<hr>
-<h2 id="clean-up"><a class="header" href="#clean-up">Clean Up</a></h2>
-<h3 id="stale-sessions"><a class="header" href="#stale-sessions">Stale Sessions</a></h3>
-<pre><code class="language-bash"># Preview
-zjj clean --dry-run
-
-# Remove
-zjj clean --force
-</code></pre>
-<h3 id="invalid-sessions"><a class="header" href="#invalid-sessions">Invalid Sessions</a></h3>
-<pre><code class="language-bash"># Preview
-zjj prune-invalid --dry-run
-
-# Remove all
-zjj prune-invalid --yes
-</code></pre>
-<h3 id="orphaned-workspaces"><a class="header" href="#orphaned-workspaces">Orphaned Workspaces</a></h3>
-<pre><code class="language-bash">jj workspace list
-jj workspace forget &lt;name&gt;
-zjj clean --force
-</code></pre>
-<hr>
-<h2 id="getting-help-1"><a class="header" href="#getting-help-1">Getting Help</a></h2>
+<h2 id="prevention"><a class="header" href="#prevention">Prevention</a></h2>
 <ol>
-<li><strong>Diagnostics:</strong> <code>zjj doctor</code></li>
-<li><strong>Logs:</strong> <code>.zjj/recovery.log</code></li>
-<li><strong>Context:</strong> <code>zjj context --json</code></li>
-<li><strong>GitHub:</strong> <a href="https://github.com/lprior-repo/zjj/issues">Report issues</a></li>
+<li><strong>Run <code>isolate sync</code> regularly</strong> — Don’t let main get too far ahead</li>
+<li><strong>Use <code>--idempotent</code> when retrying</strong> — Prevents “already exists” errors</li>
+<li><strong>Check <code>isolate whereami</code> before operations</strong> — Know where you are</li>
+<li><strong>Use <code>isolate context</code> for full status</strong> — See everything at once</li>
 </ol>
 
                     </main>
@@ -2048,7 +789,7 @@ zjj clean --force
         <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
-        <script src="theme/sidebar-d5e0e3c4.js"></script>
+        <script src="theme/sidebar-25560f1a.js"></script>
 
         <script>
         window.addEventListener('load', function() {
