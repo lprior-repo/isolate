@@ -1,0 +1,24 @@
+thread 'rustc' panicked at /rustc-dev/a33907a7a5381473eec8bcfa0c56e05a856a911c/compiler/rustc_middle/src/dep_graph/serialized.rs:243:34:
+index out of bounds: the len is 1115971 but the index is 481560593
+stack backtrace:
+   0:     0x7f6d7bdacd6b - <std[3d5b93a78549aa0a]::backtrace::Backtrace>::create
+   1:     0x7f6d7bdaccb5 - <std[3d5b93a78549aa0a]::backtrace::Backtrace>::force_capture
+   2:     0x7f6d7ad904b8 - std[3d5b93a78549aa0a]::panicking::update_hook::<alloc[8f8f4e5073486fe0]::boxed::Box<rustc_driver_impl[564c6a6441c9b920]::install_ice_hook::{closure#1}>>::{closure#0}
+   3:     0x7f6d7bdbf2d2 - std[3d5b93a78549aa0a]::panicking::panic_with_hook
+   4:     0x7f6d7bda1cf8 - std[3d5b93a78549aa0a]::panicking::panic_handler::{closure#0}
+   5:     0x7f6d7bd96269 - std[3d5b93a78549aa0a]::sys::backtrace::__rust_end_short_backtrace::<std[3d5b93a78549aa0a]::panicking::panic_handler::{closure#0}, !>
+   6:     0x7f6d7bda375d - __rustc[b0419f81c5efee33]::rust_begin_unwind
+   7:     0x7f6d78fa7b7c - core[154cb5f5717d2f57]::panicking::panic_fmt
+   8:     0x7f6d78ca18b2 - core[154cb5f5717d2f57]::panicking::panic_bounds_check
+   9:     0x7f6d7d7f8021 - rustc_incremental[508593ff09be1f6a]::persist::load::setup_dep_graph
+  10:     0x7f6d7d5f36b0 - rustc_interface[19fbbc036bde6456]::interface::run_compiler::<(), rustc_driver_impl[564c6a6441c9b920]::run_compiler::{closure#0}>::{closure#1}
+  11:     0x7f6d7d634bbe - std[3d5b93a78549aa0a]::sys::backtrace::__rust_begin_short_backtrace::<rustc_interface[19fbbc036bde6456]::util::run_in_thread_with_globals<rustc_interface[19fbbc036bde6456]::util::run_in_thread_pool_with_globals<rustc_interface[19fbbc036bde6456]::interface::run_compiler<(), rustc_driver_impl[564c6a6441c9b920]::run_compiler::{closure#0}>::{closure#1}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>
+  12:     0x7f6d7d6352a0 - <std[3d5b93a78549aa0a]::thread::lifecycle::spawn_unchecked<rustc_interface[19fbbc036bde6456]::util::run_in_thread_with_globals<rustc_interface[19fbbc036bde6456]::util::run_in_thread_pool_with_globals<rustc_interface[19fbbc036bde6456]::interface::run_compiler<(), rustc_driver_impl[564c6a6441c9b920]::run_compiler::{closure#0}>::{closure#1}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>::{closure#1} as core[154cb5f5717d2f57]::ops::function::FnOnce<()>>::call_once::{shim:vtable#0}
+  13:     0x7f6d7d63612c - <std[3d5b93a78549aa0a]::sys::thread::unix::Thread>::new::thread_start
+  14:     0x7f6d770a598b - <unknown>
+  15:     0x7f6d77129a0c - <unknown>
+  16:                0x0 - <unknown>
+
+
+rustc version: 1.95.0-nightly (a33907a7a 2026-02-14)
+platform: x86_64-unknown-linux-gnu

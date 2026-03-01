@@ -422,8 +422,8 @@ mod tests {
         if let Err(e) = result {
             assert_eq!(
                 e.exit_code(),
-                1,
-                "ValidationError should map to exit code 1"
+                2,
+                "ValidationError should map to exit code 2"
             );
         }
     }
@@ -445,8 +445,8 @@ mod tests {
             if let Err(e) = result {
                 assert_eq!(
                     e.exit_code(),
-                    1,
-                    "ValidationError should map to exit code 1"
+                    2,
+                    "ValidationError should map to exit code 2"
                 );
                 assert!(
                     matches!(e, isolate_core::Error::ValidationError { .. }),
@@ -468,7 +468,7 @@ mod tests {
         );
 
         if let Err(e) = result {
-            assert_eq!(e.exit_code(), 1);
+            assert_eq!(e.exit_code(), 2, "ValidationError should map to exit code 2");
             assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
         }
     }
@@ -494,7 +494,7 @@ mod tests {
             );
 
             if let Err(e) = result {
-                assert_eq!(e.exit_code(), 1);
+                assert_eq!(e.exit_code(), 2, "ValidationError should map to exit code 2");
                 assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
             }
         }
@@ -515,7 +515,7 @@ mod tests {
             );
 
             if let Err(e) = result {
-                assert_eq!(e.exit_code(), 1);
+                assert_eq!(e.exit_code(), 2, "ValidationError should map to exit code 2");
                 assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
             }
         }
@@ -531,7 +531,7 @@ mod tests {
         assert!(result.is_err(), "Name > 64 chars should be rejected");
 
         if let Err(e) = result {
-            assert_eq!(e.exit_code(), 1);
+            assert_eq!(e.exit_code(), 2, "ValidationError should map to exit code 2");
             assert!(matches!(e, isolate_core::Error::ValidationError { .. }));
         }
     }

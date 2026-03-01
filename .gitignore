@@ -71,3 +71,4 @@ bead-rmjy-test/
 crates/*/.beads/checkpoint_backups/*.tar.gz
 tools/sonar-scanner/
 test_validation
+dolt-linux-amd64/

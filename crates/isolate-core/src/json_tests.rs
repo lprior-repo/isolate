@@ -329,7 +329,7 @@ fn given_validation_error_with_field_when_converted_to_json_then_includes_detail
         json_err.error.message
     );
 
-    // Exit code should be 1 for validation errors
+    // Exit code should be 1 for validation errors (usage/validation errors)
     assert_eq!(json_err.error.exit_code, 1);
 }
 

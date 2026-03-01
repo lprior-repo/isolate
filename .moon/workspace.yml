@@ -13,7 +13,7 @@ vcs:
 # versionConstraint: ">=2.0.0-alpha.2"
 
 # Remote cache configuration
-unstable_remote:
+remote:
   host: 'grpc://127.0.0.1:9092'
   cache:
     compression: 'zstd'

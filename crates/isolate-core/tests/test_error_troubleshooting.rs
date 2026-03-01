@@ -370,8 +370,9 @@ fn test_parse_errors_distinguish_json_vs_toml() {
 
 #[test]
 fn test_exit_codes_follow_semantic_conventions() {
-    // Exit code 1: Validation errors
+    // Exit code 1: Usage/validation errors (config, parse, validation failures)
     assert_eq!(Error::InvalidConfig("test".into()).exit_code(), 1);
+    assert_eq!(Error::ParseError("test".into()).exit_code(), 1);
     assert_eq!(
         Error::ValidationError {
             message: "test".into(),
@@ -382,16 +383,33 @@ fn test_exit_codes_follow_semantic_conventions() {
         .exit_code(),
         1
     );
-    assert_eq!(Error::ParseError("test".into()).exit_code(), 1);
+    assert_eq!(
+        Error::DedupeKeyConflict {
+            dedupe_key: "test".into(),
+            existing_workspace: "existing".into(),
+            provided_workspace: "provided".into(),
+        }
+        .exit_code(),
+        1
+    );
 
-    // Exit code 2: Not found errors
+    // Exit code 2: Not found errors (missing resources)
     assert_eq!(Error::NotFound("test".into()).exit_code(), 2);
+    assert_eq!(
+        Error::SessionNotFound {
+            session: "test".into()
+        }
+        .exit_code(),
+        2
+    );
 
-    // Exit code 3: System errors
+    // Exit code 3: System errors (IO, database issues)
     assert_eq!(Error::IoError("test".into()).exit_code(), 3);
     assert_eq!(Error::DatabaseError("test".into()).exit_code(), 3);
+    assert_eq!(Error::Serialization("test".into()).exit_code(), 3);
+    assert_eq!(Error::Io("test".into()).exit_code(), 3);
 
-    // Exit code 4: External command errors
+    // Exit code 4: External command errors (JJ, hooks, etc.)
     assert_eq!(Error::Command("test".into()).exit_code(), 4);
     assert_eq!(
         Error::JjCommandError {
@@ -402,12 +420,41 @@ fn test_exit_codes_follow_semantic_conventions() {
         .exit_code(),
         4
     );
+    assert_eq!(
+        Error::HookFailed {
+            hook_type: "test".into(),
+            command: "test".into(),
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: "test".into(),
+        }
+        .exit_code(),
+        4
+    );
+    assert_eq!(Error::Unknown("test".into()).exit_code(), 4);
 
     // Exit code 5: Lock contention errors
     assert_eq!(
         Error::SessionLocked {
             session: "test".into(),
             holder: "test".into(),
+        }
+        .exit_code(),
+        5
+    );
+    assert_eq!(
+        Error::NotLockHolder {
+            session: "test".into(),
+            agent_id: "test".into(),
+        }
+        .exit_code(),
+        5
+    );
+    assert_eq!(
+        Error::LockTimeout {
+            operation: "test".into(),
+            timeout_ms: 1000,
+            retries: 3,
         }
         .exit_code(),
         5

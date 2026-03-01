@@ -1,0 +1,14 @@
+name: "Basic API Health Check"
+description: "Verifies the twin API is responding correctly"
+steps:
+  - type: http
+    url: "http://localhost:3001/health"
+    method: GET
+  - type: extract
+    from: response.body
+    path: "$.status"
+    as: "health_status"
+  - type: assert
+    assertion: equals
+    equals: "{{health_status}}"
+    expected: "healthy"

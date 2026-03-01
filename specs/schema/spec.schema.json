@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://isolate.dev/specs/schema/spec.schema.json",
+  "title": "Isolate Specification Schema",
+  "description": "JSON schema for validating high-quality specifications in the Isolate system",
+  "type": "object",
+  "required": [
+    "identity",
+    "context",
+    "requirements",
+    "preconditions",
+    "postconditions",
+    "invariants",
+    "acceptance_tests",
+    "completion_checklist"
+  ],
+  "properties": {
+    "identity": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^spec-[a-z0-9-]+$",
+          "description": "Unique identifier for the spec, must follow pattern spec-[a-z0-9-]+"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable title of the specification"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["feature", "bug", "task", "epic", "chore"],
+          "description": "Type of specification"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2", "P3"],
+          "description": "Priority level of the specification"
+        }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "required": ["purpose"],
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The purpose of this specification"
+        },
+        "domain_terms": {
+          "type": "object",
+          "description": "Domain-specific terms and definitions",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Assumptions made in this specification"
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Open questions that need clarification"
+        }
+      },
+      "additionalProperties": false
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][0-9]+$",
+            "description": "Requirement identifier, e.g., R1, R2, etc."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Description of the requirement"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["functional", "non-functional", "constraint"],
+            "description": "Type of requirement"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "List of requirements for this specification"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^P[0-9]+$",
+            "description": "Precondition identifier, e.g., P1, P2"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Description of the precondition"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Preconditions that must be satisfied before execution"
+    },
+    "postconditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(Q|I)[0-9]+$",
+            "description": "Postcondition identifier, e.g., Q1, Q2, I1, I2"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Description of the postcondition"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Postconditions that must be satisfied after execution"
+    },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^I[0-9]+$",
+            "description": "Invariant identifier, e.g., I1, I2"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Description of the invariant"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Invariants that must hold throughout execution"
+    },
+    "acceptance_tests": {
+      "type": "object",
+      "required": ["happy_paths", "error_paths"],
+      "properties": {
+        "happy_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["test_name", "given", "when", "then"],
+            "properties": {
+              "test_name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Name of the test case"
+              },
+              "given": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Preconditions for the test"
+              },
+              "when": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Action being tested"
+              },
+              "then": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Expected outcome"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Happy path test cases"
+        },
+        "error_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["test_name", "given", "when", "then"],
+            "properties": {
+              "test_name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Name of the test case"
+              },
+              "given": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Preconditions for the test"
+              },
+              "when": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Action being tested"
+              },
+              "then": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Expected outcome"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Error path test cases"
+        }
+      },
+      "additionalProperties": false
+    },
+    "completion_checklist": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Checklist items for completion"
+        }
+      },
+      "description": "Checklist for tracking completion of the specification"
+    },
+    "behaviors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Za-z0-9_-]+$",
+            "description": "Behavior identifier, must be unique within the spec"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Description of the behavior"
+          },
+          "trigger": {
+            "type": "string",
+            "description": "Event trigger for this behavior"
+          },
+          "shall": {
+            "type": "string",
+            "description": "Expected system behavior"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "List of behaviors, IDs must be unique within the spec"
+    }
+  },
+  "additionalProperties": false,
+  "uniqueBehaviors": {
+    "description": "All behavior IDs must be unique within a spec"
+  }
+}

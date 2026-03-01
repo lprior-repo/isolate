@@ -338,18 +338,17 @@ impl From<ErrorCode> for String {
 /// Classify an error into a semantic exit code.
 ///
 /// Exit codes follow this semantic mapping:
-/// - 1: Validation errors (user input issues)
+/// - 1: Usage/validation errors (invalid config, parse errors, validation failures)
 /// - 2: Not found errors (missing resources)
 /// - 3: System errors (IO, database issues)
-/// - 4: External command errors
+/// - 4: External command errors (JJ, hooks, etc.)
+/// - 5: Lock contention errors
+/// - 130: Operation cancelled (SIGINT)
 const fn classify_exit_code(error: &crate::Error) -> i32 {
     use crate::Error;
     match error {
-        // Validation errors: exit code 1
-        Error::InvalidConfig(_)
-        | Error::ValidationError { .. }
-        | Error::ParseError(_)
-        | Error::DedupeKeyConflict { .. } => 1,
+        // Usage/validation errors: exit code 1
+        Error::InvalidConfig(_) | Error::ParseError(_) | Error::DedupeKeyConflict { .. } | Error::ValidationError { .. } => 1,
         // Not found errors: exit code 2
         Error::NotFound(_) | Error::SessionNotFound { .. } => 2,
         // System errors: exit code 3

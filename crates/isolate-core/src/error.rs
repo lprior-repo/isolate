@@ -732,18 +732,17 @@ impl Error {
     /// Returns the semantic exit code for this error.
     ///
     /// Exit codes follow this semantic mapping:
-    /// - 1: Validation errors (user input issues)
+    /// - 1: Usage/validation errors (invalid config, parse errors, validation failures)
     /// - 2: Not found errors (missing resources)
     /// - 3: System errors (IO, database issues)
     /// - 4: External command errors (JJ, hooks, etc.)
+    /// - 5: Lock contention errors
+    /// - 130: Operation cancelled (SIGINT)
     #[must_use]
     pub const fn exit_code(&self) -> i32 {
         match self {
-            // Validation errors: exit code 1
-            Self::InvalidConfig(_)
-            | Self::ValidationError { .. }
-            | Self::ParseError(_)
-            | Self::DedupeKeyConflict { .. } => 1,
+            // Usage/validation errors: exit code 1
+            Self::InvalidConfig(_) | Self::ParseError(_) | Self::DedupeKeyConflict { .. } | Self::ValidationError { .. } => 1,
             // Not found errors: exit code 2
             Self::NotFound(_) | Self::SessionNotFound { .. } => 2,
             // System errors: exit code 3

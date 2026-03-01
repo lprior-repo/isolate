@@ -336,7 +336,7 @@ mod tests {
     async fn test_not_found_error_has_correct_exit_code() {
         // When we can't find a session, we should return NotFound error with exit code 2
         let err = isolate_core::Error::NotFound("Session 'test' not found".into());
-        assert_eq!(err.exit_code(), 2);
+        assert_eq!(err.exit_code(), 2, "NotFound should map to exit code 2");
         assert!(matches!(err, isolate_core::Error::NotFound(_)));
     }
 
@@ -344,7 +344,7 @@ mod tests {
     async fn test_io_error_maps_to_exit_code_3() {
         // IO errors (like permission denied) should map to exit code 3
         let err = isolate_core::Error::IoError("Permission denied".into());
-        assert_eq!(err.exit_code(), 3);
+        assert_eq!(err.exit_code(), 3, "IoError should map to exit code 3");
         assert!(matches!(err, isolate_core::Error::IoError(_)));
     }
 
@@ -357,7 +357,7 @@ mod tests {
             value: None,
             constraints: Vec::new(),
         };
-        assert_eq!(err.exit_code(), 1);
+        assert_eq!(err.exit_code(), 1, "ValidationError should map to exit code 1");
         assert!(matches!(err, isolate_core::Error::ValidationError { .. }));
     }
 

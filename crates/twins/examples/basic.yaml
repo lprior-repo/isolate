@@ -1,0 +1,28 @@
+name: sendgrid
+port: 3001
+endpoints:
+  - path: /v3/mail/send
+    method: POST
+    response:
+      status: 200
+      body:
+        message_id: "test-123"
+  - path: /api/health
+    method: GET
+    response:
+      status: 200
+      body:
+        status: "healthy"
+  - path: /api/users
+    method: GET
+    response:
+      status: 200
+      body:
+        users: []
+  - path: /api/users
+    method: POST
+    response:
+      status: 201
+      body:
+        id: "new-user-id"
+        created: true

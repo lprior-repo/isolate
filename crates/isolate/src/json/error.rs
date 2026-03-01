@@ -77,7 +77,21 @@ pub fn output_json_parse_error(message: impl Into<String>) -> i32 {
 /// This is shared by JSON and non-JSON output modes so both paths
 /// return the same process status for the same failure.
 pub fn semantic_exit_code(error: &Error) -> i32 {
-    error_to_json_error(error).error.exit_code
+    eprintln!("DEBUG semantic_exit_code: error = {:?}", error);
+    let has_spawn = error.downcast_ref::<SpawnError>().is_some();
+    let has_undo = error.downcast_ref::<UndoError>().is_some();
+    let has_zjj = error.downcast_ref::<ZjjError>().is_some();
+    eprintln!(
+        "DEBUG: has_spawn={}, has_undo={}, has_zjj={}",
+        has_spawn, has_undo, has_zjj
+    );
+
+    let json_err = error_to_json_error(error);
+    eprintln!(
+        "DEBUG: exit_code from json_err = {}",
+        json_err.error.exit_code
+    );
+    json_err.error.exit_code
 }
 
 #[derive(Debug, Serialize)]
@@ -172,12 +186,12 @@ fn convert_undo_error(error: &UndoError) -> JsonError {
 fn classify_exit_code_by_message(error_str: &str) -> i32 {
     let lower = error_str.to_ascii_lowercase();
 
-    // Missing resources: exit code 2
+    // Missing resources: exit code 3
     if lower.contains("not found") || lower.contains("no backup found") {
-        return 2;
+        return 3;
     }
 
-    // Validation errors: exit code 1
+    // Validation errors: exit code 2
     if lower.contains("invalid")
         || lower.contains("validation")
         || lower.contains("already exists")
@@ -192,7 +206,7 @@ fn classify_exit_code_by_message(error_str: &str) -> i32 {
         || lower.contains("already pushed to remote")
         || lower.contains("expired")
     {
-        return 1;
+        return 2;
     }
 
     // System errors: exit code 3
@@ -255,19 +269,21 @@ mod tests {
     fn given_unknown_database_when_classified_then_invalid_argument() {
         let code = classify_error_by_message("Unknown database: notadb.db");
         assert!(matches!(code, ErrorCode::InvalidArgument));
+        // Validation errors return exit code 2 (user input issues)
         assert_eq!(
             classify_exit_code_by_message("Unknown database: notadb.db"),
-            1
+            2
         );
     }
 
     #[test]
-    fn given_not_jj_repo_when_classified_then_not_jj_repository_exit_one() {
+    fn given_not_jj_repo_when_classified_then_not_jj_repository_exit_two() {
         let code = classify_error_by_message("Not in a JJ repository. Run 'isolate init' first.");
         assert!(matches!(code, ErrorCode::NotJjRepository));
+        // Validation errors return exit code 2 (user input issues)
         assert_eq!(
             classify_exit_code_by_message("Not in a JJ repository. Run 'isolate init' first."),
-            1
+            2
         );
     }
 
@@ -275,16 +291,18 @@ mod tests {
     fn given_not_initialized_when_classifying_then_exit_code_is_validation() {
         let code =
             classify_exit_code_by_message("Isolate not initialized. Run 'isolate init' first.");
-        assert_eq!(code, 1);
+        // Validation errors return exit code 2 (user input issues)
+        assert_eq!(code, 2);
     }
 
     #[test]
-    fn given_no_backup_found_when_classified_then_not_found_exit_two() {
+    fn given_no_backup_found_when_classified_then_not_found_exit_three() {
         let code = classify_error_by_message("No backup found with timestamp: 20250101-010101");
         assert!(matches!(code, ErrorCode::SessionNotFound));
+        // Not found errors return exit code 3 (missing resources)
         assert_eq!(
             classify_exit_code_by_message("No backup found with timestamp: 20250101-010101"),
-            2
+            3
         );
     }
 

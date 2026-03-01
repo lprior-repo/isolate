@@ -1,6 +1,0 @@
-$schema: "https://moonrepo.dev/schemas/tasks.json"
-tasks:
-  ci:
-    command: "cargo check && cargo test"
-    options:
-      cache: true
