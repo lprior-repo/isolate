@@ -1,0 +1,8 @@
+bead_id: iso-38i
+bead_title: durable: Implement SQLite Journal Store
+phase: claim
+updated_at: 2026-03-10T03:20:04Z
+stdout_file: stdout.log
+stderr_file: stderr.log
+exit_code: 0
+
