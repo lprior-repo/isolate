@@ -61,6 +61,19 @@ kdl = "4.7"
 # Process
 which = "6.0"
 
+# Graph algorithms
+petgraph = "0.6"
+
+# Hex encoding/decoding
+hex = "0.4"
+faster-hex = "0.10"
+
+# JJ (Jujutsu)
+jj-lib = "0.38"
+
+# Git
+git2 = "0.19"
+
 # Dev dependencies
 tokio-test = "0.4"
 proptest = "1.0"

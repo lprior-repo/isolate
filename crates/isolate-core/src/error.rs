@@ -312,6 +312,14 @@ pub enum Error {
     },
     DatabaseError(String),
     Command(String),
+    // Stak-sourced errors
+    InvalidId(String),
+    InvalidInput(String),
+    InvalidState(String),
+    QueueError(String),
+    AgentError(String),
+    DagError(String),
+    VcsError(String),
     HookFailed {
         hook_type: String,
         command: String,
@@ -456,6 +464,13 @@ impl fmt::Display for Error {
             Self::OperationCancelled(msg) => write!(f, "Operation cancelled: {msg}"),
             Self::Serialization(msg) => write!(f, "Serialization error: {msg}"),
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
+            Self::InvalidId(msg) => write!(f, "Invalid ID: {msg}"),
+            Self::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
+            Self::InvalidState(msg) => write!(f, "Invalid state: {msg}"),
+            Self::QueueError(msg) => write!(f, "Queue error: {msg}"),
+            Self::AgentError(msg) => write!(f, "Agent error: {msg}"),
+            Self::DagError(msg) => write!(f, "DAG error: {msg}"),
+            Self::VcsError(msg) => write!(f, "VCS error: {msg}"),
         }
     }
 }
@@ -531,6 +546,13 @@ impl Error {
             Self::OperationCancelled(_) => "OPERATION_CANCELLED",
             Self::Serialization(_) => "SERIALIZATION_ERROR",
             Self::Unknown(_) => "UNKNOWN",
+            Self::InvalidId(_) => "INVALID_ID",
+            Self::InvalidInput(_) => "INVALID_INPUT",
+            Self::InvalidState(_) => "INVALID_STATE",
+            Self::QueueError(_) => "QUEUE_ERROR",
+            Self::AgentError(_) => "AGENT_ERROR",
+            Self::DagError(_) => "DAG_ERROR",
+            Self::VcsError(_) => "VCS_ERROR",
         }
     }
 
@@ -639,6 +661,34 @@ impl Error {
             Self::Serialization(msg) | Self::Io(msg) => Some(serde_json::json!({
                 "message": msg
             })),
+            Self::InvalidId(msg) => Some(serde_json::json!({
+                "error_type": "invalid_id",
+                "message": msg
+            })),
+            Self::InvalidInput(msg) => Some(serde_json::json!({
+                "error_type": "invalid_input",
+                "message": msg
+            })),
+            Self::InvalidState(msg) => Some(serde_json::json!({
+                "error_type": "invalid_state",
+                "message": msg
+            })),
+            Self::QueueError(msg) => Some(serde_json::json!({
+                "error_type": "queue_error",
+                "message": msg
+            })),
+            Self::AgentError(msg) => Some(serde_json::json!({
+                "error_type": "agent_error",
+                "message": msg
+            })),
+            Self::DagError(msg) => Some(serde_json::json!({
+                "error_type": "dag_error",
+                "message": msg
+            })),
+            Self::VcsError(msg) => Some(serde_json::json!({
+                "error_type": "vcs_error",
+                "message": msg
+            })),
         }
     }
 
@@ -726,6 +776,13 @@ impl Error {
                 "Data could not be serialized. Check for invalid characters or types.".to_string(),
             ),
             Self::Io(msg) => Some(format!("IO error: {msg}. Check file permissions and disk space.")),
+            Self::InvalidId(_) => Some("Check the ID format and try again.".to_string()),
+            Self::InvalidInput(_) => Some("Check the input format and try again.".to_string()),
+            Self::InvalidState(_) => Some("The operation cannot be performed in the current state. Check the system state and try again.".to_string()),
+            Self::QueueError(_) => Some("Check queue status with 'stak queue list'.".to_string()),
+            Self::AgentError(_) => Some("Check agent status with 'stak agent list'.".to_string()),
+            Self::DagError(_) => Some("Check branch relationships with 'stak branch list'.".to_string()),
+            Self::VcsError(_) => Some("Check VCS status with 'stak status'.".to_string()),
         }
     }
 
@@ -761,6 +818,9 @@ impl Error {
             Self::SessionLocked { .. } | Self::NotLockHolder { .. } | Self::LockTimeout { .. } => 5,
             // Operation cancelled: exit code 130 (SIGINT)
             Self::OperationCancelled(_) => 130,
+            // New error types - treat as validation errors
+            Self::InvalidId(_) | Self::InvalidInput(_) | Self::InvalidState(_) => 1,
+            Self::QueueError(_) | Self::AgentError(_) | Self::DagError(_) | Self::VcsError(_) => 3,
         }
     }
 
@@ -837,7 +897,14 @@ impl Error {
             | Self::OperationCancelled(_)
             | Self::Serialization(_)
             | Self::Io(_)
-            | Self::Unknown(_) => vec![],
+            | Self::Unknown(_)
+            | Self::InvalidId(_)
+            | Self::InvalidInput(_)
+            | Self::InvalidState(_)
+            | Self::QueueError(_)
+            | Self::AgentError(_)
+            | Self::DagError(_)
+            | Self::VcsError(_) => vec![],
         }
     }
 
@@ -999,6 +1066,11 @@ impl Error {
             }
             Self::OperationCancelled(_) => vec![],
             Self::HookExecutionFailed { .. } => vec!["isolate config list hooks".to_string()],
+            Self::InvalidId(_) | Self::InvalidInput(_) | Self::InvalidState(_) => vec![],
+            Self::QueueError(_) => vec!["stak queue list".to_string()],
+            Self::AgentError(_) => vec!["stak agent list".to_string()],
+            Self::DagError(_) => vec!["stak branch list".to_string()],
+            Self::VcsError(_) => vec!["stak status".to_string()],
         }
     }
 

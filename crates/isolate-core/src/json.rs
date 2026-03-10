@@ -367,6 +367,9 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         Error::SessionLocked { .. } | Error::NotLockHolder { .. } | Error::LockTimeout { .. } => 5,
         // Operation cancelled: exit code 130
         Error::OperationCancelled(_) => 130,
+        // New error types
+        Error::InvalidId(_) | Error::InvalidInput(_) | Error::InvalidState(_) => 1,
+        Error::QueueError(_) | Error::AgentError(_) | Error::DagError(_) | Error::VcsError(_) => 3,
     }
 }
 
@@ -521,6 +524,41 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
                 "Dedupe key conflict: '{dedupe_key}' already used by workspace '{existing_workspace}', cannot be used by '{provided_workspace}'"
             ),
             Some("Use a different dedupe_key or wait for the existing entry to complete".to_string()),
+        ),
+        Error::InvalidId(msg) => (
+            ErrorCode::InvalidArgument,
+            format!("Invalid ID: {msg}"),
+            None,
+        ),
+        Error::InvalidInput(msg) => (
+            ErrorCode::InvalidArgument,
+            format!("Invalid input: {msg}"),
+            None,
+        ),
+        Error::InvalidState(msg) => (
+            ErrorCode::InvalidArgument,
+            format!("Invalid state: {msg}"),
+            None,
+        ),
+        Error::QueueError(msg) => (
+            ErrorCode::Unknown,
+            format!("Queue error: {msg}"),
+            None,
+        ),
+        Error::AgentError(msg) => (
+            ErrorCode::Unknown,
+            format!("Agent error: {msg}"),
+            None,
+        ),
+        Error::DagError(msg) => (
+            ErrorCode::Unknown,
+            format!("DAG error: {msg}"),
+            None,
+        ),
+        Error::VcsError(msg) => (
+            ErrorCode::Unknown,
+            format!("VCS error: {msg}"),
+            None,
         ),
     }
 }

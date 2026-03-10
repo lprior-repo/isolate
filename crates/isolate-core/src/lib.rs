@@ -102,6 +102,33 @@ pub mod watcher;
 pub mod workspace_integrity;
 pub mod workspace_state;
 
+// Stak-sourced modules
+pub mod agent;
+pub mod conflict;
+pub mod dag;
+pub mod events;
+pub mod lock;
+pub mod metadata;
+pub mod queue;
+pub mod use_cases;
+pub mod vcs;
+
+pub use agent::{Agent, AgentActivity, AgentId, AgentStatus};
+pub use conflict::{Conflict, ConflictManager, ConflictState};
+pub use dag::{BranchDag, BranchId, DagError};
+pub use events::{Event, EventType};
+pub use lock::{HolderId, Lock, LockManager, ResourceId, TtlSeconds};
+pub use metadata::{MetadataBackend, StackMetadata};
+pub use queue::{Queue, QueueEntry, QueueEntryId, QueueStatus, SessionName, MAX_PRIORITY};
+pub use use_cases::{
+    dequeue_session, enqueue_session, insert_at_position, list_queue, remove_at_position,
+    DomainError, QueueEntryView,
+};
+pub use vcs::{
+    detect_backend, BackendType, BranchName, Change, ChangeId, CommitId, RepoStatus, VcsBackend,
+    VcsError,
+};
+
 pub use config::{ConfigManager, RecoveryPolicy};
 pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
